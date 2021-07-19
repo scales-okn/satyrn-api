@@ -72,6 +72,10 @@ class Ring_Attribute(Ring_Object):
         self.units = self.safe_extract('units', info)
         self.description = self.safe_extract('description', info)
 
+        # a flag for the analysis engine to avoid aggregating this value if it's a number
+        # more often this is False (or not present/pertinent) and defaults accordingly
+        self.preaggregated = info.get("preaggregated", False)
+
         if 'source' in info:
             source = info['source']
             self.source_table = self.safe_extract('table', source)

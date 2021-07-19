@@ -95,37 +95,46 @@ def base():
 @apiKeyCheck
 def getAPIInfo():
     return json.dumps({
-        "rings": [[rr.id, rr.name] for rr in app.rings.values()]
+        "rings": {rr.name: rr.id for rr in app.rings.values()}
     })
 
 @api.route("/info/<ringId>")
 @apiKeyCheck
 def getRingInfo(ringId):
-    ringInfo = app.spaces[ringId].generateInfo()
+    ringInfo = app.ringExtractors[ringId].generateInfo()
     ringInfo["operations"] = CLEAN_OPS
     return json.dumps(ringInfo)
 
 @api.route("/info/<ringId>/<entityName>")
 @apiKeyCheck
 def getEntityInfo(ringId, entityName):
-    ringInfo = app.spaces[ringId].generateInfo(entityName)
+    ringInfo = app.ringExtractors[ringId].generateInfo(entityName)
     ringInfo["operations"] = CLEAN_OPS
     return json.dumps(ringInfo)
 
 @cache.memoize(timeout=1000)
-def cachedAutocomplete(theType, opts):
-    return json.dumps(runAutocomplete(db, theType, SEARCH_SPACE[theType], opts))
+def cachedAutocomplete(db, theType, searchSpace, opts):
+    # TODO: make this work with the new DB setup!
+    return json.dumps(runAutocomplete(db, theType, searchSpace, opts))
 
-@api.route("/autocomplete/")
+@api.route("/autocomplete/<ringId>/<entityName>/<theType>")
 @apiKeyCheck
-def getAutocompletes():
-    theType = request.args.get("type", None)
+def getAutocompletes(ringId, entityName, theType):
     limit = request.args.get("limit", 1000)
     opts = {"query": request.args.get("query", None), "limit": limit}
-    if theType in SEARCH_SPACE \
-      and "autocomplete" in SEARCH_SPACE[theType] \
-      and SEARCH_SPACE[theType]["autocomplete"]:
-        return cachedAutocomplete(theType, opts)
+    searchSpace = app.ringExtractors[ringId].getSearchSpace(entityName)
+
+    #
+    #
+    # this is where you stopped -- loop back here after figuring out
+    # a) the attr joins, and b) the model naming situation between config->model
+    #
+    #
+
+    if theType in searchSpace \
+      and "autocomplete" in searchSpace[theType] \
+      and searchSpace[theType]["autocomplete"]:
+        return cachedAutocomplete(app.rings[ringId].db, theType, searchSpace[theType], opts)
     return json.dumps({"success": False, "message": "Unknown autocomplete type"})
 
 @api.route("/results/")
