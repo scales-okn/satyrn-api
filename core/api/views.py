@@ -13,29 +13,18 @@ from .operations import OPERATION_SPACE
 from .seekers import getResults
 from .autocomplete import runAutocomplete
 
-# from the satyrn configs...
-SEARCH_SPACE = current_app.satConf.searchSpace
-ANALYSIS_SPACE = current_app.satConf.analysisSpace
-
-# static globals for /info/ endpoint
-COLUMNS_INFO = current_app.satConf.columns
-SORT_INFO = current_app.satConf.defaultSort
-SORTABLES = [col["key"] for col in COLUMNS_INFO if col["sortable"] is True]
+# Clean up the globals
 CLEAN_OPS = {k: {k1: v1 for k1, v1 in v.items() if type(v1) in [int, float, str, list, dict]} for k, v in OPERATION_SPACE.items()}
 
-TARGET_MODEL_NAME = current_app.satConf.targetName
 
-# a few helper functions
-def generateCleanASpace():
-    output = []
-    for k, v in ANALYSIS_SPACE.items():
-        subout = {k1: v1 for k1, v1 in v.items() if k1 in ["type", "fieldName", "unit", "desc"]}
-        if "transform" in v:
-            subout["transform"] = {"type": v["transform"]["type"]}
-        subout["targetField"] = k
-        output.append(subout)
-    return output
-CLEAN_AS = generateCleanASpace()
+# from the satyrn configs...
+# SEARCH_SPACE = current_app.satConf.searchSpace
+# ANALYSIS_SPACE = current_app.satConf.analysisSpace
+
+# static globals for /info/ endpoint
+# COLUMNS_INFO = current_app.satConf.columns
+# SORT_INFO = current_app.satConf.defaultSort
+# SORTABLES = [col["key"] for col in COLUMNS_INFO if col["sortable"] is True]
 
 # a decorator for checking API keys
 # API key set flatfootedly via env in appBundler.py for now
@@ -47,7 +36,7 @@ def apiKeyCheck(innerfunc):
         if "ENV" in app.config and app.config["ENV"] in ["development", "dev"]:
             # we can bypass when running locally for ease of dev
             pass
-        if not request.headers.get("x-api-key"):
+        elif not request.headers.get("x-api-key"):
             return errorGen("API key required")
         elif request.headers.get("x-api-key") != app.config["API_KEY"]:
             return errorGen("Incorrect API key")
@@ -63,23 +52,14 @@ def errorGen(msg):
         "message": str(msg)
     })
 
-FIELD_UNITS = {k: v["unit"] for k, v in current_app.satConf.analysisSpace.items() if "unit" in v}
-
-# some "local globals"
+# FIELD_UNITS = {k: v["unit"] for k, v in current_app.satConf.analysisSpace.items() if "unit" in v}
+#
+# # some "local globals"
 app = current_app # this is now the same app instance as defined in appBundler.py
 api = Blueprint("api", __name__)
-SATCONF = current_app.satConf
-db = SATCONF.db
+# SATCONF = current_app.satConf
+# db = SATCONF.db
 cache = app.cache
-
-# prepare the FE filter/autocomplete data (served from /api/info)
-FE_FILTER_INFO = [(k, {
-    "autocomplete": ("autocomplete" in v and v["autocomplete"]),
-    "type": v["type"],
-    "allowMultiple": v["allowMultiple"],
-    "nicename": v["nicename"],
-    "desc": v["desc"] if "desc" in v else None
-}) for k, v in SEARCH_SPACE.items()]
 
 # a generic filter-prep function
 def organizeFilters(request):
@@ -107,7 +87,30 @@ def cleanDate(dte):
 @api.route("/")
 @apiKeyCheck
 def base():
-    return "API is up and running"
+    return json.dumps({
+        "status": "API is up and running"
+    })
+
+@api.route("/info/")
+@apiKeyCheck
+def getAPIInfo():
+    return json.dumps({
+        "rings": [[rr.id, rr.name] for rr in app.rings.values()]
+    })
+
+@api.route("/info/<ringId>")
+@apiKeyCheck
+def getRingInfo(ringId):
+    ringInfo = app.spaces[ringId].generateInfo()
+    ringInfo["operations"] = CLEAN_OPS
+    return json.dumps(ringInfo)
+
+@api.route("/info/<ringId>/<entityName>")
+@apiKeyCheck
+def getEntityInfo(ringId, entityName):
+    ringInfo = app.spaces[ringId].generateInfo(entityName)
+    ringInfo["operations"] = CLEAN_OPS
+    return json.dumps(ringInfo)
 
 @cache.memoize(timeout=1000)
 def cachedAutocomplete(theType, opts):
@@ -150,7 +153,7 @@ def searchDB():
     opts["sortBy"] = sortBy if sortBy in SORTABLES else None
     opts["sortDir"] = sortDir if sortDir in ["asc", "desc"] else "desc"
     # now go hunting
-    results = getResults(opts=opts, page=page, batchSize=batchSize)
+    results = getResults(opts, ring, page=page, batchSize=batchSize)
     return json.dumps(results, default=str)
 
 @api.route("/analysis/")
@@ -182,7 +185,6 @@ def runAnalysis():
         elif analysisOpts["targetField"] == "proSe":
             analysisOpts["numeratorField"] = [True]
 
-
     ae = AnalyticsEngine(searchOpts=searchOpts, analysisOpts=analysisOpts)
     results = ae.run()
 
@@ -209,23 +211,6 @@ def getResultHTML(id):
     caseHTML = target.get_clean_html() \
                    .replace("</body></html>", extraStuff+"</body></html>")
     return caseHTML
-
-@api.route("/info/")
-@apiKeyCheck
-def getAPIInfo():
-    sess = db.Session()
-    exampleTarget = sess.query(SATCONF.targetModel).first()
-    includesRenderer = hasattr(exampleTarget, "get_clean_html")
-    return json.dumps({
-        "filters": FE_FILTER_INFO,
-        "columns": COLUMNS_INFO,
-        "defaultSort": SORT_INFO,
-        "fieldUnits": FIELD_UNITS,
-        "operations": CLEAN_OPS,
-        "analysisSpace": CLEAN_AS,
-        "includesRenderer": includesRenderer,
-        "targetModelName": TARGET_MODEL_NAME
-    })
 
 @api.route("/download/<payloadName>")
 @apiKeyCheck

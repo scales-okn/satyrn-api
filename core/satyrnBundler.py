@@ -1,3 +1,4 @@
+import json
 import os
 import sys
 
@@ -6,6 +7,17 @@ from flask_caching import Cache
 from flask_sqlalchemy import SQLAlchemy
 
 app = Flask(__name__)
+
+configVersion = os.environ.get("SATYRN_CONFIG_VERSION", "1")
+
+if configVersion == "2":
+    try:
+        from compiler import compile_rings
+        from extractors import ConfigExtractor
+    except:
+        from .compiler import compile_rings
+        from .extractors import ConfigExtractor
+
 
 # get the root of this repo locally -- used for static dir, user db and downloads dir location downstream
 app.config["BASE_ROOT_DIR"] = os.environ.get("SATYRN_ROOT_DIR", os.getcwd())
@@ -34,16 +46,15 @@ app.config["API_KEY"] = os.environ.get("API_KEY")
 app.cache = Cache(app)
 
 # import the config via the SATYRN_CONFIG env var
-configDir = os.environ.get("SATYRN_CONFIG", None)
-if not os.path.exists(configDir):
-    raise ValueError("SATYRN_CONFIG env var appears to point to an non-existent folder.")
-if not os.path.exists(os.path.join(configDir, "satconf.py")):
-    raise ValueError("SATYRN_CONFIG env var appears to point to a folder without a satconf.py file.")
+# but now depending on version!
+if configVersion == "1":
+    raise Exception("This is a V1 Config and won't work with this version of Satyrn.")
+else:
+    with open(os.environ["SATYRN_SITE_CONFIG"]) as f:
+        siteConf = json.load(f)
+    app.satMetadata = siteConf
+    rings = compile_rings(siteConf["rings"])
+    app.rings = rings
+    app.spaces = {rr.id: ConfigExtractor(rr) for rr in app.rings.values()}
 
-# load and generate the config object
-# this path.append is hacky af -- we should figure out a better approach
-sys.path.append(configDir)
-import satconf
-satConf, metadata = satconf.build()
-app.satConf = satConf
-app.satMetadata = metadata
+    # breakpoint()

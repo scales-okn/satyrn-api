@@ -2,11 +2,11 @@ from flask import current_app
 from sqlalchemy import func
 
 # the satyrn configs...
-db = current_app.satConf.db
-TARGET_MODEL = current_app.satConf.targetModel
-SEARCH_SPACE = current_app.satConf.searchSpace
-formatResult = current_app.satConf.formatResult
-PREFILTERS = getattr(current_app.satConf, "preFilters")
+# db = current_app.satConf.db
+# TARGET_MODEL = current_app.satConf.targetModel
+# SEARCH_SPACE = current_app.satConf.searchSpace
+# formatResult = current_app.satConf.formatResult
+# PREFILTERS = getattr(current_app.satConf, "preFilters")
 
 cache = current_app.cache
 CACHE_TIMEOUT=6000

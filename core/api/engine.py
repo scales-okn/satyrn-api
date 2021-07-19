@@ -13,10 +13,10 @@ from .seekers import rawGetResultSet
 from .transforms import TRANSFORMS_SPACE as TRS
 
 # satyrn configs...
-TARGET_MODEL = current_app.satConf.targetModel
-AMS = current_app.satConf.analysisSpace
-db = current_app.satConf.db
-PREFILTERS = current_app.satConf.preFilters
+# TARGET_MODEL = current_app.satConf.targetModel
+# AMS = current_app.satConf.analysisSpace
+# db = current_app.satConf.db
+# PREFILTERS = current_app.satConf.preFilters
 
 cache = current_app.cache
 CACHE_TIMEOUT=3000
@@ -42,7 +42,7 @@ def add_defaults(ams):
         if ams[key]["nulls"] == "cast" and "nullCast" not in ams[key]:
             ams[key]["nullCast"] = nulldefault[ams[key]["type"]][1]
 
-add_defaults(AMS)
+# add_defaults(AMS)
 
 class AnalyticsEngine(object):
     def __init__(self, analysisOpts={}, searchOpts={}, start_year=2007, end_year=2016):
@@ -111,8 +111,8 @@ class AnalyticsEngine(object):
 
     def do_correlation(self, sess):
         query_args = []
-        query_args.append(getattr(AMS[self.a_opts["target1"]]["model"],AMS[self.a_opts["target1"]]["field"]).label(self.a_opts["target1"]))            
-        query_args.append(getattr(AMS[self.a_opts["target2"]]["model"],AMS[self.a_opts["target2"]]["field"]).label(self.a_opts["target2"]))  
+        query_args.append(getattr(AMS[self.a_opts["target1"]]["model"],AMS[self.a_opts["target1"]]["field"]).label(self.a_opts["target1"]))
+        query_args.append(getattr(AMS[self.a_opts["target2"]]["model"],AMS[self.a_opts["target2"]]["field"]).label(self.a_opts["target2"]))
         fields_list = [self.a_opts["target1"], self.a_opts["target2"]]
         query = sess.query(*query_args)
         query = self._do_filters(sess, query, fields_list, False)
