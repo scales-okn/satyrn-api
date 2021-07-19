@@ -1,0 +1,9 @@
+bcrypt
+Flask
+Flask-Caching
+Flask-Migrate
+Flask-Security-Too==3.4.5
+Flask-SQLAlchemy
+geoalchemy2
+IPython
+pandas

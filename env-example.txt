@@ -1,0 +1,31 @@
+# first, this one is hardcoded -- just copy
+export FLASK_APP=core
+
+# sets the env, for local it's development and for a released version it's production
+export SATYRN_ENV=development
+
+# sets the location of the codebase on the current filesystem
+# required so that flask knows where to serve js/css files from (and other self references)
+export SATYRN_ROOT_DIR=/<abs path to your clone of the repo base dir>/satyrn-platform/
+
+# And which configs should we use on instantiation?
+# FOR NOW, this should map to a directory in a local clone of satyrn-rings or satyrn-templates repo
+# the directory needs to contain a file called "satconf.py" in the expected format (see satyrn-templates for details)
+export SATYRN_CONFIG=/<abs path to your satyrn-configs repo>/<config dir>/
+
+# API key for this version (TODO: move to per-account in DB)
+# The API key that has to be passed in the headers for the API to not throw auth errors
+# (proxy services in both Satyrn Prototype and Satyrn UX will have to pass whatever this key is set to)
+export API_KEY=<insert string here>
+
+# OPTIONAL
+# creds for jumbo -- only if using jumbo (note: satyrn-templates examples don't require jumbo)
+# see here for details: https://github.com/nu-c3lab/c3-JumboDB#credentials-file
+export c3creds=/<abs path to your creds.json>/creds.json
+
+# DEPRECATED
+# Generate a good key with 'import secrets; secrets.token_urlsafe()' in a python repl and copy/paste it here
+# export SATYRN_SECRET_KEY=<insert string here>
+
+# Then, generate a good salt with 'secrets.SystemRandom().getrandbits(128)' and copy/paste it here
+# export SATYRN_SECURITY_SALT=<insert string here>
