@@ -321,29 +321,52 @@ class Ring_Compiler(object):
             print('ERROR: Cannot construct ORM because configuration is invalid')
             return None
 
-        models = []
+        # build model stubs
+        # different approach than prototype
+        # entities/attrs should fill these in
+        # as entities are not 1:1 with tables in db
+        model_map = {
+            table["name"]: {
+                "__tablename__": table["name"],
+                table["primary_key"]: self.column_with_type(table["pk_type"], primary_key=True)
+            }
+            for table in self.config.source.tables
+        }
+
+        # build the join scaffolding
+        # upstream of per-entity stuff
+        model_map = self.build_joins(model_map)
+
+        # populate models from entities/attrs
         for entity in self.config.entities:
-            model = self.build_model_for_entity(entity)
-            models.append(model)
+            model_map =  self.populate_models_from_entity(entity, model_map)
+
+        models = [type(name, (DefaultBase,), model_info) for name, model_info in model_map.items()]
 
         return models
 
-    def build_model_for_entity(self, entity):
+    def populate_models_from_entity(self, entity, model_map):
 
-        model_info = {'__tablename__': entity.table}
+        # Add entity id keys if they don't exist already
+        for index, id_key in enumerate(entity.id):
+            if id_key not in model_map[entity.table]:
+                model_map[entity.table][id_key] = self.column_with_type(entity.id_type[index])
 
-        # Add primary keys
-        for index, primary_key in enumerate(entity.id):
-            model_info[primary_key] = self.column_with_type(entity.id_type[index], primary_key=True)
-
-        # Add attributes
+        # Add entity attributes
         for attribute in entity.attributes:
             base_type = self.resolve_base_type(attribute.isa)
-            model_info[attribute.name] = self.column_with_type(base_type)
+            for sc in attribute.source_columns:
+                if sc not in model_map[attribute.source_table]:
+                    model_map[attribute.source_table][sc] = self.column_with_type(base_type)
 
+        return model_map
+
+    def build_joins(self, model_map):
+        # TODO: make this fully handle multi-hops and all one-to-many, many-to-many, etc conditions
+
+        # do the join wiring
         for join in self.config.source.joins:
             for hop in join.path:
-
                 try:
                     from_, to, key_type = hop
                     from_table, from_key = from_.split('.')
@@ -351,14 +374,15 @@ class Ring_Compiler(object):
                 except:
                     print(f'ERROR: Failed to parse join path with invalid format: {hop}')
 
-                if join.from_ == entity.table:
-                    model_info[from_key] = self.column_with_type(key_type, foreign_key=to)
-                    model_info[to_table] = relationship(to_table.capitalize(), back_populates=from_table, uselist=True)
+                if from_key not in model_map[join.from_]:
+                    model_map[join.from_][from_key] = self.column_with_type(key_type, foreign_key=to)
+                    model_map[join.from_][to_table] = relationship(to_table, back_populates=from_table, uselist=True)
 
-                if join.to == entity.table and join.bidirectional:
-                    model_info[from_table] = relationship(from_table.capitalize(), back_populates=to_table, uselist=True)
+                if from_table not in model_map[join.to] and join.bidirectional:
+                    model_map[join.to][from_table] = relationship(from_table, back_populates=to_table, uselist=True)
 
-        return type(entity.name, (DefaultBase,), model_info)
+        return model_map
+
 
     def column_with_type(self, type_string, primary_key=False, foreign_key=None):
         sa_type = getattr(sa, type_string.capitalize())
@@ -402,23 +426,3 @@ UPPER_ONTOLOGY = {
         # TODO: how to cover info about styling (templates?), types of denominations, etc
     }
 }
-
-"""
-path = '/Users/servantez/Northwestern/Satyrn/satyrn-basic/satyrn-templates/basic/ring.json'
-config = Ring_Configuration()
-config.parse_file_with_path(path)
-
-for entity in config.entities:
-    print('Found entity with name: ' + entity.name)
-    for attribute in entity.attributes:
-        print('Found attribute with name: ' + attribute.name)
-
-out_path = path = '/Users/servantez/Northwestern/Satyrn/satyrn-basic/satyrn-templates/basic/test_write.json'
-config.write_to_file_with_path(path)
-
-compiler = Ring_Compiler(config)
-models = compiler.build_ORM()
-
-for model in models:
-    print(model)
-"""
