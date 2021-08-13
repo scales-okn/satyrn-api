@@ -28,7 +28,7 @@ class RingConfigExtractor(object):
         searchSpace = {att.name: {
             "autocomplete": att.autocomplete,
             "type": att.baseIsa,
-            "model": getattr(self.config.db, targetEnt.name),
+            "model": getattr(self.config.db, targetEnt.table),
             "fields": att.source_columns,
             "allowMultiple": att.allow_multiple,
             "nicename": att.nicename[0], # TODO: leverage the list for singular+plural
@@ -45,7 +45,7 @@ class RingConfigExtractor(object):
             return self.cache[target]["analysisSpace"]
 
         analysisSpace = {att.name: {
-            "model": getattr(self.config.db, targetEnt.name),
+            "model": getattr(self.config.db, targetEnt.table),
             "field": att.source_columns[0],
             "type": att.baseIsa,
             "fieldName": att.nicename,
@@ -81,7 +81,9 @@ class RingConfigExtractor(object):
         self.cache[target]["columns"] = columns
         return columns
 
-    # self.defaultSort = {"key": "amount", "direction": "desc"}
+    def getSortables(self, target=None):
+        target, targetEnt = self.resolveEntity(target)
+        return [col["key"] for col in self.getColumns(target) if col["sortable"] is True]
 
     def getDefaultSort(self, target=None):
         target, targetEnt = self.resolveEntity(target)
@@ -92,11 +94,10 @@ class RingConfigExtractor(object):
         self.cache[target]["defaultSort"] = defSort
         return defSort
 
-    def resultFormatter(self, result, target=None):
+    def formatResult(self, result, target=None):
         # TODO
-        # target = target if target else self.defaultEntity
-        # fResult = {att.name: for att in target.attributes}
-        pass
+        
+        return "result placeholder"
 
     # a few helper functions
     def getCleanAnalysisSpace(self, target=None):
@@ -146,11 +147,14 @@ class RingConfigExtractor(object):
         return output
 
 # INLINE TALLY OF NEXT STEPS:
-    # 1) FIGURE OUT WHY ORM CODE IS MAKING THE MODELS WITH THE ATTR NAMES AND NOT THE COLUMN NAMES -- how best to resolve this?
-    # 2) BRING SUPPORT FOR JOINS ON ATTRIBUTES BACK IN
-    # 3) FINISH THE RESULTFORMATTER CODE ABOVE ONCE THE MODELS ARE BUILT RIGHT
-    # 4) CONFIRM THIS ALL WORKS WITH SEARCHING/FILTERING
+    # 3) FINISH THE formatResult CODE ABOVE ONCE THE MODELS ARE BUILT RIGHT
+    # 4) CONFIRM THIS ALL WORKS WITH AUTOCOMPLETE + SEARCHING/FILTERING
     # 5) CIRCLE BACK AND PROVIDE ENTITY-AS-ATTRIBUTE SUPPORT
-        # Reminder: Everything searchable is an entity
-        # (but right now it seems everything has to be an entity to get a model...should we invert to be table up?)
     # 6) INTRODUCE "preaggregated" FLAG ON ATTRS
+
+
+# ROUND 2:
+    # need to have build_joins in compiler.py properly handle all join conditions (multi hops and many-to-one, many-to-many, etc)
+        # this will also effect code in autocomplete + search because assumption is config["model"] is a single model now but will prob be a list in the future
+    # leverage the list for singular+plural when reference att.nicename
+    # need to ensure support for attribute-level joins is working everywhere

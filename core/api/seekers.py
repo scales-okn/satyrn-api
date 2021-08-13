@@ -1,4 +1,4 @@
-from flask import current_app
+from flask import current_app as app
 from sqlalchemy import func
 
 # the satyrn configs...
@@ -8,19 +8,19 @@ from sqlalchemy import func
 # formatResult = current_app.satConf.formatResult
 # PREFILTERS = getattr(current_app.satConf, "preFilters")
 
-cache = current_app.cache
+cache = app.cache
 CACHE_TIMEOUT=6000
 
 #
 #
 # Helper functions for searching/results
 @cache.memoize(timeout=CACHE_TIMEOUT)
-def getResults(opts, page=0, batchSize=10):
+def getResults(opts, ringId, targetEntity, page=0, batchSize=10):
     # takes a dictionary of key->vals that power a set of searchs downstream...
     # also takes a page + slice value to power pagination on the UI (and caching per page)
     # defers to another memoized function getResultSet to preload results in batches of 10x the slice
     targetRange = getCacheRange(page, batchSize)
-    payload = getResultSet(opts, targetRange)
+    payload = getResultSet(opts, ringId, targetEntity, targetRange)
     relativeStart = page * batchSize - targetRange[0]
     relativeStop = relativeStart + batchSize
     return {
@@ -40,46 +40,50 @@ def getCacheRange(page, batchSize):
     return [targetTop-window, targetTop]
 
 @cache.memoize(timeout=CACHE_TIMEOUT)
-def getResultSet(opts, targetRange=[0,100]):
-    return rawGetResultSet(opts, targetRange)
+def getResultSet(opts, ringId, targetEntity, targetRange=[0,100]):
+    return rawGetResultSet(opts, ringId, targetEntity, targetRange)
 
-def rawGetResultSet(opts, targetRange=None, simpleResults=True, just_query=False, sess=None, query=None):
-    # breakpoint()
+def rawGetResultSet(opts, ringId, targetEntity, targetRange=None, simpleResults=True, just_query=False, sess=None, query=None):
+    db = app.rings[ringId].db
+    targetInfo = app.ringExtractors[ringId].resolveEntity(targetEntity)[1]
+    targetModel = getattr(db, targetInfo.table)
+    searchSpace = app.ringExtractors[ringId].getSearchSpace(targetEntity)
+    formatResult = app.ringExtractors[ringId].formatResult
     # takes a dictionary of key->vals that power a set of searchs downstream...
+    # also takes a ringId and targetEntity name
     # also takes a range value to memoize a broader set than current page view
     # returns a dict with two keys: results and totalCount
-    # TODO: should this leverage ids from autocomplete?
-    # sticking to simple search in v0.1
     if not sess:
         sess = db.Session()
-        query = sess.query(TARGET_MODEL)
+        query = sess.query(targetModel)
     for needleType, needle in opts.items():
         if needleType in ["sortBy", "sortDir"]:
             continue
-        # get the info from SEARCH_SPACE
-        details = SEARCH_SPACE[needleType]
+        # get the info from searchSpace
+        details = searchSpace[needleType]
         # we care about the type, model and fields of the detail
         if details["allowMultiple"]:
             for subneedle in needle:
-                query = bindQuery(sess, query, needleType, subneedle, details)
+                query = bindQuery(sess, targetModel, query, needleType, subneedle, details)
         else:
-            query = bindQuery(sess, query, needleType, needle, details)
+            query = bindQuery(sess, targetModel, query, needleType, needle, details)
 
     # Do prefilters
-    for field in PREFILTERS:
-        for filt in PREFILTERS[field]:
-            query = query.filter(filt)
+    # TODO: bring this back?
+    # for field in PREFILTERS:
+    #     for filt in PREFILTERS[field]:
+    #         query = query.filter(filt)
 
     if "sortBy" in opts and opts["sortBy"] is not None:
-        details = SEARCH_SPACE[opts["sortBy"]]
-        query = sortQuery(sess, query, opts["sortBy"], opts["sortDir"], details)
+        details = searchSpace[opts["sortBy"]]
+        query = sortQuery(sess, targetModel, query, opts["sortBy"], opts["sortDir"], details)
     if just_query:
         return query
-    return bundleQueryResults(query, targetRange, simpleResults)
+    return bundleQueryResults(query, targetRange, formatResult, simpleResults)
 
-def bindQuery(sess, query, needleType, needle, details):
+def bindQuery(sess, targetModel, query, needleType, needle, details):
     # breakpoint()
-    if details["model"] == TARGET_MODEL:
+    if details["model"] == targetModel:
         # don't have to worry about joins on this one...just filter
         targetField = createTargetFieldSet(details["model"], details["fields"])
         if details["type"] == "date":
@@ -92,7 +96,7 @@ def bindQuery(sess, query, needleType, needle, details):
         # TODO: work out the date range thing here too
         # this is a generic single-join situation
         targetField = createTargetFieldSet(details["model"], details["fields"])
-        pathToModel = getattr(TARGET_MODEL, details["fromTargetModel"])
+        pathToModel = getattr(targetModel, details["fromTargetModel"])
         query = query.filter(
             pathToModel.any(func.lower(targetField).contains(func.lower(needle)))
         )
@@ -105,7 +109,7 @@ def bindQuery(sess, query, needleType, needle, details):
         # (note that details["model"] list and details["fromTargetModel"] are parallel lists off by 1 because of TARGET_MODEL (in SCALES, that's db.Case) being the implicit starter model)
 
         path_list = []
-        curr_model = TARGET_MODEL
+        curr_model = targetModel
         for idx in range(len(details["model"])):
             path_list.append(getattr(curr_model, details["fromTargetModel"][idx]))
             curr_model = details["model"][idx]
@@ -136,11 +140,11 @@ def bindQuery(sess, query, needleType, needle, details):
         pass
     return query
 
-def sortQuery(sess, query, sortBy, sortDir, details):
+def sortQuery(sess, targetModel, query, sortBy, sortDir, details):
     sortKey = "sortField" if "sortField" in details else "fields"
     # breakpoint()
-    if details["model"] == TARGET_MODEL:
-        targetField = createTargetFieldSet(TARGET_MODEL, details[sortKey])
+    if details["model"] == targetModel:
+        targetField = createTargetFieldSet(targetModel, details[sortKey])
         # targetField = targetField if sortDir == "asc" else targetField.desc()
         if sortDir == "desc":
             return query.order_by(targetField.desc())
@@ -149,7 +153,7 @@ def sortQuery(sess, query, sortBy, sortDir, details):
         # TODO: set it up so that the system can sort by relationships
         return query
 
-def bundleQueryResults(query, targetRange, simpleResults=True):
+def bundleQueryResults(query, targetRange, formatResult, simpleResults=True):
     totalCount = query.count()
     if targetRange is not None:
         results = query.slice(targetRange[0], targetRange[1]).all()

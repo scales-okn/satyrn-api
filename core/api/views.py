@@ -62,15 +62,15 @@ api = Blueprint("api", __name__)
 cache = app.cache
 
 # a generic filter-prep function
-def organizeFilters(request):
+def organizeFilters(request, searchSpace):
     opts = {}
-    for k in SEARCH_SPACE.keys():
+    for k in searchSpace.keys():
         setting = request.args.get(k, None)
         if setting:
-            if SEARCH_SPACE[k]["type"] == "date":
+            if searchSpace[k]["type"] == "date":
                 dateRange = setting.strip('][').split(",")
                 opts[k] = [cleanDate(dte) for dte in dateRange]
-            elif SEARCH_SPACE[k]["allowMultiple"]:
+            elif searchSpace[k]["allowMultiple"]:
                 opts[k] = request.args.getlist(k, None)
             else:
                 opts[k] = setting
@@ -105,10 +105,10 @@ def getRingInfo(ringId):
     ringInfo["operations"] = CLEAN_OPS
     return json.dumps(ringInfo)
 
-@api.route("/info/<ringId>/<entityName>")
+@api.route("/info/<ringId>/<targetEntity>")
 @apiKeyCheck
-def getEntityInfo(ringId, entityName):
-    ringInfo = app.ringExtractors[ringId].generateInfo(entityName)
+def getEntityInfo(ringId, targetEntity):
+    ringInfo = app.ringExtractors[ringId].generateInfo(targetEntity)
     ringInfo["operations"] = CLEAN_OPS
     return json.dumps(ringInfo)
 
@@ -117,12 +117,12 @@ def cachedAutocomplete(db, theType, searchSpace, opts):
     # TODO: make this work with the new DB setup!
     return json.dumps(runAutocomplete(db, theType, searchSpace, opts))
 
-@api.route("/autocomplete/<ringId>/<entityName>/<theType>")
+@api.route("/autocomplete/<ringId>/<targetEntity>/<theType>")
 @apiKeyCheck
-def getAutocompletes(ringId, entityName, theType):
+def getAutocompletes(ringId, targetEntity, theType):
     limit = request.args.get("limit", 1000)
     opts = {"query": request.args.get("query", None), "limit": limit}
-    searchSpace = app.ringExtractors[ringId].getSearchSpace(entityName)
+    searchSpace = app.ringExtractors[ringId].getSearchSpace(targetEntity)
 
     if theType in searchSpace \
       and "autocomplete" in searchSpace[theType] \
@@ -130,9 +130,9 @@ def getAutocompletes(ringId, entityName, theType):
         return cachedAutocomplete(app.rings[ringId].db, theType, searchSpace[theType], opts)
     return json.dumps({"success": False, "message": "Unknown autocomplete type"})
 
-@api.route("/results/")
+@api.route("/results/<ringId>/<targetEntity>/")
 @apiKeyCheck
-def searchDB():
+def searchDB(ringId, targetEntity):
     # takes a list of args that match to top-level keys in SEARCH_SPACE
     # or None and it'll return the full set (in batches of limit)
     # set up some args
@@ -146,16 +146,18 @@ def searchDB():
     batchSize = int(request.args.get("batchSize", 10))
     page = int(request.args.get("page", 0))
     # bundle search terms
-    opts = organizeFilters(request)
+    searchSpace = app.ringExtractors[ringId].getSearchSpace(targetEntity)
+    sortables = app.ringExtractors[ringId].getSortables(targetEntity)
+    opts = organizeFilters(request, searchSpace)
     # and manage sorting
     # TODO: move this next line to config
     # TODO2: add judges and other stuff?
     sortBy = request.args.get("sortBy", None)
     sortDir = request.args.get("sortDirection", "desc")
-    opts["sortBy"] = sortBy if sortBy in SORTABLES else None
+    opts["sortBy"] = sortBy if sortBy in sortables else None
     opts["sortDir"] = sortDir if sortDir in ["asc", "desc"] else "desc"
     # now go hunting
-    results = getResults(opts, ring, page=page, batchSize=batchSize)
+    results = getResults(opts, ringId, targetEntity, page=page, batchSize=batchSize)
     return json.dumps(results, default=str)
 
 @api.route("/analysis/")
