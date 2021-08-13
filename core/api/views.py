@@ -124,13 +124,6 @@ def getAutocompletes(ringId, entityName, theType):
     opts = {"query": request.args.get("query", None), "limit": limit}
     searchSpace = app.ringExtractors[ringId].getSearchSpace(entityName)
 
-    #
-    #
-    # this is where you stopped -- loop back here after figuring out
-    # a) the attr joins, and b) the model naming situation between config->model
-    #
-    #
-
     if theType in searchSpace \
       and "autocomplete" in searchSpace[theType] \
       and searchSpace[theType]["autocomplete"]:
