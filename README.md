@@ -4,6 +4,18 @@
 
 This is the core codebase for the Satyrn API, which sites behind the Satyrn UX (and in conjunction with the Satyrn Deployment and Satyrn Prototype repos). It's been ported over from the Satyrn-Platform.
 
+## Known TODOs for V2:
+ - Update the documentation to reflect new multi-ring/multi-entity URI endpoints/params on autocomplete and search (and future changes to analysis) -- the below is out of date
+ - need to have build_joins in compiler.py properly handle all join conditions (multi hops and many-to-one, many-to-many, etc) -- also, make sure config contains all necessary info (pending final analysis v2 design)
+    - this will also effect code in autocomplete + search because assumption is config["model"] is a single model now but will prob be a list in the future
+ - leverage the att.nicename (on attributes) list for singular+plural references (currently just selects singular)
+ - need to set up support for attribute-level joins (they're being created but not necessarily leveraged)
+ - set up entity-as-attribute support in config/search/analysis
+ - create a formatResult in extractors.py that takes into account the underlying type (e.g.: if type is currency/USD then render as localized number w/ "$")
+ - create a "template" option on entities and attributes in the config and leverage that in formatResults (and in rendering answers) if it exists
+ - introduce pre-aggregated attributes (and anchor dimension to peg that pre-aggregation) in config/analysis
+ - v2 analysis endpoint dev (pending result of analysis v2 design work + prototype)
+
 ## The configuration model: Satyrn and its Rings
 The core platform itself is dataset agnostic -- as long as the data itself is tabular, Satyrn can be configured to work with it. New datasets can be brought in by following a few steps: 1) loading data into a SQL-friendly database, 2) defining an ORM in [SQLAlchemy](https://www.sqlalchemy.org) for the relevant tables, 3) defining an accompanying satconf configuration ([examples and documentation can be found in satyrn-templates](https://www.github.com/nu-c3lab/satyrn-templates)), and 4) updating an environment variable so Satyrn knows where to locate the config and ORM. That's it -- the platform does the rest, from providing filter mechanics and rendering the paginating table view over to generating the analysis statements.
 

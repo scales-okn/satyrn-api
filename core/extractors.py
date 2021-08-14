@@ -95,9 +95,22 @@ class RingConfigExtractor(object):
         return defSort
 
     def formatResult(self, result, target=None):
-        # TODO
-        
-        return "result placeholder"
+        target, targetEnt = self.resolveEntity(target)
+        cols = self.getColumns(target)
+        searchSpace = self.getSearchSpace(target)
+        renderMap = {
+            col["key"]: self.getSearchSpace(target)[col["key"]]["fields"] for col in cols
+        }
+        results = {
+            attr: self.coerceValsToString([getattr(result, field) for field in fields])
+            for attr, fields in renderMap.items()
+        }
+        return results
+
+    def coerceValsToString(self, vals):
+        # TODO: make this both a) type (leveraging ontology + styling) aware and b) template-compatible
+        tmpl = ("{} " * len(vals)).strip()
+        return tmpl.format(*vals)
 
     # a few helper functions
     def getCleanAnalysisSpace(self, target=None):
@@ -158,3 +171,5 @@ class RingConfigExtractor(object):
         # this will also effect code in autocomplete + search because assumption is config["model"] is a single model now but will prob be a list in the future
     # leverage the list for singular+plural when reference att.nicename
     # need to ensure support for attribute-level joins is working everywhere
+    # create a render that takes into account the underlying type
+    # create a "template" option on entities and attributes in the config and leverage that to render results if it exists
