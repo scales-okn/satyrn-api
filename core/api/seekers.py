@@ -79,7 +79,7 @@ def rawGetResultSet(opts, ringId, targetEntity, targetRange=None, simpleResults=
         query = sortQuery(sess, targetModel, query, opts["sortBy"], opts["sortDir"], details)
     if just_query:
         return query
-    return bundleQueryResults(query, targetRange, formatResult, simpleResults)
+    return bundleQueryResults(query, targetRange, targetEntity, formatResult, simpleResults)
 
 def bindQuery(sess, targetModel, query, needleType, needle, details):
     # breakpoint()
@@ -153,7 +153,7 @@ def sortQuery(sess, targetModel, query, sortBy, sortDir, details):
         # TODO: set it up so that the system can sort by relationships
         return query
 
-def bundleQueryResults(query, targetRange, formatResult, simpleResults=True):
+def bundleQueryResults(query, targetRange, targetEntity, formatResult, simpleResults=True):
     totalCount = query.count()
     if targetRange is not None:
         results = query.slice(targetRange[0], targetRange[1]).all()
@@ -161,7 +161,7 @@ def bundleQueryResults(query, targetRange, formatResult, simpleResults=True):
         results = query.all()
 
     if simpleResults:
-        results = [formatResult(result) for result in results]
+        results = [formatResult(result, targetEntity) for result in results]
 
         return {
             "results": results,

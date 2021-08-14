@@ -158,18 +158,3 @@ class RingConfigExtractor(object):
         }
         self.cache[target]["feInfo"] = output
         return output
-
-# INLINE TALLY OF NEXT STEPS:
-    # 3) FINISH THE formatResult CODE ABOVE ONCE THE MODELS ARE BUILT RIGHT
-    # 4) CONFIRM THIS ALL WORKS WITH AUTOCOMPLETE + SEARCHING/FILTERING
-    # 5) CIRCLE BACK AND PROVIDE ENTITY-AS-ATTRIBUTE SUPPORT
-    # 6) INTRODUCE "preaggregated" FLAG ON ATTRS
-
-
-# ROUND 2:
-    # need to have build_joins in compiler.py properly handle all join conditions (multi hops and many-to-one, many-to-many, etc)
-        # this will also effect code in autocomplete + search because assumption is config["model"] is a single model now but will prob be a list in the future
-    # leverage the list for singular+plural when reference att.nicename
-    # need to ensure support for attribute-level joins is working everywhere
-    # create a render that takes into account the underlying type
-    # create a "template" option on entities and attributes in the config and leverage that to render results if it exists
