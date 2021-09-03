@@ -98,14 +98,14 @@ def getAPIInfo():
         "rings": {rr.name: rr.id for rr in app.rings.values()}
     })
 
-@api.route("/info/<ringId>")
+@api.route("/info/<ringId>/")
 @apiKeyCheck
 def getRingInfo(ringId):
     ringInfo = app.ringExtractors[ringId].generateInfo()
     ringInfo["operations"] = CLEAN_OPS
     return json.dumps(ringInfo)
 
-@api.route("/info/<ringId>/<targetEntity>")
+@api.route("/info/<ringId>/<targetEntity>/")
 @apiKeyCheck
 def getEntityInfo(ringId, targetEntity):
     ringInfo = app.ringExtractors[ringId].generateInfo(targetEntity)
@@ -117,7 +117,7 @@ def cachedAutocomplete(db, theType, searchSpace, opts):
     # TODO: make this work with the new DB setup!
     return json.dumps(runAutocomplete(db, theType, searchSpace, opts))
 
-@api.route("/autocomplete/<ringId>/<targetEntity>/<theType>")
+@api.route("/autocomplete/<ringId>/<targetEntity>/<theType>/")
 @apiKeyCheck
 def getAutocompletes(ringId, targetEntity, theType):
     limit = request.args.get("limit", 1000)
@@ -211,7 +211,7 @@ def runAnalysis(ringId, targetEntity):
     }
     return json.dumps(results, default=str)
 
-@api.route("/result/<id>")
+@api.route("/result/<id>/")
 @apiKeyCheck
 def getResultHTML(id):
     sess = db.Session()
@@ -222,7 +222,7 @@ def getResultHTML(id):
                    .replace("</body></html>", extraStuff+"</body></html>")
     return caseHTML
 
-@api.route("/download/<payloadName>")
+@api.route("/download/<payloadName>/")
 @apiKeyCheck
 def downloadDocketSet(payloadName):
     # TODO: this is just a demo stub -- in the future, this needs to take a GET param
