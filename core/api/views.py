@@ -8,7 +8,7 @@ from flask_security import login_required
 from sqlalchemy import func
 
 # from .analysisSpace import ANALYSIS_MODEL_SPACE as ANALYSIS_SPACE
-from .engine import AnalyticsEngine
+from .engine import run_analysis
 from .operations import OPERATION_SPACE
 from .seekers import getResults
 from .autocomplete import runAutocomplete
@@ -160,48 +160,54 @@ def searchDB(ringId, targetEntity):
     results = getResults(opts, ringId, targetEntity, page=page, batchSize=batchSize)
     return json.dumps(results, default=str)
 
-@api.route("/analysis/")
+@api.route("/analysis/<ringId>/<targetEntity>/")
 @apiKeyCheck
-def runAnalysis():
+def runAnalysis(ringId, targetEntity):
     # takes a list of args that match to top-level keys in SEARCH_SPACE (or None)
     # and keys related to analysis with analysisType defining the "frame" (matching a key in analysisSpace.py)
 
     # this sort of url works: /api/analysis/?operation=count&groupBy=judge&targetField=case&timeSeries=year
 
     # first, get the search/filter stuff:
-    searchOpts = organizeFilters(request)
+    searchSpace = app.ringExtractors[ringId].getSearchSpace(targetEntity)
+    searchOpts = organizeFilters(request, searchSpace)
 
     # then get the analysis stuff:
     analysisOpts = {}
-    operation = request.args.get("operation", None)
-    if operation in OPERATION_SPACE.keys():
-        analysisOpts["operation"] = operation
-    for entry in ["groupBy", "targetField", "perField", "timeSeries"]:
-        entryVal = request.args.get(entry, None)
-        if entryVal in ANALYSIS_SPACE.keys():
-            analysisOpts[entry] = entryVal
+    operation = request.args.get("op", None)
+    # PENDING: Check with andrew if doing it through json is fine or not
+    print(request.args)
+    print(request.json)
+    # if operation in OPERATION_SPACE.keys():
+    #     analysisOpts["operation"] = operation
+    # for entry in ["groupBy", "target", "per", "timeSeries", "over", "numerator"]:
+    #     entryVal = request.args.get(entry, None)
+    #     # if entryVal in ANALYSIS_SPACE.keys():
+    #     if entryVal:
+    #         analysisOpts[entry] = entryVal
+    analysisOpts = request.json
+    # if analysisOpts["operation"] == "percentage":
+    #     # PATCH: This is a non sustainable solution for percentage operation
+    #     if analysisOpts["targetField"] == "feeWaiver":
+    #         analysisOpts["numeratorField"] = ["grant", "term"]
 
-    if analysisOpts["operation"] == "percentage":
-        # PATCH: This is a non sustainable solution for percentage operation
-        if analysisOpts["targetField"] == "feeWaiver":
-            analysisOpts["numeratorField"] = ["grant", "term"]
+    #     elif analysisOpts["targetField"] == "proSe":
+    #         analysisOpts["numeratorField"] = [True]
 
-        elif analysisOpts["targetField"] == "proSe":
-            analysisOpts["numeratorField"] = [True]
+    results = run_analysis(s_opts=searchOpts, a_opts=analysisOpts, targetEntity=targetEntity)
+    print(results)
 
-    ae = AnalyticsEngine(searchOpts=searchOpts, analysisOpts=analysisOpts)
-    results = ae.run()
 
     # TODO PATCH: This is a non sustainable solution for percentage operation
-    if analysisOpts["operation"] == "percentage":
-        for idx, x in enumerate(results["results"]):
-            print(x)
+    # if analysisOpts["operation"] == "percentage":
+        # for idx, x in enumerate(results["results"]):
+            # print(x)
             # results["results"][idx][-1] *= 10
     results = {
-        "length": len(results["results"]),
-        "results": results["results"],
-        "units": results["units"],
-        "counts": results["counts"] if "counts" in results else []
+        # "length": len(results["results"]),
+        # "results": results["results"],
+        # "units": results["units"],
+        # "counts": results["counts"] if "counts" in results else []
     }
     return json.dumps(results, default=str)
 
