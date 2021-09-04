@@ -12,11 +12,6 @@ DefaultBase = declarative_base()
 # This is an abstract class which serves as the superclass for concrete ring classes
 class Ring_Object(object):
 
-    def safe_extract(self, key, dictionary):
-        if key in dictionary:
-            return dictionary[key]
-        return None
-
     # Extract value if list, if not extract and wrap in list
     def safe_extract_list(self, key, dictionary):
         if key in dictionary and dictionary[key]:
@@ -62,15 +57,15 @@ class Ring_Attribute(Ring_Object):
 
     def parse(self, name, info):
         self.name = name
-        self.nicename = self.safe_extract('nicename', info)
-        self.isa = self.safe_extract('isa', info)
+        self.nicename = info.get('nicename')
+        self.isa = info.get('isa')
 
         # this next one is to separate conceptual type from data type (currency vs float)
         # doesn't matter know but will be useful later when we leverage upper ontology
-        self.baseIsa = self.safe_extract('isa', info)
+        self.baseIsa = info.get('isa')
 
-        self.units = self.safe_extract('units', info)
-        self.description = self.safe_extract('description', info)
+        self.units = info.get('units')
+        self.description = info.get('description')
 
         # a flag for the analysis engine to avoid aggregating this value if it's a number
         # more often this is False (or not present/pertinent) and defaults accordingly
@@ -78,17 +73,17 @@ class Ring_Attribute(Ring_Object):
 
         if 'source' in info:
             source = info['source']
-            self.source_table = self.safe_extract('table', source)
-            self.source_columns = self.safe_extract('columns', source)
+            self.source_table = source.get('table')
+            self.source_columns = source.get('columns')
             self.join_required = self.source_table != self.parent_entity["table"]
 
         if 'ux' in info:
             ux = info['ux']
-            self.searchable = self.safe_extract('searchable', ux)
-            self.allow_multiple = self.safe_extract('allowMultiple', ux)
-            self.search_style = self.safe_extract('searchStyle', ux)
-            self.analyzable = self.safe_extract('analyzable', ux)
-            self.autocomplete = ux.get('autocomplete', False)
+            self.searchable = ux.get('searchable', False)
+            self.allow_multiple = ux.get('allowMultiple', True)
+            self.search_style = ux.get('searchStyle', "string")
+            self.analyzable = ux.get('analyzable', False)
+            self.autocomplete = ux.get('autocomplete', True if self.searchable else False)
 
     def construct(self):
 
@@ -126,12 +121,13 @@ class Ring_Entity(Ring_Object):
         self.name = None
         self.table = None
         self.renderable = False
-        # TODO: Description
+        self.reference = ""
         self.attributes = []
 
     def parse(self, entity):
-        self.name = self.safe_extract('name', entity)
-        self.table = self.safe_extract('table', entity)
+        self.name = entity.get('name')
+        self.reference = entity.get('reference')
+        self.table = entity.get('table')
         self.id = self.safe_extract_list('id', entity)
         self.id_type = self.safe_extract_list('idType', entity)
         self.renderable = entity.get('renderable', False)
@@ -175,9 +171,9 @@ class Ring_Source(Ring_Object):
         self.base = DefaultBase
 
     def parse(self, source):
-        self.type = self.safe_extract('type', source)
-        self.connection_string = self.safe_extract('connectionString', source)
-        self.tables = self.safe_extract('tables', source)
+        self.type = source.get('type')
+        self.connection_string = source.get('connectionString')
+        self.tables = source.get('tables')
         self.parse_joins(source)
 
     def parse_joins(self, source):
@@ -223,11 +219,11 @@ class Ring_Join(Ring_Object):
         self.path = None
 
     def parse(self, join):
-        self.name = self.safe_extract('name', join)
-        self.from_ = self.safe_extract('from', join)
-        self.to = self.safe_extract('to', join)
-        self.path = self.safe_extract('path', join)
-        self.bidirectional = self.safe_extract('bidirectional', join)
+        self.name = join.get('name')
+        self.from_ = join.get('from')
+        self.to = join.get('to')
+        self.path = join.get('path')
+        self.bidirectional = join.get('bidirectional')
 
     def construct(self):
         join = {}
@@ -254,10 +250,10 @@ class Ring_Configuration(Ring_Object):
         self.default_target_model = None
 
     def parse(self, configuration):
-        self.name = self.safe_extract('name', configuration)
-        self.id = self.safe_extract('id', configuration)
-        self.version = self.safe_extract('version', configuration)
-        self.default_target_entity = self.safe_extract('defaultTargetEntity', configuration)
+        self.name = configuration.get('name')
+        self.id = configuration.get('id')
+        self.version = configuration.get('version')
+        self.default_target_entity = configuration.get('defaultTargetEntity')
         self.parse_source(configuration)
         self.parse_entities(configuration)
 
@@ -327,7 +323,7 @@ class Ring_Compiler(object):
         model_map = {
             table["name"]: {
                 "__tablename__": table["name"],
-                table["primary_key"]: self.column_with_type(table["pk_type"], primary_key=True)
+                table["primaryKey"]: self.column_with_type(table["pkType"], primary_key=True)
             }
             for table in self.config.source.tables
         }
