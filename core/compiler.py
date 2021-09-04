@@ -318,8 +318,7 @@ class Ring_Compiler(object):
     def build_models(self):
         # Check configuration for validity before constructing models
         if not self.config.is_valid():
-            print('ERROR: Cannot construct ORM because configuration is invalid')
-            return None
+            raise ValueError('ERROR: Cannot construct ORM because configuration is invalid')
 
         # build model stubs
         # different approach than prototype
