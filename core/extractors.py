@@ -20,6 +20,12 @@ class RingConfigExtractor(object):
             return None, None
         return targetName, [ent for ent in self.config.entities if ent.name == targetName][0]
 
+    def resolveJoin(self, join):
+        return join, [ent for ent in self.config.dataSource.joins if ent.name == join][0]
+
+    def resolveRelationship(self, relation):
+        return relation, [ent for ent in self.config.relationships if ent.name == relation][0]
+
     def getSearchSpace(self, target=None):
         target, targetEnt = self.resolveEntity(target)
         if "searchSpace" in self.cache[target]:
