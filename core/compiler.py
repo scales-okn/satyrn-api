@@ -1,8 +1,10 @@
-import os
-import json
-import sqlalchemy as sa
+import datetime
 from functools import reduce
-from sqlalchemy import Boolean, Column, ForeignKey, Integer, Float, String
+import json
+import os
+
+import sqlalchemy as sa
+from sqlalchemy import Boolean, Column, ForeignKey, Integer, Float, String, DateTime, Date
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import relationship, sessionmaker
 from sqlalchemy import create_engine
@@ -65,7 +67,6 @@ class Ring_Attribute(Ring_Object):
         self.baseIsa = info.get('isa')
 
         self.units = info.get('units')
-        self.description = info.get('description')
 
         # a flag for the analysis engine to avoid aggregating this value if it's a number
         # more often this is False (or not present/pertinent) and defaults accordingly
@@ -77,13 +78,14 @@ class Ring_Attribute(Ring_Object):
             self.source_columns = source.get('columns')
             self.join_required = self.source_table != self.parent_entity["table"]
 
-        if 'ux' in info:
-            ux = info['ux']
-            self.searchable = ux.get('searchable', False)
-            self.allow_multiple = ux.get('allowMultiple', True)
-            self.search_style = ux.get('searchStyle', "string")
-            self.analyzable = ux.get('analyzable', False)
-            self.autocomplete = ux.get('autocomplete', True if self.searchable else False)
+        if 'metadata' in info:
+            md = info['metadata']
+            self.searchable = md.get('searchable', False)
+            self.allow_multiple = md.get('allowMultiple', True)
+            self.search_style = md.get('searchStyle', "string")
+            self.analyzable = md.get('analyzable', False)
+            self.autocomplete = md.get('autocomplete', True if self.searchable else False)
+            self.description = md.get('description')
 
     def construct(self):
 
@@ -96,14 +98,15 @@ class Ring_Attribute(Ring_Object):
         self.safe_insert('table', self.source_table, source)
         self.safe_insert('columns', self.source_columns, source)
 
-        ux = {}
-        self.safe_insert('searchable', self.searchable, ux)
-        self.safe_insert('allowMultiple', self.allow_multiple, ux)
-        self.safe_insert('searchStyle', self.search_style, ux)
-        self.safe_insert('analyzable', self.analyzable, ux)
+        md = {}
+        self.safe_insert('searchable', self.searchable, md)
+        self.safe_insert('allowMultiple', self.allow_multiple, md)
+        self.safe_insert('searchStyle', self.search_style, md)
+        self.safe_insert('analyzable', self.analyzable, md)
+        self.safe_insert('description', self.description, md)
 
         self.safe_insert('source', source, attribute)
-        self.safe_insert('ux', ux, attribute)
+        self.safe_insert('metadata', md, attribute)
         return attribute
 
     def is_valid(self):
@@ -121,7 +124,7 @@ class Ring_Entity(Ring_Object):
         self.name = None
         self.table = None
         self.renderable = False
-        self.reference = ""
+        self.reference = None
         self.attributes = []
 
     def parse(self, entity):
@@ -154,6 +157,44 @@ class Ring_Entity(Ring_Object):
         valid = bool(self.name and self.table and self.id and self.id_type and self.attributes)
         valid = valid and reduce((lambda x, y: x and y), map((lambda x: x.is_valid()), self.attributes))
         return valid
+
+class Ring_Relationship(Ring_Object):
+
+    def __init__(self):
+        # Set default values
+        self.id = None
+        self.name = None
+        self.fro = None
+        self.to = None
+        self.join = []
+        self.relation = "m2m"
+        self.bidirectional = True
+
+    def parse(self, rel):
+        self.name = rel.get("name")
+        self.fro = rel.get("from")
+        self.to = rel.get("to")
+        self.join = self.safe_extract_list("join", rel)
+        self.relation = rel.get("relation", "m2m")
+        self.bidirectional = rel.get("bidirectional", True)
+
+        # construct an id handle from the inputs
+        # form is: from + name + to + join = "ContributorMakesContribution"
+        self.id = "{}{}{}{}".format(self.fro, self.name, self.to, self.join)
+
+    def construct(self):
+        rel = {}
+        self.safe_insert('id', self.id, rel)
+        self.safe_insert('name', self.name, rel)
+        self.safe_insert('from', self.fro, rel)
+        self.safe_insert('to', self.to, rel)
+        self.safe_insert('join', self.join, rel)
+        self.safe_insert('relation', self.relation, rel)
+        self.safe_insert('bidirectional', self.bidirectional, rel)
+        return rel
+
+    def is_valid(self):
+        return bool(self.name and self.fro and self.to and self.join)
 
 class Ring_Source(Ring_Object):
 
@@ -247,6 +288,7 @@ class Ring_Configuration(Ring_Object):
         self.version = None
         self.source = None
         self.entities = []
+        self.relationships = []
         self.default_target_model = None
 
     def parse(self, configuration):
@@ -256,6 +298,7 @@ class Ring_Configuration(Ring_Object):
         self.default_target_entity = configuration.get('defaultTargetEntity')
         self.parse_source(configuration)
         self.parse_entities(configuration)
+        self.parse_relationships(configuration)
 
     def parse_source(self, configuration):
         if 'dataSource' in configuration:
@@ -270,6 +313,14 @@ class Ring_Configuration(Ring_Object):
                 entity_object = Ring_Entity()
                 entity_object.parse(entity)
                 self.entities.append(entity_object)
+
+    def parse_relationships(self, configuration):
+        if 'relationships' in configuration:
+            rels = configuration['relationships']
+            for rel in rels:
+                relationship_object = Ring_Relationship()
+                relationship_object.parse(rel)
+                self.relationships.append(relationship_object)
 
     def parse_file_with_path(self, path):
         with open(path, 'r') as file:
@@ -296,6 +347,18 @@ class Ring_Configuration(Ring_Object):
 
 class DB_Wrapper(object):
     pass
+
+# # These belong elsewhere but here for dev
+# class SatyrnDatetime(DateTime):
+#     def __init__(self):
+#         DateTime.__init__(self)
+#
+#     def granularity(self, format):
+#         breakpoint()
+#
+# class SatyrnDate(Date):
+#     def __init__(self):
+#         Date.__init__(self)
 
 class Ring_Compiler(object):
 
@@ -380,11 +443,16 @@ class Ring_Compiler(object):
 
 
     def column_with_type(self, type_string, primary_key=False, foreign_key=None):
-        sa_type = getattr(sa, type_string.capitalize())
+        if type_string not in ["date", "datetime"]:
+            sa_type = getattr(sa, type_string.capitalize())
         if primary_key:
             return Column(sa_type, primary_key=True)
         elif foreign_key:
             return Column(sa_type, ForeignKey(foreign_key))
+        elif type_string == "datetime":
+            return Column(DateTime, default=datetime.datetime.utcnow)
+        elif type_string == "date":
+            return Column(Date, default=datetime.date.today)
         else:
             return Column(sa_type)
 

@@ -44,5 +44,12 @@ with open(os.environ["SATYRN_SITE_CONFIG"]) as f:
     siteConf = json.load(f)
 app.satMetadata = siteConf
 rings = compile_rings(siteConf["rings"])
+
+# dev-time convenience
+# t = [r for r in rings.values()][0]
+# sess = t.db.Session()
+# tt = sess.query(t.db.contribution).first()
+# breakpoint()
+
 app.rings = rings
 app.ringExtractors = {rr.id: RingConfigExtractor(rr) for rr in app.rings.values()}
