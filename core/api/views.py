@@ -165,19 +165,12 @@ def searchDB(ringId, targetEntity):
 def runAnalysis(ringId, targetEntity):
     # takes a list of args that match to top-level keys in SEARCH_SPACE (or None)
     # and keys related to analysis with analysisType defining the "frame" (matching a key in analysisSpace.py)
-
-    # this sort of url works: /api/analysis/?operation=count&groupBy=judge&targetField=case&timeSeries=year
-
-    # first, get the search/filter stuff:
-    searchSpace = app.ringExtractors[ringId].getSearchSpace(targetEntity)
-    searchOpts = organizeFilters(request, searchSpace)
+    # The analysis parameters come in via a JSON body thingy
 
     # then get the analysis stuff:
-    analysisOpts = {}
     operation = request.args.get("op", None)
-    # PENDING: Check with andrew if doing it through json is fine or not
-    print(request.args)
-    print(request.json)
+    analysisOpts = request.json
+    # PENDING: Add some check here to make sure everything is valid
     # if operation in OPERATION_SPACE.keys():
     #     analysisOpts["operation"] = operation
     # for entry in ["groupBy", "target", "per", "timeSeries", "over", "numerator"]:
@@ -185,7 +178,7 @@ def runAnalysis(ringId, targetEntity):
     #     # if entryVal in ANALYSIS_SPACE.keys():
     #     if entryVal:
     #         analysisOpts[entry] = entryVal
-    analysisOpts = request.json
+    
     # if analysisOpts["operation"] == "percentage":
     #     # PATCH: This is a non sustainable solution for percentage operation
     #     if analysisOpts["targetField"] == "feeWaiver":
@@ -194,20 +187,17 @@ def runAnalysis(ringId, targetEntity):
     #     elif analysisOpts["targetField"] == "proSe":
     #         analysisOpts["numeratorField"] = [True]
 
+    # first, get the search/filter stuff:
+
+    searchSpace = app.ringExtractors[ringId].getSearchSpace(targetEntity)
+    searchOpts = organizeFilters(request, searchSpace)
     results = run_analysis(s_opts=searchOpts, a_opts=analysisOpts, targetEntity=targetEntity)
-    print(results)
 
-
-    # TODO PATCH: This is a non sustainable solution for percentage operation
-    # if analysisOpts["operation"] == "percentage":
-        # for idx, x in enumerate(results["results"]):
-            # print(x)
-            # results["results"][idx][-1] *= 10
     results = {
-        # "length": len(results["results"]),
-        # "results": results["results"],
-        # "units": results["units"],
-        # "counts": results["counts"] if "counts" in results else []
+        "length": len(results["results"]),
+        "results": results["results"],
+        "units": results["units"],
+        "counts": results["entity_counts"] if "entity_counts" in results else {}
     }
     return json.dumps(results, default=str)
 

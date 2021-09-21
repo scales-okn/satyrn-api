@@ -20,7 +20,7 @@ from .transforms import TRANSFORMS_SPACE as TRS
 
 cache = current_app.cache
 CACHE_TIMEOUT=3000
-
+from functools import reduce
 
 # Method to change the AMS so that it has the defaults in it
 
@@ -97,45 +97,50 @@ def single_ring_analysis(s_opts, a_opts, ringId, targetEntity, sess, db):
 
     op = OPS[a_opts["op"]]["type"]
     if op == "simple":
-        query, groupby_args = simple_query(s_opts, a_opts, ringId, targetEntity, sess, db)
+        query, groupby_args, _ = simple_query(s_opts, a_opts, ringId, targetEntity, sess, db)
         query = query.group_by(*groupby_args) if len(groupby_args) else query
         results = query.all()
-
+    
     elif op == "recursive":
 
-        query = recursive_query(s_opts, a_opts, ringId, sess, db)
+        query = recursive_query(s_opts, a_opts, ringId, targetEntity, sess, db)
         results = query.all()
 
     elif op == "complex":
-
         if a_opts["op"] == "correlation":
-            results, corr_matrix = correlation(s_opts, a_opts, session, db)
-            return corr_matrix
+            results = correlation(s_opts, a_opts, targetEntity, sess, db)
         elif a_opts["op"] == "comparison":
-            return comparison(s_opts, a_opts, session, db)
+            results = comparison(s_opts, a_opts, targetEntity, sess, db)
         elif a_opts["op"] == "distribution":
-            return distribution(s_opts, a_opts, session, db)
+            results = distribution(s_opts, a_opts, targetEntity, sess, db)
 
     else:
         print("unclear what operation you chose")
 
+    entity_counts = row_count_query(s_opts, a_opts, ringId, targetEntity, sess, db)
+    units = get_units(a_opts, ringId)
     # Formatting
-    return results
+    res_dict = {
+        "results": results,
+        "entity_counts": entity_counts,
+        "units": units
+    }
+
+    return res_dict
 
 def recursive_query(s_opts, a_opts, ringId, targetEntity, session, db):
     copy_opts = deepcopy(a_opts)
     copy_opts["op"] = "count" if a_opts["op"] == "averageCount" else "sum"
-    query, query_args = simple_query(s_opts, copy_opts, ringId, targetEntity, session, db)
+    query, query_args, _ = simple_query(s_opts, copy_opts, ringId, targetEntity, session, db)
 
     groupby_args = deepcopy(query_args)
-    groupby_args.append(_name(ringId, a_opts["per"]["entity"], a_opts["per"]["field"]))
     query = query.group_by(*groupby_args)
-
 
     # Build new query arguments
     s_query = query.subquery()
     query_args = [s_query.c[arg] for arg in query_args]
-    query_args.append(func.avg(s_query.c[_name(ringId, a_opts["target"]["entity"], a_opts["target"]["field"])]))
+    query_args.pop()
+    query_args.append(func.avg(s_query.c[_name(ringId, a_opts["target"]["entity"], a_opts["target"]["field"], copy_opts["op"])]))
     query = session.query(*query_args)
 
     # Build new group args
@@ -147,23 +152,27 @@ def recursive_query(s_opts, a_opts, ringId, targetEntity, session, db):
 def simple_query(s_opts, a_opts, ringId, targetEntity, session, db):
     # Query fields
 
-    q_args, tables, entity_ids, field_names = _prep_query(a_opts, ringId, db)
+    q_args, tables, entity_ids, entity_names, field_names = _prep_query(a_opts, ringId, db)
 
     query = session.query(*q_args)
 
     # Do filtering
-    query = _do_filters(query, s_opts, ringId, targetEntity, db)
+    query = _do_filters(query, s_opts, ringId, targetEntity, session, db)
 
     # Do joins
     query = _do_joins(query, tables, a_opts["relationships"] if "relationships" in a_opts else [], ringId, targetEntity, db)
 
     # ADD THE UNIQUE CONSTRAINT ON THE TUPLES OF THE IMPORTANT FIELDS IDS
-    query = query.distinct(*entity_ids)
+    # PENDING: this gives errors. right now will not add entity ids
+    # query = query.distinct(*entity_ids)
 
     group_args = [_name(ringId, d["entity"], d["field"]) for d in a_opts["groupBy"]] if "groupBy" in a_opts else []
+    for field in ["over", "per", "timeseries"]:
+        if field in a_opts:
+             group_args.append(_name(ringId, a_opts[field]["entity"], a_opts[field]["field"]))
 
-    row_count_query(a_opts, a_opts, ringId, targetEntity, session, db)
-    return query, group_args
+
+    return query, group_args, field_names
 
 def row_count_query(s_opts, a_opts, ringId, targetEntity, session, db):
     # Query fields
@@ -177,26 +186,91 @@ def row_count_query(s_opts, a_opts, ringId, targetEntity, session, db):
     for key in ["numerator", "numerator2"]:
         a_opts.pop(key, None)
 
-
-    q_args, tables, entity_ids, field_names = _prep_query(a_opts, ringId, db)
-
+    q_args, tables, entity_ids, entity_names, field_names = _prep_query(a_opts, ringId, db, counts=True)
     query = session.query(*q_args)
 
     # Do filtering
-    query = _do_filters(query, s_opts, ringId, targetEntity, db)
+    query = _do_filters(query, s_opts, ringId, targetEntity, session, db)
 
     # Do joins
     query = _do_joins(query, tables, a_opts["relationships"] if "relationships" in a_opts else [], ringId, targetEntity, db)
 
     # ADD THE UNIQUE CONSTRAINT ON THE TUPLES OF THE IMPORTANT FIELDS IDS
-    for entity in entity_ids:
-        query = query.distinct(entity)
-        print(entity)
-        print(query.count())
+    # PENDING
 
-    return
+    entity_counts = {}
+    for entity, name in zip(entity_ids, entity_names):
+        new_query = query.distinct(entity)
+        entity_counts[name] = new_query.count()
 
-def _prep_query(a_opts, ringId, db):
+    print(entity_counts)
+    return entity_counts
+
+def get_units(a_opts, ringId):
+
+    def _get_field_units(entity, attribute, transform=None):
+        # returns the field from entity in ring
+        entity_dict = current_app.ringExtractors[ringId].resolveEntity(entity)[1]
+        if attribute != "id":
+            attr_obj = [attr for attr in entity_dict.attributes if attr.name == attribute][0]
+            unit = attr_obj.units[0] if attr_obj.units else attr_obj.nicename[0]
+        else:
+            unit = entity
+
+        return unit
+
+    def _apply_op_units(target_unit, op):
+        op_units = OPS[op]["units"]
+        if op_units == "unchanged":
+            return target_unit
+        elif op_units == "percentage":
+            return "percent"
+        elif op_units == "undefined":
+            return "undefined"
+        return "unknown"
+
+
+    units_dict = {key: None for key in ["target", "per", "target2", "groupBy", "over", "timeseries"] if key in a_opts}
+
+    for key in ["per", "over", "timeseries"]:
+        if key in units_dict:
+            units_dict[key] = _get_field_units(a_opts[key]["entity"], a_opts[key]["field"], a_opts[key].get("transform", None))
+
+    if "groupBy" in units_dict:
+        units_dict["groupBy"] = [_get_field_units(group["entity"], group["field"], group.get("transform, None")) for group in a_opts["groupBy"]]
+
+
+    target_keys = [key for key in ["target", "target2"] if key in units_dict]
+    for key in target_keys:
+        unit = _get_field_units(a_opts[key]["entity"], a_opts[key]["field"], a_opts[key].get("transform", None))
+        if "op" in a_opts[key]:
+            unit = _apply_op_units(unit, a_opts[key]["op"])
+        units_dict[key] = unit
+
+    # Final units
+    units_dict["operation"] = "none"
+    op = a_opts["op"]
+    op_units = OPS[op]["units"]
+
+    if op_units == "comparison":
+        units_dict["operation"] = "see targets units"
+    elif op_units == "none":
+        units_dict["operation"] = "no units"
+    elif op_units == "distribution":
+        units_dict["operation"] = "percent"
+    elif op_units == "target/per":
+        units_dict["operation"] = units_dict["target"] + '/' + units_dict["per"]
+    elif op_units in ["unchanged", "percentage", "undefined"]:
+        units_dict["operation"] = _apply_op_units(units_dict["target"], op)
+    else:
+        print("unknown units")
+    
+    return units_dict
+
+
+
+
+def _prep_query(a_opts, ringId, db, counts=False):
     # Called to query across a (or multiple) computed values
 
     # TODO: Add "nice" rerpesentation for grouopby values (for nice naming stuff)
@@ -208,9 +282,9 @@ def _prep_query(a_opts, ringId, db):
     unique_entities = []
 
     # Get groupby fields
-    groupby_fields = a_opts["groupBy"] if "groupBy" in a_opts else []
+    groupby_fields = deepcopy(a_opts["groupBy"]) if "groupBy" in a_opts else []
 
-    for field in ["over", "per"]:
+    for field in ["over", "per", "timeseries"]:
         if field in a_opts:
             groupby_fields.append(a_opts[field])
 
@@ -246,9 +320,9 @@ def _prep_query(a_opts, ringId, db):
                                 "extra": {}
                             })                
             target_fields.append(target)        
-    print(target_fields)
+
     for target in target_fields:
-        the_field, field_name = _get(ringId, target["entity"], target["field"], db)
+        the_field, field_name = _get(ringId, target["entity"], target["field"], db, op=target["op"])
         q_args.append(_do_operation(target["op"], the_field, target["extra"], field_name))
         col_names.append(field_name)
         table = _get_table_name(ringId, target["entity"], target["field"])
@@ -262,14 +336,13 @@ def _prep_query(a_opts, ringId, db):
     for entity in unique_entities:
         the_field, name = _get(ringId, entity, "id", db)
         entity_ids.append(the_field)
-        if name not in col_names:
+        if name not in col_names and counts:
             q_args.append(the_field)
             col_names.append(name)
 
-    print(col_names)
-    return q_args, tables, entity_ids, col_names
+    return q_args, tables, entity_ids, unique_entities, col_names,
 
-def _do_filters(query, s_opts, ringId, targetEntity, db):
+def _do_filters(query, s_opts, ringId, targetEntity, session, db):
     # TODO: Fill this out
 
     # do prefilters
@@ -277,6 +350,8 @@ def _do_filters(query, s_opts, ringId, targetEntity, db):
     query = query.filter(_get(ringId, targetEntity, "id", db) != None)
 
     # do normal filters
+    if s_opts:
+        query = rawGetResultSet(s_opts, ringId, targetEntity, targetRange=None, simpleResults=True, just_query=True, sess=session, query=query)
 
     # do nan filtering
 
@@ -299,9 +374,10 @@ def _do_joins(query, tables, relationships, ringId, targetEntity, db):
     def do_join(query, path, added_tables=[]):
         # NOTE: which table to join to kinda changes depending on what the "primary" table is perceived to be
         the_table = path[0].split(".")[0] if path[0].split(".")[0] not in added_tables else path[1].split(".")[0]
+        # the_table = _get_table_name(ringId, targetEntity, "id")
         return query.join(getattr(db, the_table),
-                            _get_join_field(ringId, path[0], db) == _get_join_field(ringId, path[1], db),
-                            # isouter=True
+                            _get_join_field(path[0], db) == _get_join_field(path[1], db),
+                            isouter=True
                             ), the_table
 
     def find_rel(item, lst):
@@ -311,9 +387,9 @@ def _do_joins(query, tables, relationships, ringId, targetEntity, db):
     joined_tables.append(_get_table_name(ringId, targetEntity, "id"))
     for relationship in relationships:
         rel_item = current_app.ringExtractors[ringId].resolveRelationship(relationship)[1]
-        if "join" in rel_item:
-            join = current_app.ringExtractors[ringId].resolveJoin(rel_item["join"])[1]
-            for path in join["path"]:
+        if len(rel_item.join):
+            join = current_app.ringExtractors[ringId].resolveJoin(rel_item.join[0])[1]
+            for path in join.path:
                 query, add_table = do_join(query, path, joined_tables)
                 joined_tables.append(add_table)
 
@@ -328,6 +404,13 @@ def _format_results():
 
     Do rounding stuff if needed
 
+    # TODO PATCH: This is a non sustainable solution for percentage operation
+    # if analysisOpts["operation"] == "percentage":
+        # for idx, x in enumerate(results["results"]):
+            # print(x)
+            # results["results"][idx][-1] *= 10
+    Do anything you need to do for percentage stuff (multiplying by 100 i think)
+
     Do any unit conversions if needed (e.g. currency, temperatures, distances)
     '''
 
@@ -336,7 +419,7 @@ def _format_results():
 
     # 
 
-def _get(ringId, entity, attribute, db, transform=None):
+def _get(ringId, entity, attribute, db, transform=None, op=None):
     # returns the field from entity in ring
     entity_dict = current_app.ringExtractors[ringId].resolveEntity(entity)[1]
     if attribute != "id":
@@ -350,7 +433,7 @@ def _get(ringId, entity, attribute, db, transform=None):
     # PENDING: handling multiple columns in the columns of source
     model = getattr(db, model_name)
     field = getattr(model, field_name)
-    name = _name(ringId, entity, attribute)
+    name = _name(ringId, entity, attribute, op)
 
     if transform:
         field = TRS[transform].processor(field)
@@ -373,8 +456,11 @@ def _get_join_field(path_bit, db):
     field = getattr(model, field_name)
     return field
 
-def _name(ringId, entity, attribute):
-    return ".".join([ringId, entity, attribute])
+def _name(ringId, entity, attribute, op=None):
+    if op:
+        return ".".join([entity, attribute, op])
+    return ".".join([entity, attribute])
+    # return ".".join([ringId, entity, attribute])
 
 def _outerjoin_name(ringId, join_field):
     return ".".join([ringId, join_field])
@@ -390,21 +476,27 @@ def _do_operation(op_name, field, extra_dict, field_name):
     op_dict = OPS[op_name]["funcDict"]
     if "numerator" in extra_dict:
         return op_dict["op"](field, extra_dict["numerator"]).label(field_name)
+    elif "numerator2" in extra_dict:
+        return op_dict["op"](field, extra_dict["numerator2"]).label(field_name)
     else:
         return op_dict["op"](field).label(field_name)
         
 
-def correlation(s_opts, a_opts, session, db):
+def correlation(s_opts, a_opts, targetEntity, session, db):
 
     ring = a_opts["rings"][0]
-    query, group_args = simple_query(s_opts, a_opts, ring, session, db)
 
+    query, group_args, field_names = simple_query(s_opts, a_opts, ring, targetEntity, session, db)
     query = query.group_by(*group_args)
-
     results = query.all()
 
-    df = pd.DataFrame(results)
+    df = pd.DataFrame(results, columns=field_names)
     corr_matrix = df.corr("pearson")
+
+    col_1 = _name(a_opts["rings"][0], a_opts["target"]["entity"], a_opts["target"]["field"], a_opts["target"].get("op", None))
+    col_2 = _name(a_opts["rings"][0], a_opts["target2"]["entity"], a_opts["target2"]["field"], a_opts["target2"].get("op", None))
+
+    corr_val = corr_matrix[col_1][col_2]
 
     # PEnding about correlation
     '''
@@ -414,39 +506,37 @@ def correlation(s_opts, a_opts, session, db):
         # of contributions given by people in alaska
         amount of money raised overall
     '''
-    return results, corr_matrix
+    return {"results": results, "score": corr_val}
 
 
-def comparison(s_opts, a_opts, session, db):
+def comparison(s_opts, a_opts, targetEntity, session, db):
 
     ring = a_opts["rings"][0]
-    query, group_args = simple_query(s_opts, a_opts, ring, session, db)
+    query, group_args, _ = simple_query(s_opts, a_opts, ring, targetEntity, session, db)
 
     query = query.group_by(*group_args)
-
     results = query.all()
 
     return results
 
 
-def distribution(s_opts, a_opts, session, db):
+def distribution(s_opts, a_opts, targetEntity, session, db):
 
     ring = a_opts["rings"][0]
-    query, group_args = simple_query(s_opts, a_opts, ring, session, db)
-    over_arg = _name(ring, a_opts["over"]["entity"], a_opts["over"]["field"])
-    group_args.append(over_arg)
+    query, group_args, field_names = simple_query(s_opts, a_opts, ring, targetEntity, session, db)
     query = query.group_by(*group_args)
 
     results = query.all()
-    df = pd.DataFrame(results)
+    df = pd.DataFrame(results, columns=field_names)
 
+    target_arg = _name(ring, a_opts["target"]["entity"], a_opts["target"]["field"], a_opts["target"]["op"])
     group_args.pop()
-    target_arg = _name(ring, a_opts["target"]["entity"], a_opts["target"]["field"])
+
     if group_args:
-        counts = df.groupby(group_args)[target_arg].sum()# .reset_index().rename(columns={0:'denom'})
+        counts = df.groupby(group_args)[target_arg].sum()
         for value in counts.index:
-            if type(value) == str:
-                conditions = [(df[group_args[0]] == value)]# for v,arg in zip(value, group_args)]
+            if type(value) != list:
+                conditions = [(df[group_args[0]] == value)]
             else:
                 conditions = [(df[arg] == v) for v,arg in zip(value, group_args)]
             condition = reduce(np.logical_and, conditions)
@@ -455,9 +545,5 @@ def distribution(s_opts, a_opts, session, db):
     else:
         df[target_arg] = df[target_arg] / df[target_arg].sum()
 
-    print(df)
-
-    return results
-
-
-
+    tuples = [tuple(x) for x in df.to_numpy()]
+    return tuples

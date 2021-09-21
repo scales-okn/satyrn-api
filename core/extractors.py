@@ -21,7 +21,7 @@ class RingConfigExtractor(object):
         return targetName, [ent for ent in self.config.entities if ent.name == targetName][0]
 
     def resolveJoin(self, join):
-        return join, [ent for ent in self.config.dataSource.joins if ent.name == join][0]
+        return join, [ent for ent in self.config.source.joins if ent.name == join][0]
 
     def resolveRelationship(self, relation):
         return relation, [ent for ent in self.config.relationships if ent.name == relation][0]

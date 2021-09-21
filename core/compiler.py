@@ -242,6 +242,9 @@ class Ring_Source(Ring_Object):
         if self.type == "sqlite":
             self.eng = create_engine("sqlite:///{}".format(self.connection_string))
             self.Session = sessionmaker(bind=self.eng)
+        else:
+            self.eng = create_engine(self.connection_string)
+            self.Session = sessionmaker(bind=self.eng)            
         return self.eng, self.Session
 
 
