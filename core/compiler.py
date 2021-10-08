@@ -9,8 +9,6 @@ from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import relationship, sessionmaker
 from sqlalchemy import create_engine
 
-DefaultBase = declarative_base()
-
 # This is an abstract class which serves as the superclass for concrete ring classes
 class Ring_Object(object):
 
@@ -198,7 +196,7 @@ class Ring_Relationship(Ring_Object):
 
 class Ring_Source(Ring_Object):
 
-    def __init__(self):
+    def __init__(self, base=None):
 
         # Set default values
         self.type = 'sqlite'
@@ -208,8 +206,8 @@ class Ring_Source(Ring_Object):
         self.tables = None
         self.joins = []
 
-        # Tie in the base
-        self.base = DefaultBase
+        # # Tie in the base
+        self.base = base if base else declarative_base()
 
     def parse(self, source):
         self.type = source.get('type')
@@ -244,7 +242,7 @@ class Ring_Source(Ring_Object):
             self.Session = sessionmaker(bind=self.eng)
         else:
             self.eng = create_engine(self.connection_string)
-            self.Session = sessionmaker(bind=self.eng)            
+            self.Session = sessionmaker(bind=self.eng)
         return self.eng, self.Session
 
 
@@ -402,7 +400,7 @@ class Ring_Compiler(object):
         for entity in self.config.entities:
             model_map =  self.populate_models_from_entity(entity, model_map)
 
-        models = [type(name, (DefaultBase,), model_info) for name, model_info in model_map.items()]
+        models = [type(name, (self.config.source.base,), model_info) for name, model_info in model_map.items()]
 
         return models
 
