@@ -14,8 +14,7 @@ from .seekers import getResults
 from .autocomplete import runAutocomplete
 
 # Clean up the globals
-CLEAN_OPS = {k: {k1: v1 for k1, v1 in v.items() if type(v1) in [int, float, str, list, dict]} for k, v in OPERATION_SPACE.items()}
-
+CLEAN_OPS = {k: {k1: v1 for k1, v1 in v.items() if type(v1) in [int, float, str, list, dict] and k1 not in ["pandaFunc", "funcDict"]} for k, v in OPERATION_SPACE.items()}
 
 # from the satyrn configs...
 # SEARCH_SPACE = current_app.satConf.searchSpace
@@ -178,7 +177,7 @@ def runAnalysis(ringId, targetEntity):
     #     # if entryVal in ANALYSIS_SPACE.keys():
     #     if entryVal:
     #         analysisOpts[entry] = entryVal
-    
+
     # if analysisOpts["operation"] == "percentage":
     #     # PATCH: This is a non sustainable solution for percentage operation
     #     if analysisOpts["targetField"] == "feeWaiver":
