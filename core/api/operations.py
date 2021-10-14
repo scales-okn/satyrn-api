@@ -3,7 +3,11 @@ from sqlalchemy import func
 from sqlalchemy import distinct
 from sqlalchemy.sql.expression import case
 
-#BIG TODO PENDING: When chaining operations, how does that change units? Can we codify that somehow?
+import pandas as pd
+
+from .utils import _name
+from functools import reduce
+import numpy as np
 
 def onehot_processing(model_field, pos_values):
     # print(model_field)
@@ -96,8 +100,71 @@ def pandasOneHot(df, col, numerator):
     df[col] = df[col].apply(lambda x: 1 if x == numerator else 0)
     return df
 
-def pandasCorrelation(df, col, group_cols=[]):
-    return
+def pandasCorrelation(a_opts, results, group_args, field_names):
+
+    df = pd.DataFrame(results, columns=field_names)
+    corr_matrix = df.corr("pearson")
+    ring = a_opts["rings"][0]
+
+
+
+    df_unique = df.nunique()
+    print(df_unique)
+
+    print(field_names)
+    if "numerator" in a_opts and "op" not in a_opts["target"]:
+        col_1 =  _name(ring, a_opts["target"]["entity"], a_opts["target"]["field"], "oneHot")
+    else:
+        col_1 = _name(ring, a_opts["target"]["entity"], a_opts["target"]["field"], a_opts["target"].get("op", "None"))
+
+    if "numerator2" in a_opts and "op" not in a_opts["target2"]:
+        col_2 =  _name(ring, a_opts["target2"]["entity"], a_opts["target2"]["field"], "oneHot")
+    else:
+        col_2 = _name(ring, a_opts["target2"]["entity"], a_opts["target2"]["field"], a_opts["target2"].get("op", "None"))
+    # col_2 = _name(ring, a_opts["target2"]["entity"], a_opts["target2"]["field"], a_opts["target2"].get("op", None))
+
+    corr_val = corr_matrix[col_1][col_2]
+
+    # PEnding about correlation
+    '''
+    TODO
+    questions like where there are different filters on each of the calculations
+    correlation groupby committee
+        # of contributions given by people in alaska
+        amount of money raised overall
+    '''
+    return {"results": results, "score": corr_val}
+
+
+def pandasComparison(a_opts, results, group_args, field_names):
+
+    return {"results": results}
+
+
+def pandasDistribution(a_opts, results, group_args, field_names):
+
+    df = pd.DataFrame(results, columns=field_names)
+    ring = a_opts["rings"][0]
+
+    target_arg = _name(ring, a_opts["target"]["entity"], a_opts["target"]["field"], a_opts["target"]["op"])
+    group_args.pop()
+
+    if group_args:
+        counts = df.groupby(group_args)[target_arg].sum()
+        for value in counts.index:
+            if type(value) != list:
+                conditions = [(df[group_args[0]] == value)]
+            else:
+                conditions = [(df[arg] == v) for v,arg in zip(value, group_args)]
+            condition = reduce(np.logical_and, conditions)
+            df.loc[condition, target_arg] = df.loc[condition, target_arg] / df.loc[condition, target_arg].sum()
+            
+    else:
+        df[target_arg] = df[target_arg] / df[target_arg].sum()
+
+    tuples = [tuple(x) for x in df.to_numpy()]
+    return {"results": tuples}
+
 
 
 OPERATION_SPACE = {
@@ -112,7 +179,7 @@ OPERATION_SPACE = {
         "funcDict": {
             "op": func.avg,
         },
-        "pandaFunc": {
+        "pandasFunc": {
             "op": pandasAvg
         },
         "type": "simple"
@@ -129,7 +196,7 @@ OPERATION_SPACE = {
             "op": lambda field: func.count(distinct(field)),
             # "processing": distinct
         },
-        "pandaFunc": {
+        "pandasFunc": {
             "op": pandasCount
         },
         "type": "simple"
@@ -145,7 +212,7 @@ OPERATION_SPACE = {
         "funcDict": {
             "op": func.sum,
         },
-        "pandaFunc": {
+        "pandasFunc": {
             "op": pandasSum
         },
         "type": "simple"
@@ -161,7 +228,7 @@ OPERATION_SPACE = {
         "funcDict": {
             "op": func.min,
         },
-        "pandaFunc": {
+        "pandasFunc": {
             "op": pandasMin
         },
         "type": "simple"
@@ -177,7 +244,7 @@ OPERATION_SPACE = {
         "funcDict": {
             "op": func.max,
         },
-        "pandaFunc": {
+        "pandasFunc": {
             "op": pandasMax
         },
         "type": "simple"
@@ -228,7 +295,7 @@ OPERATION_SPACE = {
             "op": lambda field: func.count(distinct(field)),
             "outerOp": func.avg
         },
-        "pandaFunc": {
+        "pandasFunc": {
             "op": pandasAvgCount,
         },
         "type": "recursive"
@@ -249,7 +316,7 @@ OPERATION_SPACE = {
             "op": func.sum,
             "outerOp": func.avg,
         },
-        "pandaFunc": {
+        "pandasFunc": {
             "op": pandasAvgSum,
         },
         "type": "recursive"
@@ -269,7 +336,7 @@ OPERATION_SPACE = {
         "funcDict": {
             "op": lambda field, numer:  func.avg(onehot_processing(field, numer)),
         },
-        "pandaFunc": {
+        "pandasFunc": {
             "op": pandasPercentage,
         },
         "type": "simple"
@@ -290,7 +357,7 @@ OPERATION_SPACE = {
             "op": onehot_processing,
             # "processing": percentage_processing
         },
-        "pandaFunc": {
+        "pandasFunc": {
             "op": pandasOneHot,
         },
         "type": "simple"
@@ -326,13 +393,13 @@ OPERATION_SPACE = {
                 "types": ["id"]
             }
         },
-        "units": "None", 
+        "units": "none", 
         "nicename": "Correlation between",
-        "funcDict": {
-            "op": func.avg,
-            "processing": onehot_processing
-        },
-        "pandaFunc": {
+        # "funcDict": {
+        #     "op": func.avg,
+        #     "processing": onehot_processing
+        # },
+        "pandasFunc": {
             "op": pandasCorrelation,
         },
         "type": "complex"
@@ -358,14 +425,14 @@ OPERATION_SPACE = {
                 "types": ["id"]
             }
         },
-        "units": "None", 
+        "units": "unchanged", 
         "nicename": "Comparison between",
-        "funcDict": {
-            "op": func.avg,
-            "processing": onehot_processing
-        },
-        "pandaFunc": {
-            "op": None,
+        # "funcDict": {
+        #     "op": func.avg,
+        #     "processing": onehot_processing
+        # },
+        "pandasFunc": {
+            "op": pandasComparison,
         },
         "type": "complex"
     },
@@ -376,15 +443,20 @@ OPERATION_SPACE = {
             "target": {
                 "types": ["int", "float", "average", "count"]
             },
+            "over": {
+                "types": ["string", "bool"]
+            }
         },
         "type": "complex",
-        "units": "distribution", 
+        "units": "distribution",
         "nicename": "Distribution of",
-        "funcDict": {
-            "op": "holis"
-        }   
+        # "funcDict": {
+        #     "op": "holis"
+        # },
+        "pandasFunc": {
+            "op": pandasDistribution,
+        },
     },
-
 
     "summaryStatistics": {
         "fields": {
