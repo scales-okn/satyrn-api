@@ -198,14 +198,16 @@ def runAnalysis(ringId, targetEntity):
 
     searchSpace = app.ringExtractors[ringId].getSearchSpace(targetEntity)
     searchOpts = organizeFilters(request, searchSpace)
-    results = run_analysis(s_opts=searchOpts, a_opts=analysisOpts, targetEntity=targetEntity)
+    raw_results = run_analysis(s_opts=searchOpts, a_opts=analysisOpts, targetEntity=targetEntity)
 
     results = {
-        "length": len(results["results"]),
-        "results": results["results"],
-        "units": results["units"],
-        "counts": results["entity_counts"] if "entity_counts" in results else {}
+        "length": len(raw_results["results"]),
+        "results": raw_results["results"],
+        "units": raw_results["units"],
+        "counts": raw_results["entity_counts"] if "entity_counts" in raw_results else {}
     }
+    if "score" in raw_results:
+        results["score"] = raw_results["score"]
     return json.dumps(results, default=str)
 
 @api.route("/result/<id>/")
