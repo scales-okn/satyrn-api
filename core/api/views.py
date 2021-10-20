@@ -93,9 +93,12 @@ def base():
 @api.route("/info/")
 @apiKeyCheck
 def getAPIInfo():
-    return json.dumps({
-        "rings": {rr.name: rr.id for rr in app.rings.values()}
-    })
+    # return json.dumps({
+    #     "rings": {rr.name: rr.id for rr in app.rings.values()}
+    # })
+    return json.dumps([
+        {"name": rr.name, "id": rr.id} for rr in app.rings.values()
+    ])
 
 @api.route("/info/<ringId>/")
 @apiKeyCheck
