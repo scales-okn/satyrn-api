@@ -97,7 +97,12 @@ def getAPIInfo():
     #     "rings": {rr.name: rr.id for rr in app.rings.values()}
     # })
     return json.dumps([
-        {"name": rr.name, "id": rr.id} for rr in app.rings.values()
+        {
+            "name": rr.name,
+            "id": rr.id,
+            "description": rr.description
+        }
+        for rr in app.rings.values()
     ])
 
 @api.route("/info/<ringId>/")

@@ -245,8 +245,6 @@ class Ring_Source(Ring_Object):
             self.Session = sessionmaker(bind=self.eng)
         return self.eng, self.Session
 
-
-
 class Ring_Join(Ring_Object):
 
     def __init__(self):
@@ -288,6 +286,7 @@ class Ring_Configuration(Ring_Object):
         self.id = None
         self.version = None
         self.source = None
+        self.description = None
         self.entities = []
         self.relationships = []
         self.default_target_model = None
@@ -297,6 +296,7 @@ class Ring_Configuration(Ring_Object):
         self.id = configuration.get('id')
         self.version = configuration.get('version')
         self.default_target_entity = configuration.get('defaultTargetEntity')
+        self.description = configuration.get('description')
         self.parse_source(configuration)
         self.parse_entities(configuration)
         self.parse_relationships(configuration)
