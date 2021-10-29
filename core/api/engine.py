@@ -91,8 +91,8 @@ def single_ring_analysis(s_opts, a_opts, ringId, targetEntity, sess, db):
         field_types["target"].extend(addit_target)
         results, new_opts, field_names, col_names, units = complex_operation(s_opts, a_opts, ringId, targetEntity, sess, db, field_types)
         a_opts = new_opts
-        print("new opts")
-        print(a_opts)
+        # print("new opts")
+        # print(a_opts)
         
         results.update({"field_names": field_names, "field_types": col_names, "units": units})
 
@@ -109,7 +109,7 @@ def single_ring_analysis(s_opts, a_opts, ringId, targetEntity, sess, db):
         units = get_units(a_opts, ringId, field_types, field_names, col_names)
         results = {"results": query.all(), "field_names": field_names, "field_types": col_names, "units": {"results": units}}
         
-    print("gonna start rocount")
+    # print("gonna start rocount")
     results.update({
         "entity_counts": row_count_query(s_opts, a_opts, ringId, targetEntity, sess, db, field_types),
     })
@@ -141,7 +141,7 @@ def complex_operation(s_opts, a_opts, ringId, targetEntity, session, db, field_t
         if key in new_a_opts and "extra" not in new_a_opts[key]:
             new_a_opts[key]["extra"] = {}
 
-    print(new_a_opts)
+    # print(new_a_opts)
 
     query, group_args, field_names, col_names = simple_query(s_opts, new_a_opts, ringId, targetEntity, session, db, field_types)
     query = query.group_by(*group_args)
@@ -359,7 +359,7 @@ def _prep_query(a_opts, ringId, db, field_types, counts=False):
             target_fields.append(target)
             col_fields.append(targ)
 
-    print(target_fields)
+    # print(target_fields)
     for target in target_fields:
         the_field, field_name = _get(ringId, target["entity"], target["field"], db, op=target["op"])
         q_args.append(OPS[target["op"]]["funcDict"]["op"](the_field, target["extra"]).label(field_name))

@@ -211,7 +211,8 @@ def runAnalysis(ringId, targetEntity):
         "length": len(raw_results["results"]),
         "results": raw_results["results"],
         "units": raw_results["units"],
-        "counts": raw_results["entity_counts"] if "entity_counts" in raw_results else {}
+        "counts": raw_results["entity_counts"] if "entity_counts" in raw_results else {},
+        "fieldNames": raw_results["field_names"],
     }
     if "score" in raw_results:
         results["score"] = raw_results["score"]
