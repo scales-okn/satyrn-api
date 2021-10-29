@@ -159,6 +159,11 @@ def searchDB(ringId, targetEntity):
     results = getResults(opts, ringId, targetEntity, page=page, batchSize=batchSize)
     return json.dumps(results, default=str)
 
+
+
+
+# PENDING: Add some check here that analysis opts are valid
+# PENDING: use col names and field names
 @api.route("/analysis/<ringId>/<targetEntity>/")
 @apiKeyCheck
 def runAnalysis(ringId, targetEntity):
@@ -191,6 +196,8 @@ def runAnalysis(ringId, targetEntity):
     searchSpace = app.ringExtractors[ringId].getSearchSpace(targetEntity)
     searchOpts = organizeFilters(request, searchSpace)
     raw_results = run_analysis(s_opts=searchOpts, a_opts=analysisOpts, targetEntity=targetEntity)
+
+    print(raw_results)
 
     results = {
         "length": len(raw_results["results"]),

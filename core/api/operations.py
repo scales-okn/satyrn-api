@@ -4,9 +4,10 @@ from sqlalchemy import distinct
 from sqlalchemy.sql.expression import case
 
 import pandas as pd
-
+from copy import deepcopy
 from .utils import _name
-from functools import reduce
+
+
 import numpy as np
 
 def onehot_processing(model_field, pos_values):
@@ -100,71 +101,14 @@ def pandasOneHot(df, col, numerator):
     df[col] = df[col].apply(lambda x: 1 if x == numerator else 0)
     return df
 
-def pandasCorrelation(a_opts, results, group_args, field_names):
 
-    df = pd.DataFrame(results, columns=field_names)
-    corr_matrix = df.corr("pearson")
-    ring = a_opts["rings"][0]
+def base_query_prep(s_opts, orig_a_opts, targetEntity):
 
-
-
-    df_unique = df.nunique()
-    print(df_unique)
-
-    print(field_names)
-    if "numerator" in a_opts and "op" not in a_opts["target"]:
-        col_1 =  _name(ring, a_opts["target"]["entity"], a_opts["target"]["field"], "oneHot")
-    else:
-        col_1 = _name(ring, a_opts["target"]["entity"], a_opts["target"]["field"], a_opts["target"].get("op", "None"))
-
-    if "numerator2" in a_opts and "op" not in a_opts["target2"]:
-        col_2 =  _name(ring, a_opts["target2"]["entity"], a_opts["target2"]["field"], "oneHot")
-    else:
-        col_2 = _name(ring, a_opts["target2"]["entity"], a_opts["target2"]["field"], a_opts["target2"].get("op", "None"))
-    # col_2 = _name(ring, a_opts["target2"]["entity"], a_opts["target2"]["field"], a_opts["target2"].get("op", None))
-
-    corr_val = corr_matrix[col_1][col_2]
-
-    # PEnding about correlation
-    '''
-    TODO
-    questions like where there are different filters on each of the calculations
-    correlation groupby committee
-        # of contributions given by people in alaska
-        amount of money raised overall
-    '''
-    return {"results": results, "score": corr_val}
-
-
-def pandasComparison(a_opts, results, group_args, field_names):
-
-    return {"results": results}
-
-
-def pandasDistribution(a_opts, results, group_args, field_names):
-
-    df = pd.DataFrame(results, columns=field_names)
-    ring = a_opts["rings"][0]
-
-    target_arg = _name(ring, a_opts["target"]["entity"], a_opts["target"]["field"], a_opts["target"]["op"])
-    group_args.pop()
-
-    if group_args:
-        counts = df.groupby(group_args)[target_arg].sum()
-        for value in counts.index:
-            if type(value) != list:
-                conditions = [(df[group_args[0]] == value)]
-            else:
-                conditions = [(df[arg] == v) for v,arg in zip(value, group_args)]
-            condition = reduce(np.logical_and, conditions)
-            df.loc[condition, target_arg] = df.loc[condition, target_arg] / df.loc[condition, target_arg].sum()
-            
-    else:
-        df[target_arg] = df[target_arg] / df[target_arg].sum()
-
-    tuples = [tuple(x) for x in df.to_numpy()]
-    return {"results": tuples}
-
+    a_opts = deepcopy(orig_a_opts)
+    a_opts["target"].update({"op": a_opts["op"],
+                    "extra": {"numerator": a_opts["numerator"]} if "numerator" in a_opts else {}
+                })
+    return s_opts, a_opts, targetEntity
 
 
 OPERATION_SPACE = {
@@ -176,8 +120,9 @@ OPERATION_SPACE = {
         },
         "units": "unchanged", 
         "nicename": "Average",
+        "queryPrep": base_query_prep,
         "funcDict": {
-            "op": func.avg,
+            "op": lambda field, extra: func.avg(field),
         },
         "pandasFunc": {
             "op": pandasAvg
@@ -192,8 +137,9 @@ OPERATION_SPACE = {
         },
         "units": "unchanged", 
         "nicename": "Count of",
+        "queryPrep": base_query_prep,
         "funcDict": {
-            "op": lambda field: func.count(distinct(field)),
+            "op": lambda field, extra: func.count(distinct(field)),
             # "processing": distinct
         },
         "pandasFunc": {
@@ -209,8 +155,9 @@ OPERATION_SPACE = {
         },
         "units": "unchanged", 
         "nicename": "Total",
+        "queryPrep": base_query_prep,
         "funcDict": {
-            "op": func.sum,
+            "op": lambda field, extra: func.sum(field),
         },
         "pandasFunc": {
             "op": pandasSum
@@ -225,8 +172,9 @@ OPERATION_SPACE = {
         },
         "units": "unchanged", 
         "nicename": "Minimum",
+        "queryPrep": base_query_prep,
         "funcDict": {
-            "op": func.min,
+            "op": lambda field, extra: func.min(field),
         },
         "pandasFunc": {
             "op": pandasMin
@@ -241,8 +189,9 @@ OPERATION_SPACE = {
         },
         "units": "unchanged", 
         "nicename": "Maximum",
+        "queryPrep": base_query_prep,
         "funcDict": {
-            "op": func.max,
+            "op": lambda field, extra: func.max(field),
         },
         "pandasFunc": {
             "op": pandasMax
@@ -255,12 +204,11 @@ OPERATION_SPACE = {
                 "types": ["float", "int", "string", "bool"]
             }
         },
-        "units": "unchanged", 
+        "units": "unchanged",
         "nicename": "Mode",
+        "queryPrep": base_query_prep,
         "funcDict": {
-            "op": func.mode,
-            "processing": func.OrderedSetAgg,
-            # ""
+            "op": lambda field, extra: func.mode().within_group(field.asc()),
         },
         "type": "simple"
     },
@@ -272,10 +220,9 @@ OPERATION_SPACE = {
         },
         "units": "unchanged", 
         "nicename": "Median",
+        "queryPrep": base_query_prep,
         "funcDict": {
-            "op": func.percentile_disc,
-            "processing": func.within_group,
-            "val": 0.50
+            "op": lambda field, extra: func.percentile_disc(0.5).within_group(field.asc()),
         },
         "type": "simple"
     },
@@ -291,9 +238,10 @@ OPERATION_SPACE = {
         },
         "units": "target/per", 
         "nicename": "Average Count of",
+        "queryPrep": base_query_prep,
         "funcDict": {
-            "op": lambda field: func.count(distinct(field)),
-            "outerOp": func.avg
+            "op": lambda field, extra: func.count(distinct(field)),
+            "outerOp": lambda field, extra: func.avg(field),
         },
         "pandasFunc": {
             "op": pandasAvgCount,
@@ -312,9 +260,10 @@ OPERATION_SPACE = {
         },
         "units": "target/per", 
         "nicename": "Average Total of",
+        "queryPrep": base_query_prep,
         "funcDict": {
-            "op": func.sum,
-            "outerOp": func.avg,
+            "op": lambda field, extra: func.sum(field),
+            "outerOp": lambda field, avg: func.sum(field),
         },
         "pandasFunc": {
             "op": pandasAvgSum,
@@ -333,8 +282,9 @@ OPERATION_SPACE = {
         },
         "units": "percentage", 
         "nicename": "Percentage of",
+        "queryPrep": base_query_prep,
         "funcDict": {
-            "op": lambda field, numer:  func.avg(onehot_processing(field, numer)),
+            "op": lambda field, extra:  func.avg(onehot_processing(field, extra["numerator"])),
         },
         "pandasFunc": {
             "op": pandasPercentage,
@@ -351,10 +301,11 @@ OPERATION_SPACE = {
                 "types": ["== target"]
             }
         },
-        # "units": "percentage", 
+        "units": "none", 
         # "nicename": "Percentage of",
+        "queryPrep": base_query_prep,
         "funcDict": {
-            "op": onehot_processing,
+            "op": lambda field, extra:  onehot_processing(field, extra["numerator"]),
             # "processing": percentage_processing
         },
         "pandasFunc": {
@@ -368,96 +319,13 @@ OPERATION_SPACE = {
                 "types": ["string", "bool"]
             },
         },
+        "queryPrep": base_query_prep,
         "funcDict": {
-            "op": lambda field: field,
+            "op": lambda field, extra: field,
         },
+        "units": "unchanged",
         "type": "simple"
     },
-    "correlation": {
-        "fields": {
-            "target": {
-                "types": ["string", "bool", "int", "float", "average", "count"]
-            },
-            "target2": {
-                "types": ["string", "bool", "int", "float", "average", "count"]
-            },
-            "numerator": {
-                "types": ["== target"],
-                "required": ["target == bool", "target == string"]
-            },
-            "numerator2": {
-                "types": ["== target"],
-                "required": ["target == bool", "target == string"]
-            },
-            "groupBy": {
-                "types": ["id"]
-            }
-        },
-        "units": "none", 
-        "nicename": "Correlation between",
-        # "funcDict": {
-        #     "op": func.avg,
-        #     "processing": onehot_processing
-        # },
-        "pandasFunc": {
-            "op": pandasCorrelation,
-        },
-        "type": "complex"
-    },
-
-    "comparison": {
-        "fields": {
-            "target": {
-                "types": ["string", "bool", "int", "float", "average", "count", "percentage"]
-            },
-            "target2": {
-                "types": ["string", "bool", "int", "float", "average", "count", "percentage"]
-            },
-            "numerator": {
-                "types": ["== target"],
-                "required": ["target == bool", "target == string"]
-            },
-            "numerator2": {
-                "types": ["== target"],
-                "required": ["target == bool", "target == string"]
-            },
-            "groupBy": {
-                "types": ["id"]
-            }
-        },
-        "units": "unchanged", 
-        "nicename": "Comparison between",
-        # "funcDict": {
-        #     "op": func.avg,
-        #     "processing": onehot_processing
-        # },
-        "pandasFunc": {
-            "op": pandasComparison,
-        },
-        "type": "complex"
-    },
-
-
-    "distribution": {
-        "fields": {
-            "target": {
-                "types": ["int", "float", "average", "count"]
-            },
-            "over": {
-                "types": ["string", "bool"]
-            }
-        },
-        "type": "complex",
-        "units": "distribution",
-        "nicename": "Distribution of",
-        # "funcDict": {
-        #     "op": "holis"
-        # },
-        "pandasFunc": {
-            "op": pandasDistribution,
-        },
-    },
-
     "summaryStatistics": {
         "fields": {
             "target": {
@@ -474,3 +342,14 @@ OPERATION_SPACE = {
 }
 
 
+
+import importlib.util
+
+import os
+directory = os.path.join(os.getcwd(), os.path.join("core","api","analysis_plugins"))
+for filename in os.listdir(directory):
+    if filename != "__init__.py" and filename.endswith(".py"):
+        name = ".".join(["core", "api", "analysis_plugins", filename[:-3]])
+        mod = importlib.import_module(name)
+        op = getattr(mod, "dct")
+        OPERATION_SPACE.update(op)
