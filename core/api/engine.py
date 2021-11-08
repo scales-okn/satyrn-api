@@ -11,32 +11,12 @@ from pandas import DataFrame
 from .operations import OPERATION_SPACE as OPS
 from .seekers import rawGetResultSet
 from .transforms import TRANSFORMS_SPACE as TRS
-from .utils import _get_join_field, _name, _outerjoin_name
+from .utils import _get_join_field, _name, _outerjoin_name, _entity_from_name
 
 # PREFILTERS = current_app.satConf.preFilters
 
 cache = current_app.cache
 CACHE_TIMEOUT=3000
-
-# Method to change the AMS so that it has the defaults in it
-# CURRENTLY NOT USED
-def add_defaults(ams):
-    # PENDING: id should never be cast i thinks
-    nulldefault = {
-            "string": ("cast", "No value"),
-            "id": ("ignore", "0"),
-            "float": ("ignore", 0.0),
-            "int": ("ignore", 0),
-            "bool": ("ignore", False),
-            "date": ("ignore", None),
-            "datetime": ("ignore", None),
-            "stringplaceholder": ("ignore", "No value")
-        }
-    for key in ams.keys():
-        if "nulls" not in ams[key]:
-            ams[key]["nulls"] = nulldefault[ams[key]["type"]][0]
-        if ams[key]["nulls"] == "cast" and "nullCast" not in ams[key]:
-            ams[key]["nullCast"] = nulldefault[ams[key]["type"]][1]
 
 
 def run_analysis(s_opts, a_opts, targetEntity):
@@ -209,7 +189,7 @@ def simple_query(s_opts, a_opts, ringId, targetEntity, session, db, field_types)
     query = session.query(*q_args)
 
     # Do filtering
-    query = _do_filters(query, s_opts, ringId, targetEntity, session, db)
+    query = _do_filters(query, s_opts, ringId, targetEntity, field_names, session, db)
 
     # Do joins
     query = _do_joins(query, tables, a_opts["relationships"] if "relationships" in a_opts else [], ringId, targetEntity, db)
@@ -249,7 +229,7 @@ def row_count_query(s_opts, a_opts, ringId, targetEntity, session, db, field_typ
     query = session.query(*q_args)
 
     # Do filtering
-    query = _do_filters(query, s_opts, ringId, targetEntity, session, db)
+    query = _do_filters(query, s_opts, ringId, targetEntity, field_names, session, db)
 
     # Do joins
     query = _do_joins(query, tables, a_opts["relationships"] if "relationships" in a_opts else [], ringId, targetEntity, db)
@@ -321,7 +301,6 @@ def get_units(a_opts, ringId, field_types, field_names, col_names):
 
 
 # PENDING: Add transforms (d: gotta define space of possible transforms to have available transformations)
-# PENDING: Add nulls (d: representation in the compiled ring)
 # PENDING: Add "nice" representation for groupby values (for nice names and stuff) (d: )
 def _prep_query(a_opts, ringId, db, field_types, counts=False):
     # Called to query across a (or multiple) computed values
@@ -385,7 +364,7 @@ def _prep_query(a_opts, ringId, db, field_types, counts=False):
 
 # PENDING: Finish filling this out for null dropping
 # PENDING: Finish filling this out for prefilters
-def _do_filters(query, s_opts, ringId, targetEntity, session, db):
+def _do_filters(query, s_opts, ringId, targetEntity, col_names, session, db):
     '''
     Adding filters
     '''
@@ -399,6 +378,48 @@ def _do_filters(query, s_opts, ringId, targetEntity, session, db):
         query = rawGetResultSet(s_opts, ringId, targetEntity, targetRange=None, simpleResults=True, just_query=True, sess=session, query=query)
 
     # do nan filtering
+    # Need to get a list of all the attributes that are being used in the query
+    # For each of these, get the attr_obj using something like the following
+
+    for name in col_names:
+        param_dct = _entity_from_name(name)
+        print(param_dct)
+        entity_dict = current_app.ringExtractors[ringId].resolveEntity(param_dct["entity"])[1]
+        if param_dct["attribute"] != "id":
+            attr_obj = [attr for attr in entity_dict.attributes if attr.name == param_dct["attribute"]][0]
+        else:
+            attr_obj = None
+        if attr_obj:
+            if attr_obj.nullHandling and attr_obj.nullHandling == "ignore":
+                
+                # NOTE: we might need to do something fancy here in case 
+                # e.g. if the queried field is avg(amount), i think we have to filter by amount != None
+                # meaning we cant directly use the name of the object, so we have to
+                # again get the "real" field and filter off of that
+                # PENDING: might have issues since there could be multiple fields with same name
+                field, name = _get(ringId, param_dct["entity"], param_dct["attribute"], db, transform=None, op=None)
+                query = query.filter(field != None)
+
+
+
+    '''
+    entity_dict = current_app.ringExtractors[ringId].resolveEntity(entity)[1]
+    if attribute != "id":
+        attr_obj = [attr for attr in entity_dict.attributes if attr.name == attribute][0]
+
+    if attr_obj:
+        if attr_obj.nullHandling and attr_obj.nullHandling == "cast":
+            field = _nan_cast(field, attr_obj.nullValue)
+    '''
+    # Then, if nullhandling == drop, do a line like below
+    '''
+        # Do nan dropping if needed
+        for field in fields_list:
+            if AMS[field]["nulls"] == "ignore": # and not (AMS[field]["type"] in ["float", "int", "datetime"] and "transform" in AMS[field]):
+                query = query.filter(getattr(AMS[field]["model"], AMS[field]["field"]) != None)
+                if count_bool:
+                    counts.append({"filter": field, "rowCount": query.count(), "type": "nullIgnore"})
+    '''
 
     return query
 
@@ -518,10 +539,16 @@ def _get(ringId, entity, attribute, db, transform=None, op=None):
     else:
         model_name = entity_dict.table
         field_name = entity_dict.id[0]
+        attr_obj = None
 
     model = getattr(db, model_name)
     field = getattr(model, field_name)
     name = _name(ringId, entity, attribute, op)
+
+    # Get null handling
+    if attr_obj:
+        if attr_obj.nullHandling and attr_obj.nullHandling == "cast":
+            field = _nan_cast(field, attr_obj.nullValue)
 
     if transform:
         field = TRS[transform].processor(field)

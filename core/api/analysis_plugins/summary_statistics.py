@@ -91,7 +91,7 @@ dct = {
 
 
 {
-    "target": {
+    "target0": {
         "entity":"Contribution",
         "field": "amount"
         "op": "min"

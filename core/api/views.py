@@ -171,7 +171,7 @@ def searchDB(ringId, targetEntity):
 
 
 # PENDING: Add some check here that analysis opts are valid
-# PENDING: use col names and field names
+# PENDING: Use fieldTypes?
 @api.route("/analysis/<ringId>/<targetEntity>/")
 @apiKeyCheck
 def runAnalysis(ringId, targetEntity):

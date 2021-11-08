@@ -16,12 +16,12 @@ def comparisonQuery(s_opts, orig_a_opts, targetEntity):
         elif "op" not in a_opts[targ]:             
             a_opts[targ].update({
                             "op": "None",
-                            "extra": {}
                         })
         else:
-            a_opts[targ].update({
-                            "extra": {}
-                        })
+            # a_opts[targ].update({
+            #                 "extra": {}
+            #             })
+            pass
     return s_opts, a_opts, targetEntity
 
 def pandasComparison(a_opts, results, group_args, field_names, col_names):
