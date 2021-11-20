@@ -177,7 +177,8 @@ def getRingInfoWithVersion(ringId, version):
 @api.route("/rings/<ringId>/<version>/<targetEntity>/")
 @apiKeyCheck
 def getEntityInfo(ringId, version, targetEntity):
-    ringInfo = app.ringExtractors[ringId][version].generateInfo(targetEntity)
+    ring, ringExtractor = getOrCreateRing(ringId, version)
+    ringInfo = ringExtractor.generateInfo(targetEntity)
     ringInfo["operations"] = CLEAN_OPS
     return json.dumps(ringInfo)
 
@@ -189,19 +190,21 @@ def cachedAutocomplete(db, theType, searchSpace, opts):
 @api.route("/autocomplete/<ringId>/<version>/<targetEntity>/<theType>/")
 @apiKeyCheck
 def getAutocompletes(ringId, version, targetEntity, theType):
+    ring, ringExtractor = getOrCreateRing(ringId, version)
     limit = request.args.get("limit", 1000)
     opts = {"query": request.args.get("query", None), "limit": limit}
-    searchSpace = app.ringExtractors[ringId][version].getSearchSpace(targetEntity)
-
+    searchSpace = ringExtractor.getSearchSpace(targetEntity)
+    breakpoint()
     if theType in searchSpace \
       and "autocomplete" in searchSpace[theType] \
       and searchSpace[theType]["autocomplete"]:
-        return cachedAutocomplete(app.rings[ringId][version].db, theType, searchSpace[theType], opts)
+        return cachedAutocomplete(ring.db, theType, searchSpace[theType], opts)
     return json.dumps({"success": False, "message": "Unknown autocomplete type"})
 
 @api.route("/results/<ringId>/<version>/<targetEntity>/")
 @apiKeyCheck
 def searchDB(ringId, version, targetEntity):
+    ring, ringExtractor = getOrCreateRing(ringId, version)
     # takes a list of args that match to top-level keys in SEARCH_SPACE
     # or None and it'll return the full set (in batches of limit)
     # set up some args
@@ -215,8 +218,8 @@ def searchDB(ringId, version, targetEntity):
     batchSize = int(request.args.get("batchSize", 10))
     page = int(request.args.get("page", 0))
     # bundle search terms
-    searchSpace = app.ringExtractors[ringId][version].getSearchSpace(targetEntity)
-    sortables = app.ringExtractors[ringId][version].getSortables(targetEntity)
+    searchSpace = ringExtractor.getSearchSpace(targetEntity)
+    sortables = ringExtractor.getSortables(targetEntity)
     opts = organizeFilters(request, searchSpace)
     # and manage sorting
     # TODO: move this next line to config
@@ -226,10 +229,8 @@ def searchDB(ringId, version, targetEntity):
     opts["sortBy"] = sortBy if sortBy in sortables else None
     opts["sortDir"] = sortDir if sortDir in ["asc", "desc"] else "desc"
     # now go hunting
-    results = getResults(opts, ringId, targetEntity, page=page, batchSize=batchSize)
+    results = getResults(opts, ring, ringExtractor, targetEntity, page=page, batchSize=batchSize)
     return json.dumps(results, default=str)
-
-
 
 
 # PENDING: Add some check here that analysis opts are valid
@@ -237,6 +238,7 @@ def searchDB(ringId, version, targetEntity):
 @api.route("/analysis/<ringId>/<version>/<targetEntity>/")
 @apiKeyCheck
 def runAnalysis(ringId, version, targetEntity):
+    ring, ringExtractor = getOrCreateRing(ringId, version)
     # takes a list of args that match to top-level keys in SEARCH_SPACE (or None)
     # and keys related to analysis with analysisType defining the "frame" (matching a key in analysisSpace.py)
     # The analysis parameters come in via a JSON body thingy
@@ -247,7 +249,7 @@ def runAnalysis(ringId, version, targetEntity):
 
     # first, get the search/filter stuff:
 
-    searchSpace = app.ringExtractors[ringId][version].getSearchSpace(targetEntity)
+    searchSpace = ringExtractor.getSearchSpace(targetEntity)
     searchOpts = organizeFilters(request, searchSpace)
     raw_results = run_analysis(s_opts=searchOpts, a_opts=analysisOpts, targetEntity=targetEntity)
 

@@ -95,6 +95,7 @@ class Ring_Attribute(Ring_Object):
             "string": ("cast", "No value"),
             "float": ("ignore", 0.0),
             "int": ("ignore", 0),
+            "integer": ("ignore", 0),
             "boolean": ("ignore", False),
             "date": ("ignore", None),
             "datetime": ("ignore", None),
@@ -228,7 +229,11 @@ class Ring_Source(Ring_Object):
 
     def parse(self, source):
         self.type = source.get('type')
-        self.connection_string = source.get('connectionString')
+        if self.type in ["sqlite", "csv"]:
+            ffl = os.environ.get("FLAT_FILE_LOC", "/")
+            self.connection_string = os.path.join(ffl, source.get('connectionString'))
+        else:
+            self.connection_string = source.get('connectionString')
         self.tables = source.get('tables')
         self.parse_joins(source)
 
