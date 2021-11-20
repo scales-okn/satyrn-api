@@ -7,3 +7,4 @@ Flask-SQLAlchemy
 geoalchemy2
 IPython
 pandas
+requests
