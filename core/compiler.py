@@ -32,6 +32,7 @@ class Ring_Object(object):
     def is_valid(self):
         return False
 
+
 class Ring_Attribute(Ring_Object):
 
     def __init__(self, parent_entity=None):
@@ -54,6 +55,10 @@ class Ring_Attribute(Ring_Object):
         # a flag to track whether it requires a join
         self.join_required = False
         self.parent_entity = parent_entity
+
+        # Andong started messing stuff up here
+        self.nullHandling = None
+        self.nullValue = None
 
     def parse(self, name, info):
         self.name = name
@@ -84,6 +89,18 @@ class Ring_Attribute(Ring_Object):
             self.analyzable = md.get('analyzable', False)
             self.autocomplete = md.get('autocomplete', True if self.searchable else False)
             self.description = md.get('description')
+
+        # Andong started adding things here
+        null_defaults = {
+            "string": ("cast", "No value"),
+            "float": ("ignore", 0.0),
+            "int": ("ignore", 0),
+            "boolean": ("ignore", False),
+            "date": ("ignore", None),
+            "datetime": ("ignore", None),
+        }
+        self.nullHandling = info.get("nullHandling", null_defaults[self.baseIsa][0])
+        self.nullValue = info.get("nullValue", null_defaults[self.baseIsa][1])
 
     def construct(self):
 

@@ -229,6 +229,11 @@ def searchDB(ringId, version, targetEntity):
     results = getResults(opts, ringId, targetEntity, page=page, batchSize=batchSize)
     return json.dumps(results, default=str)
 
+
+
+
+# PENDING: Add some check here that analysis opts are valid
+# PENDING: Use fieldTypes?
 @api.route("/analysis/<ringId>/<version>/<targetEntity>/")
 @apiKeyCheck
 def runAnalysis(ringId, version, targetEntity):
@@ -246,11 +251,14 @@ def runAnalysis(ringId, version, targetEntity):
     searchOpts = organizeFilters(request, searchSpace)
     raw_results = run_analysis(s_opts=searchOpts, a_opts=analysisOpts, targetEntity=targetEntity)
 
+    print(raw_results)
+
     results = {
         "length": len(raw_results["results"]),
         "results": raw_results["results"],
         "units": raw_results["units"],
-        "counts": raw_results["entity_counts"] if "entity_counts" in raw_results else {}
+        "counts": raw_results["entity_counts"] if "entity_counts" in raw_results else {},
+        "fieldNames": raw_results["field_names"],
     }
     if "score" in raw_results:
         results["score"] = raw_results["score"]
