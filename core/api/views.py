@@ -1,62 +1,15 @@
-from datetime import datetime
-from functools import wraps
 import json
-import os
-import secrets
 
-from flask import current_app, Blueprint, request, send_file, send_from_directory
+from flask import current_app, Blueprint, request, send_from_directory
 from flask_security import login_required
-import requests
-from sqlalchemy import func
 
 # from .analysisSpace import ANALYSIS_MODEL_SPACE as ANALYSIS_SPACE
 from .engine import run_analysis
-from .operations import OPERATION_SPACE
 from .seekers import getResults
 from .autocomplete import runAutocomplete
-from ..compiler import compile_ring
-from ..extractors import RingConfigExtractor
 
-# Clean up the globals
-CLEAN_OPS = {k: {k1: v1 for k1, v1 in v.items() if type(v1) in [int, float, str, list, dict] and k1 not in ["pandaFunc", "funcDict", "pandasFunc"]} for k, v in OPERATION_SPACE.items()}
+from .viewHelpers import CLEAN_OPS, apiKeyCheck, errorGen, organizeFilters, cleanDate, getOrCreateRing, getRing, getRingFromService
 
-# from the satyrn configs...
-# SEARCH_SPACE = current_app.satConf.searchSpace
-# ANALYSIS_SPACE = current_app.satConf.analysisSpace
-
-# static globals for /info/ endpoint
-# COLUMNS_INFO = current_app.satConf.columns
-# SORT_INFO = current_app.satConf.defaultSort
-# SORTABLES = [col["key"] for col in COLUMNS_INFO if col["sortable"] is True]
-
-# a decorator for checking API keys
-# API key set flatfootedly via env in appBundler.py for now
-# requires that every call to the API has a get param of key=(apikey) appended to it
-# basic implementation -- most use cases will require this is updated to pass via request header
-def apiKeyCheck(innerfunc):
-    @wraps(innerfunc)
-    def decfunc(*args, **kwargs):
-        if "ENV" in app.config and app.config["ENV"] in ["development", "dev"]:
-            # we can bypass when running locally for ease of dev
-            pass
-        elif not request.headers.get("x-api-key"):
-            return errorGen("API key required")
-        elif request.headers.get("x-api-key") != app.config["API_KEY"]:
-            return errorGen("Incorrect API key")
-        return innerfunc(*args, **kwargs)
-    return decfunc
-
-
-# a simple error messenger for standardized updates
-# augment as necessary
-def errorGen(msg):
-    return json.dumps({
-        "success": False,
-        "message": str(msg)
-    })
-
-# FIELD_UNITS = {k: v["unit"] for k, v in current_app.satConf.analysisSpace.items() if "unit" in v}
-#
 # # some "local globals"
 app = current_app # this is now the same app instance as defined in appBundler.py
 api = Blueprint("api", __name__)
@@ -64,63 +17,11 @@ api = Blueprint("api", __name__)
 # db = SATCONF.db
 cache = app.cache
 
-# a generic filter-prep function
-def organizeFilters(request, searchSpace):
-    opts = {}
-    for k in searchSpace.keys():
-        setting = request.args.get(k, None)
-        if setting:
-            if searchSpace[k]["type"] == "date":
-                dateRange = setting.strip('][').split(",")
-                opts[k] = [cleanDate(dte) for dte in dateRange]
-            elif searchSpace[k]["allowMultiple"]:
-                opts[k] = request.args.getlist(k, None)
-            else:
-                opts[k] = setting
-    return opts
-
-def cleanDate(dte):
-    return datetime.strptime(dte, '%Y-%m-%d') if dte != "null" else None
-
-#
-# RING HELPERS
-# to get or create ring as necessary
-def getOrCreateRing(ringId, version=None, forceRefresh=False):
-    # breakpoint()
-    if (ringId not in app.rings) or (version and version not in app.rings.get(ringId, {})) or forceRefresh:
-        getRingFromService(ringId, version)
-    if not version:
-        # get the highest version number available (mirrors behavior of the get)
-        versions = sorted(app.rings[ringId].keys())
-        version = versions[-1:][0]
-    return app.rings[ringId][version], app.ringExtractors[ringId][version]
-
-def getRing(ringId, version=None):
-    ring, ringExtractor = getOrCreateRing(ringId, version)
-    return ring
-
-def getRingFromService(ringId, version=None):
-    # TODO: go get ring config and hydrate and append to app.rings / app.ringExtractors
-    headers = {"x-api-key": app.config["UX_SERVICE_API_KEY"]}
-    if version:
-        request = requests.get(os.path.join(app.uxServiceAPI, "rings", ringId, version), headers=headers)
-    else:
-        # get the latest...
-        request = requests.get(os.path.join(app.uxServiceAPI, "rings", ringId), headers=headers)
-    requestJSON = request.json()
-    ringConfig = requestJSON["data"]["ring"]
-    # breakpoint()
-    if type(ringConfig) == str:
-        ringConfig = json.loads(ringConfig)
-    ring = compile_ring(ringConfig, in_type="json")
-    if not ring.id in app.rings:
-        app.rings[ring.id] = {}
-        app.ringExtractors[ring.id] = {}
-    if not version:
-        version = ring.version
-    app.rings[ring.id][version] = ring
-    app.ringExtractors[ring.id][version] = RingConfigExtractor(ring)
-
+# One cache enabled helper function...
+@cache.memoize(timeout=1000)
+def cachedAutocomplete(db, theType, searchSpace, opts):
+    # TODO: make this work with the new DB setup!
+    return json.dumps(runAutocomplete(db, theType, searchSpace, opts))
 
 #
 # THE ROUTES
@@ -181,11 +82,6 @@ def getEntityInfo(ringId, version, targetEntity):
     ringInfo = ringExtractor.generateInfo(targetEntity)
     ringInfo["operations"] = CLEAN_OPS
     return json.dumps(ringInfo)
-
-@cache.memoize(timeout=1000)
-def cachedAutocomplete(db, theType, searchSpace, opts):
-    # TODO: make this work with the new DB setup!
-    return json.dumps(runAutocomplete(db, theType, searchSpace, opts))
 
 @api.route("/autocomplete/<ringId>/<version>/<targetEntity>/<theType>/")
 @apiKeyCheck
