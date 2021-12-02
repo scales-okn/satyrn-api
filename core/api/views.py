@@ -90,7 +90,6 @@ def getAutocompletes(ringId, version, targetEntity, theType):
     limit = request.args.get("limit", 1000)
     opts = {"query": request.args.get("query", None), "limit": limit}
     searchSpace = ringExtractor.getSearchSpace(targetEntity)
-    breakpoint()
     if theType in searchSpace \
       and "autocomplete" in searchSpace[theType] \
       and searchSpace[theType]["autocomplete"]:
