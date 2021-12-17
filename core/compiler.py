@@ -257,7 +257,11 @@ class Ring_Source(Ring_Object):
 
     def parse(self, source):
         self.type = source.get('type')
-        self.connection_string = source.get('connectionString')
+        if self.type in ["sqlite", "csv"]:
+            ffl = os.environ.get("FLAT_FILE_LOC", "/")
+            self.connection_string = os.path.join(ffl, source.get('connectionString'))
+        else:
+            self.connection_string = source.get('connectionString')
         self.tables = source.get('tables')
         self.parse_joins(source)
 
@@ -278,8 +282,9 @@ class Ring_Source(Ring_Object):
         return source
 
     def is_valid(self):
-        valid = bool(self.type and self.connection_string and self.tables and self.joins)
-        valid = valid and reduce((lambda x, y: x and y), map((lambda x: x.is_valid()), self.joins))
+        valid = bool(self.type and self.connection_string and self.tables)
+        if self.joins:
+            valid = valid and reduce((lambda x, y: x and y), map((lambda x: x.is_valid()), self.joins))
         return valid
 
     def make_connection(self, db):
@@ -434,8 +439,10 @@ class Ring_Configuration(Ring_Object):
 
         # Initialize other properties
         self.name = None
+        self.dbid = None
         self.id = None
         self.version = None
+        self.schemaVersion = None
         self.source = None
         self.description = None
         self.entities = []
@@ -444,9 +451,14 @@ class Ring_Configuration(Ring_Object):
 
     def parse(self, configuration):
         self.name = configuration.get('name')
-        self.id = configuration.get('id')
+        self.dbid = configuration.get('id')
+        self.id = configuration.get('rid')
         self.version = configuration.get('version')
-        self.default_target_entity = configuration.get('defaultTargetEntity')
+        self.schemaVersion = configuration.get('schemaVersion', 2)
+        if self.schemaVersion > 2:
+            self.default_target_entity = configuration.get('ontology', {}).get('defaultTargetEntity')
+        else:
+            self.default_target_entity = configuration.get('defaultTargetEntity')
         self.description = configuration.get('description')
         self.parse_source(configuration)
         self.parse_entities(configuration)
@@ -459,20 +471,24 @@ class Ring_Configuration(Ring_Object):
             self.source = source
 
     def parse_entities(self, configuration):
-        if 'entities' in configuration:
-            entities = configuration['entities']
-            for entity in entities:
-                entity_object = Ring_Entity()
-                entity_object.parse(entity)
-                self.entities.append(entity_object)
+        if self.schemaVersion > 2:
+            entities = configuration.get('ontology', {}).get('entities', [])
+        else:
+            entities = configuration.get('entities', [])
+        for entity in entities:
+            entity_object = Ring_Entity()
+            entity_object.parse(entity)
+            self.entities.append(entity_object)
 
     def parse_relationships(self, configuration):
-        if 'relationships' in configuration:
-            rels = configuration['relationships']
-            for rel in rels:
-                relationship_object = Ring_Relationship()
-                relationship_object.parse(rel)
-                self.relationships.append(relationship_object)
+        if self.schemaVersion > 2:
+            rels = configuration.get("ontology", {}).get("relationships", [])
+        else:
+            rels = configuration.get("relationships", [])
+        for rel in rels:
+            relationship_object = Ring_Relationship()
+            relationship_object.parse(rel)
+            self.relationships.append(relationship_object)
 
     def parse_file_with_path(self, path):
         with open(path, 'r') as file:
@@ -713,12 +729,19 @@ def compile_rings(rings_list):
     # in next pass, rings_list will be a list of ids in db OR list of json objects, TBD
     rings = {}
     for ring_path in rings_list:
-        config = Ring_Configuration()
-        config.parse_file_with_path(ring_path)
-        config.compiler = Ring_Compiler(config)
-        config.db = config.compiler.build_ORM()
+        config = compile_ring(ring_path, in_type="path")
         rings[config.id] = config
     return rings
+
+def compile_ring(ring, in_type="json"):
+    config = Ring_Configuration()
+    if in_type == "path": # ring is a path to a json file
+        config.parse_file_with_path(ring)
+    else: # ring should be the json of a ring
+        config.parse(ring)
+    config.compiler = Ring_Compiler(config)
+    config.db = config.compiler.build_ORM()
+    return config
 
 # NEW VERSION
 def currencyConverter(amt, inDen, outDen):

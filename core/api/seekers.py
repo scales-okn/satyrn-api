@@ -15,12 +15,12 @@ CACHE_TIMEOUT=6000
 #
 # Helper functions for searching/results
 @cache.memoize(timeout=CACHE_TIMEOUT)
-def getResults(opts, ringId, targetEntity, page=0, batchSize=10):
+def getResults(opts, ring, ringExtractor, targetEntity, page=0, batchSize=10):
     # takes a dictionary of key->vals that power a set of searchs downstream...
     # also takes a page + slice value to power pagination on the UI (and caching per page)
     # defers to another memoized function getResultSet to preload results in batches of 10x the slice
     targetRange = getCacheRange(page, batchSize)
-    payload = getResultSet(opts, ringId, targetEntity, targetRange)
+    payload = getResultSet(opts, ring, ringExtractor, targetEntity, targetRange)
     relativeStart = page * batchSize - targetRange[0]
     relativeStop = relativeStart + batchSize
     return {
@@ -40,18 +40,18 @@ def getCacheRange(page, batchSize):
     return [targetTop-window, targetTop]
 
 @cache.memoize(timeout=CACHE_TIMEOUT)
-def getResultSet(opts, ringId, targetEntity, targetRange=[0,100]):
-    return rawGetResultSet(opts, ringId, targetEntity, targetRange)
+def getResultSet(opts, ring, ringExtractor, targetEntity, targetRange=[0,100]):
+    return rawGetResultSet(opts, ring, ringExtractor, targetEntity, targetRange)
 
-def rawGetResultSet(opts, ringId, targetEntity, targetRange=None, simpleResults=True, just_query=False, sess=None, query=None):
-    db = app.rings[ringId].db
-    targetInfo = app.ringExtractors[ringId].resolveEntity(targetEntity)[1]
+def rawGetResultSet(opts, ring, ringExtractor, targetEntity, targetRange=None, simpleResults=True, just_query=False, sess=None, query=None):
+    db = ring.db
+    targetInfo = ringExtractor.resolveEntity(targetEntity)[1]
     targetModel = getattr(db, targetInfo.table)
-    searchSpace = app.ringExtractors[ringId].getSearchSpace(targetEntity)
-    formatResult = app.ringExtractors[ringId].formatResult
+    searchSpace = ringExtractor.getSearchSpace(targetEntity)
+    formatResult = ringExtractor.formatResult
     # takes a dictionary of key->vals that power a set of searchs downstream...
-    # also takes a ringId and targetEntity name
-    # also takes a range value to memoize a broader set than current page view
+    # also takes a ring, ringExtractor and targetEntity name
+    # and a range value to memoize a broader set than current page view
     # returns a dict with two keys: results and totalCount
     if not sess:
         sess = db.Session()

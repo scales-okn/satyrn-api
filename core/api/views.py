@@ -1,58 +1,15 @@
-from datetime import datetime
-from functools import wraps
 import json
-import secrets
 
-from flask import current_app, Blueprint, request, send_file, send_from_directory
+from flask import current_app, Blueprint, request, send_from_directory
 from flask_security import login_required
-from sqlalchemy import func
 
 # from .analysisSpace import ANALYSIS_MODEL_SPACE as ANALYSIS_SPACE
 from .engine import run_analysis
-from .operations import OPERATION_SPACE
 from .seekers import getResults
 from .autocomplete import runAutocomplete
 
-# Clean up the globals
-CLEAN_OPS = {k: {k1: v1 for k1, v1 in v.items() if type(v1) in [int, float, str, list, dict] and k1 not in ["pandaFunc", "funcDict"]} for k, v in OPERATION_SPACE.items()}
+from .viewHelpers import CLEAN_OPS, apiKeyCheck, errorGen, organizeFilters, cleanDate, getOrCreateRing, getRing, getRingFromService
 
-# from the satyrn configs...
-# SEARCH_SPACE = current_app.satConf.searchSpace
-# ANALYSIS_SPACE = current_app.satConf.analysisSpace
-
-# static globals for /info/ endpoint
-# COLUMNS_INFO = current_app.satConf.columns
-# SORT_INFO = current_app.satConf.defaultSort
-# SORTABLES = [col["key"] for col in COLUMNS_INFO if col["sortable"] is True]
-
-# a decorator for checking API keys
-# API key set flatfootedly via env in appBundler.py for now
-# requires that every call to the API has a get param of key=(apikey) appended to it
-# basic implementation -- most use cases will require this is updated to pass via request header
-def apiKeyCheck(innerfunc):
-    @wraps(innerfunc)
-    def decfunc(*args, **kwargs):
-        if "ENV" in app.config and app.config["ENV"] in ["development", "dev"]:
-            # we can bypass when running locally for ease of dev
-            pass
-        elif not request.headers.get("x-api-key"):
-            return errorGen("API key required")
-        elif request.headers.get("x-api-key") != app.config["API_KEY"]:
-            return errorGen("Incorrect API key")
-        return innerfunc(*args, **kwargs)
-    return decfunc
-
-
-# a simple error messenger for standardized updates
-# augment as necessary
-def errorGen(msg):
-    return json.dumps({
-        "success": False,
-        "message": str(msg)
-    })
-
-# FIELD_UNITS = {k: v["unit"] for k, v in current_app.satConf.analysisSpace.items() if "unit" in v}
-#
 # # some "local globals"
 app = current_app # this is now the same app instance as defined in appBundler.py
 api = Blueprint("api", __name__)
@@ -60,24 +17,11 @@ api = Blueprint("api", __name__)
 # db = SATCONF.db
 cache = app.cache
 
-# a generic filter-prep function
-def organizeFilters(request, searchSpace):
-    opts = {}
-    for k in searchSpace.keys():
-        setting = request.args.get(k, None)
-        if setting:
-            if searchSpace[k]["type"] == "date":
-                dateRange = setting.strip('][').split(",")
-                opts[k] = [cleanDate(dte) for dte in dateRange]
-            elif searchSpace[k]["allowMultiple"]:
-                opts[k] = request.args.getlist(k, None)
-            else:
-                opts[k] = setting
-    return opts
-
-def cleanDate(dte):
-    return datetime.strptime(dte, '%Y-%m-%d') if dte != "null" else None
-
+# One cache enabled helper function...
+@cache.memoize(timeout=1000)
+def cachedAutocomplete(db, theType, searchSpace, opts):
+    # TODO: make this work with the new DB setup!
+    return json.dumps(runAutocomplete(db, theType, searchSpace, opts))
 
 #
 # THE ROUTES
@@ -90,56 +34,72 @@ def base():
         "status": "API is up and running"
     })
 
-@api.route("/info/")
+@api.route("/rings/", methods=["GET"]) #, "POST"])
 @apiKeyCheck
 def getAPIInfo():
-    # return json.dumps({
-    #     "rings": {rr.name: rr.id for rr in app.rings.values()}
-    # })
-    return json.dumps([
-        {
-            "name": rr.name,
-            "id": rr.id,
-            "description": rr.description
+    return json.dumps({
+        # "success": success,
+        # "message": msg,
+        "rings": [{
+            "id": rid,
+            "versions": {
+                version: {
+                    "name": ringInfo.name,
+                    "description": ringInfo.description
+                }
+                for version, ringInfo in app.rings.get(rid).items()
+            }
         }
-        for rr in app.rings.values()
-    ])
+        for rid in app.rings.keys()]
+    })
 
-@api.route("/info/<ringId>/")
+
+@api.route("/rings/<ringId>/", methods=["GET"])
 @apiKeyCheck
 def getRingInfo(ringId):
-    ringInfo = app.ringExtractors[ringId].generateInfo()
+    # THIS IS GOING TO ASSUME THE REQUESTING PROXY
+    # IS MANAGING WHETHER THE USER HAS THE RIGHT TO DO THIS OR NOT
+    # Also, if no version set, "latest" is implied (see next endpoint for explicitly set version)
+    ring, ringExtractor = getOrCreateRing(ringId)
+    ringInfo = ringExtractor.generateInfo()
     ringInfo["operations"] = CLEAN_OPS
     return json.dumps(ringInfo)
 
-@api.route("/info/<ringId>/<targetEntity>/")
+@api.route("/rings/<ringId>/<version>/", methods=["GET"])
 @apiKeyCheck
-def getEntityInfo(ringId, targetEntity):
-    ringInfo = app.ringExtractors[ringId].generateInfo(targetEntity)
+def getRingInfoWithVersion(ringId, version):
+    # THIS IS GOING TO ASSUME THE REQUESTING PROXY
+    # IS MANAGING WHETHER THE USER HAS THE RIGHT TO DO THIS OR NOT
+    ring, ringExtractor = getOrCreateRing(ringId, version=version)
+    ringInfo = ringExtractor.generateInfo()
     ringInfo["operations"] = CLEAN_OPS
     return json.dumps(ringInfo)
 
-@cache.memoize(timeout=1000)
-def cachedAutocomplete(db, theType, searchSpace, opts):
-    # TODO: make this work with the new DB setup!
-    return json.dumps(runAutocomplete(db, theType, searchSpace, opts))
-
-@api.route("/autocomplete/<ringId>/<targetEntity>/<theType>/")
+@api.route("/rings/<ringId>/<version>/<targetEntity>/")
 @apiKeyCheck
-def getAutocompletes(ringId, targetEntity, theType):
+def getEntityInfo(ringId, version, targetEntity):
+    ring, ringExtractor = getOrCreateRing(ringId, version)
+    ringInfo = ringExtractor.generateInfo(targetEntity)
+    ringInfo["operations"] = CLEAN_OPS
+    return json.dumps(ringInfo)
+
+@api.route("/autocomplete/<ringId>/<version>/<targetEntity>/<theType>/")
+@apiKeyCheck
+def getAutocompletes(ringId, version, targetEntity, theType):
+    ring, ringExtractor = getOrCreateRing(ringId, version)
     limit = request.args.get("limit", 1000)
     opts = {"query": request.args.get("query", None), "limit": limit}
-    searchSpace = app.ringExtractors[ringId].getSearchSpace(targetEntity)
-
+    searchSpace = ringExtractor.getSearchSpace(targetEntity)
     if theType in searchSpace \
       and "autocomplete" in searchSpace[theType] \
       and searchSpace[theType]["autocomplete"]:
-        return cachedAutocomplete(app.rings[ringId].db, theType, searchSpace[theType], opts)
+        return cachedAutocomplete(ring.db, theType, searchSpace[theType], opts)
     return json.dumps({"success": False, "message": "Unknown autocomplete type"})
 
-@api.route("/results/<ringId>/<targetEntity>/")
+@api.route("/results/<ringId>/<version>/<targetEntity>/")
 @apiKeyCheck
-def searchDB(ringId, targetEntity):
+def searchDB(ringId, version, targetEntity):
+    ring, ringExtractor = getOrCreateRing(ringId, version)
     # takes a list of args that match to top-level keys in SEARCH_SPACE
     # or None and it'll return the full set (in batches of limit)
     # set up some args
@@ -153,8 +113,8 @@ def searchDB(ringId, targetEntity):
     batchSize = int(request.args.get("batchSize", 10))
     page = int(request.args.get("page", 0))
     # bundle search terms
-    searchSpace = app.ringExtractors[ringId].getSearchSpace(targetEntity)
-    sortables = app.ringExtractors[ringId].getSortables(targetEntity)
+    searchSpace = ringExtractor.getSearchSpace(targetEntity)
+    sortables = ringExtractor.getSortables(targetEntity)
     opts = organizeFilters(request, searchSpace)
     # and manage sorting
     # TODO: move this next line to config
@@ -164,17 +124,16 @@ def searchDB(ringId, targetEntity):
     opts["sortBy"] = sortBy if sortBy in sortables else None
     opts["sortDir"] = sortDir if sortDir in ["asc", "desc"] else "desc"
     # now go hunting
-    results = getResults(opts, ringId, targetEntity, page=page, batchSize=batchSize)
+    results = getResults(opts, ring, ringExtractor, targetEntity, page=page, batchSize=batchSize)
     return json.dumps(results, default=str)
-
-
 
 
 # PENDING: Add some check here that analysis opts are valid
 # PENDING: Use fieldTypes?
-@api.route("/analysis/<ringId>/<targetEntity>/")
+@api.route("/analysis/<ringId>/<version>/<targetEntity>/")
 @apiKeyCheck
-def runAnalysis(ringId, targetEntity):
+def runAnalysis(ringId, version, targetEntity):
+    ring, ringExtractor = getOrCreateRing(ringId, version)
     # takes a list of args that match to top-level keys in SEARCH_SPACE (or None)
     # and keys related to analysis with analysisType defining the "frame" (matching a key in analysisSpace.py)
     # The analysis parameters come in via a JSON body thingy
@@ -182,26 +141,10 @@ def runAnalysis(ringId, targetEntity):
     # then get the analysis stuff:
     operation = request.args.get("op", None)
     analysisOpts = request.json
-    # PENDING: Add some check here to make sure everything is valid
-    # if operation in OPERATION_SPACE.keys():
-    #     analysisOpts["operation"] = operation
-    # for entry in ["groupBy", "target", "per", "timeSeries", "over", "numerator"]:
-    #     entryVal = request.args.get(entry, None)
-    #     # if entryVal in ANALYSIS_SPACE.keys():
-    #     if entryVal:
-    #         analysisOpts[entry] = entryVal
-
-    # if analysisOpts["operation"] == "percentage":
-    #     # PATCH: This is a non sustainable solution for percentage operation
-    #     if analysisOpts["targetField"] == "feeWaiver":
-    #         analysisOpts["numeratorField"] = ["grant", "term"]
-
-    #     elif analysisOpts["targetField"] == "proSe":
-    #         analysisOpts["numeratorField"] = [True]
 
     # first, get the search/filter stuff:
 
-    searchSpace = app.ringExtractors[ringId].getSearchSpace(targetEntity)
+    searchSpace = ringExtractor.getSearchSpace(targetEntity)
     searchOpts = organizeFilters(request, searchSpace)
     raw_results = run_analysis(s_opts=searchOpts, a_opts=analysisOpts, targetEntity=targetEntity)
 

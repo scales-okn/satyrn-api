@@ -33,8 +33,13 @@ app.config["CACHE_DEFAULT_TIMEOUT"] = 300
 # set the location of the downloads folder
 app.downloadDir = os.path.join(app.config["BASE_ROOT_DIR"], "bundledDockets")
 
-# and the api key
+# set the location of the UX_API for ring requests
+app.uxServiceAPI = os.environ.get("UX_SERVICE_API", "http://localhost/api/")
+
+# and the api keys
 app.config["API_KEY"] = os.environ.get("API_KEY")
+# next one can be different if set in env vars but defaults to the same
+app.config["UX_SERVICE_API_KEY"] = os.environ.get("UX_SERVICE_API_KEY", app.config["API_KEY"])
 
 # and set up the cache
 app.cache = Cache(app)
@@ -43,13 +48,9 @@ app.cache = Cache(app)
 with open(os.environ["SATYRN_SITE_CONFIG"]) as f:
     siteConf = json.load(f)
 app.satMetadata = siteConf
-rings = compile_rings(siteConf["rings"])
+# rings = compile_rings(siteConf["rings"])
 
-# dev-time convenience
-# t = [r for r in rings.values()][0]
-# sess = t.db.Session()
-# tt = sess.query(t.db.contribution).first()
-# breakpoint()
-
-app.rings = rings
-app.ringExtractors = {rr.id: RingConfigExtractor(rr) for rr in app.rings.values()}
+app.rings = {}
+app.ringExtractors = {}
+# app.rings = rings
+# app.ringExtractors = {rr.id: RingConfigExtractor(rr) for rr in app.rings.values()}
