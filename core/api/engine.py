@@ -198,13 +198,39 @@ def simple_query(s_opts, a_opts, ringId, targetEntity, session, db, field_types)
     # PENDING: this gives errors. right now will not add entity ids
     # query = query.distinct(*entity_ids)
 
-    group_args = [_name(ringId, d["entity"], d["field"]) for d in a_opts["groupBy"]] if "groupBy" in a_opts else []
+    group_args = [_name(ringId, d["entity"], d["field"], transform=d.get("transform")) for d in a_opts["groupBy"]] if "groupBy" in a_opts else []
     for field in field_types["group"]:
         if field in a_opts:
-             group_args.append(_name(ringId, a_opts[field]["entity"], a_opts[field]["field"]))
+             group_args.append(_name(ringId, a_opts[field]["entity"], a_opts[field]["field"], transform=a_opts[field].get("transform")))
 
      # Modify field_names so that it also return type of field
     return query, group_args, field_names, col_names
+
+
+
+def _remove_duplicates(a_opts):
+    repeat_keys = [[k for k in a_opts if a_opts[k] == v] for v in a_opts.values()]
+    repeat_keys = [lst for lst in repeat_keys if len(lst) > 1]
+    repeat_keys.sort()
+    print(repeat_keys)
+    del_keys = []
+    if repeat_keys:
+        last = repeat_keys[-1]
+        for i in range(len(repeat_keys)-2, -1, -1):
+            if last == repeat_keys[i]:
+                del repeat_keys[i]
+            else:
+                last = repeat_keys[i]
+        print(repeat_keys)
+        
+        for repeat_lst in repeat_keys:
+            kept_key = repeat_lst[0]
+            for repeat_val in repeat_lst[1:]:
+                del_keys.append((repeat_val, a_opts[repeat_val]))
+                del a_opts[repeat_val]
+
+    return a_opts, del_keys
+
 
 def row_count_query(s_opts, a_opts, ringId, targetEntity, session, db, field_types):
     '''
@@ -225,6 +251,11 @@ def row_count_query(s_opts, a_opts, ringId, targetEntity, session, db, field_typ
     for key in ["numerator", "numerator2"]:
         a_opts.pop(key, None)
 
+    print(a_opts)
+    a_opts, del_keys = _remove_duplicates(a_opts)
+    print(a_opts)
+    print(del_keys)
+
     q_args, tables, entity_ids, entity_names, field_names, col_names = _prep_query(a_opts, ringId, db, field_types=field_types, counts=True)
     query = session.query(*q_args)
 
@@ -235,10 +266,14 @@ def row_count_query(s_opts, a_opts, ringId, targetEntity, session, db, field_typ
     query = _do_joins(query, tables, a_opts["relationships"] if "relationships" in a_opts else [], ringId, targetEntity, db)
 
     # Count entities
-    df = DataFrame(query.all(), columns=field_names).nunique()
     entity_counts = {}
     for entity, name in zip(entity_ids, entity_names):
-        entity_counts[entity] = df[entity]
+        entity_counts[entity] = query.distinct(entity).count()
+
+    # df = DataFrame(query.all(), columns=field_names).nunique()
+    # entity_counts = {}
+    # for entity, name in zip(entity_ids, entity_names):
+    #     entity_counts[entity] = df[entity]
 
     return entity_counts
 
@@ -321,7 +356,9 @@ def _prep_query(a_opts, ringId, db, field_types, counts=False):
             col_fields.append(field)
 
     for group in groupby_fields:
-        the_field, name = _get(ringId, group["entity"], group["field"], db)
+        # TODO : add transform here to _get
+        the_field, name = _get(ringId, group["entity"], group["field"], db,
+                                transform=group.get("transform", None), date_transform=group.get("dateTransform", None))
         q_args.append(the_field)
         col_names.append(name)
         table = _get_table_name(ringId, group["entity"], group["field"])
@@ -340,7 +377,8 @@ def _prep_query(a_opts, ringId, db, field_types, counts=False):
 
     # print(target_fields)
     for target in target_fields:
-        the_field, field_name = _get(ringId, target["entity"], target["field"], db, op=target["op"])
+        the_field, field_name = _get(ringId, target["entity"], target["field"], db, op=target["op"],
+                                        transform=target.get("transform", None))
         q_args.append(OPS[target["op"]]["funcDict"]["op"](the_field, target["extra"]).label(field_name))
         col_names.append(field_name)
         table = _get_table_name(ringId, target["entity"], target["field"])
@@ -362,7 +400,6 @@ def _prep_query(a_opts, ringId, db, field_types, counts=False):
     return q_args, tables, entity_ids, unique_entities, col_names, col_fields
 
 
-# PENDING: Finish filling this out for null dropping
 # PENDING: Finish filling this out for prefilters
 def _do_filters(query, s_opts, ringId, targetEntity, col_names, session, db):
     '''
@@ -383,7 +420,7 @@ def _do_filters(query, s_opts, ringId, targetEntity, col_names, session, db):
 
     for name in col_names:
         param_dct = _entity_from_name(name)
-        print(param_dct)
+        # print(param_dct)
         entity_dict = current_app.ringExtractors[ringId].resolveEntity(param_dct["entity"])[1]
         if param_dct["attribute"] != "id":
             attr_obj = [attr for attr in entity_dict.attributes if attr.name == param_dct["attribute"]][0]
@@ -397,7 +434,7 @@ def _do_filters(query, s_opts, ringId, targetEntity, col_names, session, db):
                 # meaning we cant directly use the name of the object, so we have to
                 # again get the "real" field and filter off of that
                 # PENDING: might have issues since there could be multiple fields with same name
-                field, name = _get(ringId, param_dct["entity"], param_dct["attribute"], db, transform=None, op=None)
+                field, name = _get(ringId, param_dct["entity"], param_dct["attribute"], db)
                 query = query.filter(field != None)
 
 
@@ -527,7 +564,7 @@ def _format_results():
 
 
 # PENDING: handling multiple columns in the columns of source
-def _get(ringId, entity, attribute, db, transform=None, op=None):
+def _get(ringId, entity, attribute, db, transform=None, date_transform=None, op=None):
     '''
     Returns the field from entity in ring, and the label of the field
     '''
@@ -536,6 +573,8 @@ def _get(ringId, entity, attribute, db, transform=None, op=None):
         attr_obj = [attr for attr in entity_dict.attributes if attr.name == attribute][0]
         model_name = attr_obj.source_table
         field_name = attr_obj.source_columns[0]
+        if date_transform:
+            field_name = field_name + "_" + date_transform
     else:
         model_name = entity_dict.table
         field_name = entity_dict.id[0]
@@ -543,7 +582,7 @@ def _get(ringId, entity, attribute, db, transform=None, op=None):
 
     model = getattr(db, model_name)
     field = getattr(model, field_name)
-    name = _name(ringId, entity, attribute, op)
+    name = _name(ringId, entity, attribute, op, transform)
 
     # Get null handling
     if attr_obj:
@@ -551,7 +590,7 @@ def _get(ringId, entity, attribute, db, transform=None, op=None):
             field = _nan_cast(field, attr_obj.nullValue)
 
     if transform:
-        field = TRS[transform].processor(field)
+        field = TRS[transform]["processor"](field)
 
     return field.label(name), name
 
@@ -574,3 +613,124 @@ def _nan_cast(field, cast_val):
     '''
     return case([(field == None, cast_val)], else_=field)
 
+'''
+
+Next steps (11/18/2021):
+
+2. Polish off date manager
+DONE- Adding to the config options for
+DONE    - Granularity
+DONE    - Datetime format
+DONE- Modifying compiler to handle granularity and datetime format
+DONE- Modifying engine to handle granularity and datetime format (should be minimal)
+DONE- test
+DONE- cast things to strings (also day of week into actual days? or maybe jsut as string as well for now)
+
+4. Transforms
+DONEish- Define a couple of transforms in the transforms.py file to show stuff
+DONE- Consider cases where there might be a transform AND a granularity param (fine if this does not exist)
+DONE- Define some test cases for transforms
+DONE- Modify engine to handle transforms
+DONE-test
+
+5. Other engine stuff
+DONE- More efficient distinct counting
+
+Next steps (11/26/2021)
+
+Pending stuff
+- Analysis plugins
+    - Restructure so that each analysis plugin has their own folder
+        - In each folder, brainstorm how to do it such that
+            - We have test cases
+            - We have some way of communicating what format we want to do
+            - We communicate what kind of visualization we want to do
+    - Create a pipy or whatevs repo for our own analysis plugins
+    - Figure out how to import that repo to our own satyrn stuff
+- Handling the case better of whether we have already built the file
+- Distinct key checking for when multiple joins
+- Transform
+    - Add test case where in config we have ae defined inequalities thingy
+
+
+(D: Just check in with andru to make sure this makes sense)
+- Querying the "nice name" of things (e.g. contributor.id -> also query contributor.name)
+- Querying multiple columns for a single thing
+    e.g. date: year, month, day
+    e.g. name: first, middle, last
+- Formatting
+    - Rounding
+    - Transforming stuff (e.g. bools into something else)
+- Standardizing things for date manager so that they mostly sit in one place (rn its spread out in engine and compiler)
+
+
+
+Querying "Nice Name"
+e.g. suppose you want to query "average contribution grouped by contributor"
+The database is gonna get it by contributor.id, but in reality we want to have it by contributor.name
+- Solution woul
+- QFA: 
+    would we just use the "reference" field?
+        I think for contribution its "amount" which might be weird
+    are we committing to the format?
+        Not a huge issue, we can change it later, just wanted to know
+    would we still want to return the "ugly" rep? (i.e. contribution.id)
+        I'm leaning towards yes
+
+
+Querying multiple columns
+e.g. "count of cases grouped by judge name"
+e.g. "count of cases timeseries by date filed"
+- For judge name
+    - I guess we would just query everything as a concatenation?
+- For date filed example (e.g. year, month, day)
+    - Here I think we would just use the methods we created in the compiler
+- QFA:
+    - Above sound good?
+    - NOTE: if there are some attributes that have multiple fields that would NOT work as a simple concatenation
+    then I think we might need to rethink this
+        - Some potential examples
+            - Nature of Suit: has multiple categories/granularities. Would we always wanna show all of them?
+
+
+Transform stuff into "nice name"
+e.g. "average contribution by in state status"
+It'll return grouped by True/False, but maybe we wanted it formatted differently
+- One option is to list out in the config what each value should transform to
+- A default migth be to just have strings like "In State Status equals to True"
+- We can perform this transformation at the query level or as postprocessing formatting
+    - Can do at query or postprocessing (im leaning towards at query for efficienty)
+    - Note: we might require flaggingthat we want it transformed to nice names or something
+        Otherwise, we might be locked into always getting the nicename of stuff when
+        sometimes we might want it to be in its "raw" form (or some analysis plugins might want it raw)
+- QFA: get his thoughts on it
+
+Rounding:
+- Would add something to the config or to defaults
+- QFA: sound good?
+
+NOTE: It might be good to have some sort of "defaults" file, with stuff about
+- Rounding defaults
+- Null default behavior
+- Maybe some of the datemanager stuff there as well? or within the same vicinity
+
+
+Standardizing date manager stuff
+- I was thinking of just putting it all in a file called datemanager.py
+    - For each datatype (date, datetime), it lists out the default granularities
+    - For each fo these, it also lists out the possible "Transformations"]
+        e.g. onlymonth, onlyday, dayofweek, full date, full datetime
+-QFA: 
+    - where would I put this file? This would be used mostly by the compiler and the statement generator
+
+
+
+TRansform
+- Walk thru what i've done
+- Talk about example for inequality that we might want to use
+
+
+
+FOOTNOTE: something andrew made up bout two time frames on a single thing
+
+'''

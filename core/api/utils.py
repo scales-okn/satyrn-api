@@ -4,11 +4,15 @@ def _get_join_field(path_bit, db):
     field = getattr(model, field_name)
     return field
 
-def _name(ringId, entity, attribute, op=None):
+def _name(ringId, entity, attribute, op=None, transform=None):
+
+    lst = [entity, attribute]
+    if transform:
+        lst.append(transform)
     if op:
-        return "//".join([entity, attribute, op])
-    return "//".join([entity, attribute])
-    # return ".".join([ringId, entity, attribute])
+        lst.append(op + "__op")
+
+    return "//".join(lst)
 
 def _outerjoin_name(ringId, join_field):
     return ".".join([ringId, join_field])
@@ -19,5 +23,10 @@ def _entity_from_name(col_name):
     print(attrs)
     dct = {"entity": attrs[0], "attribute": attrs[1]}
     if len(attrs) > 2:
-        dct["op"] = attrs[2]
+        if len(attrs[2]) > 4 and attrs[2][-4:] == "__op":
+            dct["op"] = attrs[2]
+        else:
+            dct["transform"] = attrs[2]
+            if len(attrs) > 3:
+                dct["op"] = attrs[3]
     return dct
