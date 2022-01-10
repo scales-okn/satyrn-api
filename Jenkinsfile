@@ -1,6 +1,17 @@
 pipeline {
     agent any
     stages { 
+        stage('Checkout Deployment') {
+            steps {
+                dir("$WORKSPACE/satyrn-deployment") {
+                    git(
+                       branch: 'main',
+                        credentialsId: 'dockerised',
+                        url: 'git@github.com:nu-c3lab/satyrn-deployment.git'
+                    )
+                }
+            }
+        }
 
         stage('Checkout Templates') {
             steps {
@@ -34,9 +45,11 @@ pipeline {
         }
 
         stage('Deploy') {
+          dir("$WORKSPACE/satyrn-deployment")
             steps {
                 sh 'helm upgrade --install satyrn-api charts/generic --values charts/satyrn-api/values-override.yaml --create-namespace --namespace dev-satyrn-api --set image.tag=$BUILD_NUMBER'
             }
+          }
         }
     }
 }
