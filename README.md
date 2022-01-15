@@ -1,10 +1,12 @@
-# Satyrn API v2
+# Satyrn API v2.1
 
 [![Build Status](http://198.211.97.126:8080/job/satyrn-platform/badge/icon)](http://198.211.97.126:8080/job/satyrn-platform/)
 
-This is the core codebase for the Satyrn API V2, which sits behind the Satyrn UX (and in conjunction with the Satyrn Deployment and Satyrn Prototype repos). It's been ported over from the Satyrn-Platform repo and has been updated to work with Ring V2 configs.
+This is the core codebase for the Satyrn API V2, which sits behind the Satyrn UX (and in conjunction with the Satyrn Deployment and Satyrn Prototype repos). It's been ported over from the Satyrn-Platform repo and has been updated to work with Ring V2.1 configs.
 
-## Known TODOs for V2:
+For an example v2.1 config, see the basic_v2-1 directory in the satyrn-templates repo.
+
+## Known TODOs for v2.1:
  - Update the documentation to reflect new multi-ring/multi-entity URI endpoints for analysis (the rest are now below)
  - need to have build_joins in compiler.py properly handle all join conditions (multi hops and many-to-one, many-to-many, etc) -- also, make sure config contains all necessary info (pending final analysis v2 design)
     - this will also effect code in autocomplete + search because assumption is config["model"] is a single model now but will prob be a list in the future
@@ -63,3 +65,18 @@ flask run
 
 /api/results/20e114c2-ef05-490c-bdd8-f6f271a6733f/1/Contribution/?contributionRecipient=illinois
   - The search endpoint for version # 1 of ring with id 20e114c2-ef05-490c-bdd8-f6f271a6733f with a search on the Contribution entity's contributionRecipient attribute with query "illinois"
+
+## Bootstrapping Configs in v2.1
+
+Satyrn is now a multi-service platform, with a Core API (this repo), a frontend UX, and a "backend-for-frontend"/user service for storing users/rings/notebooks (both in the satyrn-ux repo). While doing development on the platform, you have two setup options:
+
+1. Pull both satyrn-api and satyrn-ux repos, set up both codebases, and run three services that point at each other (Core API, frontend, and "backend-for-frontend" or "BfF" service). In this configuration, the BfF will provide rings to the Core API based on the ring id or _rid_ (e.g. 20e114c2-ef05-490c-bdd8-f6f271a6733f) and you can leverage the frontend for testing (or Postman/similar for communication with the API directly). If you follow instructions to set up environments as described above and in the satyrn-ux repo, this configuration should *just work* (but bug reports are always accepted).
+
+2. Pull only the satyrn-api repo, set it up, and run just the one Core API service. In this configuration, you will have to leverage Postman/similar to communicate with the API, and the recommend settings for your environment are:
+
+ - FLASK_ENV = development (should be the case anyway, but this means an API key isn't required and bootstrapping rings directly is allowed)
+ - SATYRN_SITE_CONFIG = <relevant pointer to a local site.json configured like the one in satyrn-templates/basic_v2-1 to include rings to bootstrap at platform initialization>
+
+ If those environment variables are set, the Core API will support loading rings at init, and you can specify the rings to load via the site.json config (again, see satyrn-templates/basic_v2-1 for a working example).
+
+__Important note__: the Core API now expects v2.1 ring configs, so earlier (like those in satyrn-templates/basic_v2) are no longer directly supported by current iterations of the platform. See satyrn-templates/basic_v2-1 for a working schema example.
