@@ -83,7 +83,7 @@ def getRingFromService(ringId, version=None):
         request = requests.get(os.path.join(app.uxServiceAPI, "rings", ringId), headers=headers)
     requestJSON = request.json()
     ringConfig = requestJSON["data"]["ring"]
-    # breakpoint()
+
     if type(ringConfig) == str:
         ringConfig = json.loads(ringConfig)
     ring = compile_ring(ringConfig, in_type="json")

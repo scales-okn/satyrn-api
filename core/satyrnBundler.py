@@ -15,10 +15,10 @@ if configVersion == "1":
 
 try:
     from compiler import compile_rings
-    from extractors import RingConfigExtractor
+    # from extractors import RingConfigExtractor
 except:
     from .compiler import compile_rings
-    from .extractors import RingConfigExtractor
+    # from .extractors import RingConfigExtractor
 
 # get the root of this repo locally -- used for static dir, user db and downloads dir location downstream
 app.config["BASE_ROOT_DIR"] = os.environ.get("SATYRN_ROOT_DIR", os.getcwd())
@@ -29,6 +29,9 @@ app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
 # some flask-caching stuff
 app.config["CACHE_TYPE"] = "simple"
 app.config["CACHE_DEFAULT_TIMEOUT"] = 300
+
+# env
+app.config["ENV"] = os.environ.get("FLASK_ENV", "development")
 
 # set the location of the downloads folder
 app.downloadDir = os.path.join(app.config["BASE_ROOT_DIR"], "bundledDockets")
@@ -48,9 +51,13 @@ app.cache = Cache(app)
 with open(os.environ["SATYRN_SITE_CONFIG"]) as f:
     siteConf = json.load(f)
 app.satMetadata = siteConf
-# rings = compile_rings(siteConf["rings"])
 
 app.rings = {}
 app.ringExtractors = {}
-# app.rings = rings
-# app.ringExtractors = {rr.id: RingConfigExtractor(rr) for rr in app.rings.values()}
+
+# if we're in dev, we can bootstrap rings through the site config
+# any additional ones will still assume a running version of the FE
+if app.config["ENV"].lower() in ["dev", "development"]:
+    rings, extractors = compile_rings(siteConf["rings"])
+    app.rings = rings
+    app.ringExtractors = extractors

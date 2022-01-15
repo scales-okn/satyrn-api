@@ -9,6 +9,11 @@ from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import relationship, sessionmaker
 from sqlalchemy import create_engine
 
+try:
+    from extractors import RingConfigExtractor
+except:
+    from .extractors import RingConfigExtractor
+
 # This is an abstract class which serves as the superclass for concrete ring classes
 class Ring_Object(object):
 
@@ -489,10 +494,15 @@ def compile_rings(rings_list):
     # for now, rings_list is a list of paths on filesystem
     # in next pass, rings_list will be a list of ids in db OR list of json objects, TBD
     rings = {}
+    extractors = {}
     for ring_path in rings_list:
         config = compile_ring(ring_path, in_type="path")
-        rings[config.id] = config
-    return rings
+        if config.id not in rings:
+            rings[config.id] = {}
+            extractors[config.id] = {}
+        rings[config.id][config.version] = config
+        extractors[config.id][config.version] = RingConfigExtractor(config)
+    return rings, extractors
 
 def compile_ring(ring, in_type="json"):
     config = Ring_Configuration()
