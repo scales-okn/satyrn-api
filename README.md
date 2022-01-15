@@ -80,3 +80,5 @@ Satyrn is now a multi-service platform, with a Core API (this repo), a frontend 
  If those environment variables are set, the Core API will support loading rings at init, and you can specify the rings to load via the site.json config (again, see satyrn-templates/basic_v2-1 for a working example).
 
 __Important note__: the Core API now expects v2.1 ring configs, so earlier (like those in satyrn-templates/basic_v2) are no longer directly supported by current iterations of the platform. See satyrn-templates/basic_v2-1 for a working schema example.
+
+__Important note #2__: The latter method of loading rings from configs on disk at initialization only works when the platform is running in _development_ mode. In a production environment, the system will require all rings to be loaded from the BfF service.
