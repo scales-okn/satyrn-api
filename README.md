@@ -75,7 +75,7 @@ Satyrn is now a multi-service platform, with a Core API (this repo), a frontend 
 2. Pull only the satyrn-api repo, set it up, and run just the one Core API service. In this configuration, you will have to leverage Postman/similar to communicate with the API, and the recommend settings for your environment are:
 
  - FLASK_ENV = development (should be the case during development anyway, as this means an API key isn't required which would be bad news for prod, but it also means that bootstrapping rings directly is allowed on platform init)
- - SATYRN_SITE_CONFIG = <relevant pointer to a local site.json configured like the one in satyrn-templates/basic_v2-1 which should include references to rings to bootstrap at platform initialization>
+ - SATYRN_SITE_CONFIG = <relevant pointer to a local site.json configured like the one in satyrn-templates/basic_v2-1 which should include references to ring config JSON files to bootstrap at platform initialization>
 
  If those environment variables are set, the Core API will support loading rings at init, and you can specify the rings to load via the site.json config (again, see satyrn-templates/basic_v2-1 for a working example).
 
