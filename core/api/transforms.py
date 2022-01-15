@@ -42,7 +42,7 @@ def lambda_func(string):
     return lambda x: (comp_1(value_1, x)) & (comp_2(x, value_2))
 
 
-def inequalities_processing(model_field, string_list, else_val=None):
+def inequalities_processing(model_field, string_list=None, else_val=None):
     '''
     Returns a sqlalchemy case expression for building the string_list
     Examples:
@@ -61,9 +61,18 @@ def inequalities_processing(model_field, string_list, else_val=None):
     There is also an option of having a list of tuples, where the first string is 
     the same as above, and the second string is the "user-friendly" reading of that
     string
+    "transformCases": [
+        ("x <= 5", "< 5 years"),
+        ("5 < x <= 10", "5 to 10 years"),
+        ("10 < x <= 15", "10 to 15 years"),
+        ("15 < x <= 20", "15 to 20 years"),
+        ("x > 20", "> 20 years")
+    ],
     '''
     transform_dict = {}
-    if len(string_list[0]) == 1:
+    if string_list == None:
+        string_list = ["x < 200", "200 <= x < 500", "500 <= x"]
+    if type(string_list[0]) == str:
         for string in string_list:
             transform_dict[string] = lambda_func(string)
     else:
@@ -87,6 +96,7 @@ def year_processing(model_field, string_list=None, else_val=None):
 
     '''
     return extract('year', model_field)
+
 
 
 # def substr_processing(model_field, string_list=None, else_val=None):

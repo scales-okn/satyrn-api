@@ -7,7 +7,15 @@ import sqlalchemy as sa
 from sqlalchemy import Boolean, Column, ForeignKey, Integer, Float, String, DateTime, Date
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import relationship, sessionmaker
+from sqlalchemy.orm import column_property
 from sqlalchemy import create_engine
+from sqlalchemy.sql.expression import case, extract, cast
+from sqlalchemy.sql.functions import concat
+from sqlalchemy import func
+
+import pandas as pd
+
+from dateutil import parser
 
 try:
     from extractors import RingConfigExtractor
@@ -64,6 +72,8 @@ class Ring_Attribute(Ring_Object):
         # Andong started messing stuff up here
         self.nullHandling = None
         self.nullValue = None
+        self.dateMinGranularity = None
+        self.dateMaxGranularity = None
 
     def parse(self, name, info):
         self.name = name
@@ -108,6 +118,17 @@ class Ring_Attribute(Ring_Object):
         self.nullHandling = info.get("nullHandling", null_defaults[self.baseIsa][0])
         self.nullValue = info.get("nullValue", null_defaults[self.baseIsa][1])
 
+        date_defaults = {
+            "date": ("day","year"),
+            "datetime": ("second", "year"),
+            "time": ("second", "hour")
+        }
+        if self.baseIsa and self.baseIsa in ["date", "datetime", "date"]:
+            granularity = info.get("dateGranularity", date_defaults[self.baseIsa])
+            self.dateMaxGranularity = granularity[1]
+            self.dateMinGranularity = granularity[0]
+
+
     def construct(self):
 
         attribute = {}
@@ -128,6 +149,13 @@ class Ring_Attribute(Ring_Object):
 
         self.safe_insert('source', source, attribute)
         self.safe_insert('metadata', md, attribute)
+
+        # Andong started messing with stuff here
+        self.safe_insert('nullHandling', self.nullHandling, attribute)
+        self.safe_insert('nullValue', self.nullValue, attribute)
+        self.safe_insert('dateMinGranularity', self.dateMinGranularity, attribute)
+        self.safe_insert('dateMaxGranularity', self.dateMaxGranularity, attribute)
+
         return attribute
 
     def is_valid(self):
@@ -253,7 +281,7 @@ class Ring_Source(Ring_Object):
     def construct(self):
         source = {}
         self.safe_insert('type', self.type, source)
-        self.safe_insert('connectionString', self.connection_string, source)
+        self.safe_insert('connectionString', self.connection_string, source )
         self.safe_insert('tables', self.tables, source)
         self.safe_insert('joins', list(map((lambda join: join.construct()), self.joins)), source)
         return source
@@ -264,14 +292,119 @@ class Ring_Source(Ring_Object):
             valid = valid and reduce((lambda x, y: x and y), map((lambda x: x.is_valid()), self.joins))
         return valid
 
-    def make_connection(self):
+    def make_connection(self, db):
         if self.type == "sqlite":
             self.eng = create_engine("sqlite:///{}".format(self.connection_string))
             self.Session = sessionmaker(bind=self.eng)
+        elif self.type == "csv":
+            self.eng, self.Session = self.csv_file_pathway(self.connection_string, db)
         else:
             self.eng = create_engine(self.connection_string)
             self.Session = sessionmaker(bind=self.eng)
         return self.eng, self.Session
+
+
+    def csv_file_pathway(self, csv_path, db, satyrn_file="satyrn_sql_file.db"):
+        # Grab the csv file
+        # Grab thedb as a whole
+
+        # NOTE: assumptions we make
+        # We assume that  the csv_path is a path to the folder with csvs
+        # we assume that the "table names" for each model are the same
+        # as the table name for each csv (e..g model "contribution" has "contribution.csv")
+        # We assume that all the columns have headers, same headers as column_name
+        # We will save the resulting sql file to the same csv_path
+        # PENDING: checking if a populated sql file exists
+
+        # if condition to check if all stuff has been created
+        path = os.path.join(self.connection_string, satyrn_file)
+        if os.path.isfile(path):
+            self.eng = create_engine("sqlite:///" + path)
+            self.Session = sessionmaker(bind=self.eng)
+            # Here add something about checking
+            # compare number of rows?
+            # compare the unique identifiers or something, or basicaly iterate thru all and see if rows match
+            return self.eng, self.Session
+        else:
+            self.eng = create_engine("sqlite:///" + path)
+            self.Session = sessionmaker(bind=self.eng)            
+
+        def cast_value(value, tpe, dateparse=None):
+            if tpe == "INTEGER":
+                try:
+                    return int(value)
+                except:
+                    return None
+
+            elif tpe == "FLOAT":
+                try:
+                    return float(value)
+                except:
+                    return None
+
+            elif tpe == "VARCHAR":
+                try:
+                    return str(value)
+                except:
+                    return None
+
+            elif tpe == "DATETIME":
+                try:
+                    if dateparse:
+                        return datetime.datetime.strptime(value, dateparse)
+                    else:
+                        return parser.parse(value)
+                except:
+                    return None
+
+            elif tpe == "DATE":
+                try:
+                    if value:
+                        if dateparse:
+                            return datetime.datetime.strptime(value, dateparse)
+                        else:
+                            return parser.parse(value)
+                    else:
+                        raise ValueError('Value was None, will return None')
+                except:
+                    return None
+            elif tpe == "BOOLEAN":
+                return bool(value)
+            else:
+                print("unrecognized tpe")
+                return value
+
+        for model_name in db.__dict__.keys():
+            model_class = getattr(db, model_name)
+            file_name = "{}{}.csv".format(self.connection_string, model_name)
+            df = pd.read_csv(file_name)
+            model_list = []
+            model_class.metadata.create_all(self.eng)
+
+            for idx, row in df.iterrows():
+                new_model = model_class()
+                for key in model_class.__dict__.keys():
+                    if key[0] != "_" and key in row:
+                        # Need to do parsing properly here
+                        attr = getattr(model_class, key)
+                        tpe = attr.type
+                        value = cast_value(row[key], tpe.__str__())
+                        setattr(new_model, key, value)
+
+
+                # PENDING?: Maybe something with primaryKey?
+
+                model_list.append(new_model)
+
+            with self.Session.begin() as session:
+                session.add_all(model_list)
+
+        return self.eng, self.Session
+
+
+
+
+
 
 class Ring_Join(Ring_Object):
 
@@ -388,6 +521,22 @@ class Ring_Configuration(Ring_Object):
 class DB_Wrapper(object):
     pass
 
+    def build(self):
+        # DEV ONLY DO NOT USE THIS OTHERWISE
+        self.Base.metadata.create_all(self.eng)
+
+# # These belong elsewhere but here for dev
+# class SatyrnDatetime(DateTime):
+#     def __init__(self):
+#         DateTime.__init__(self)
+#
+#     def granularity(self, format):
+#         breakpoint()
+#
+# class SatyrnDate(Date):
+#     def __init__(self):
+#         Date.__init__(self)
+
 class Ring_Compiler(object):
 
     def __init__(self, config):
@@ -398,7 +547,7 @@ class Ring_Compiler(object):
         models = self.build_models()
         for model in models:
             setattr(self.db, model.__name__, model)
-        self.db.eng, self.db.Session = self.config.source.make_connection()
+        self.db.eng, self.db.Session = self.config.source.make_connection(self.db) # PENDING: Maybe pass model here or check if corresponding csv
         self.config.source.base.metadata.create_all(self.db.eng)
         return self.db
 
@@ -439,13 +588,103 @@ class Ring_Compiler(object):
                 model_map[entity.table][id_key] = self.column_with_type(entity.id_type[index])
 
         # Add entity attributes
+
         for attribute in entity.attributes:
             base_type = self.resolve_base_type(attribute.isa)
             for sc in attribute.source_columns:
                 if sc not in model_map[attribute.source_table]:
                     model_map[attribute.source_table][sc] = self.column_with_type(base_type)
 
+            # Path for datetime stuff
+            if base_type == "date" or base_type == "datetime":
+                model_map = self.datetime_path(model_map, attribute, base_type)
+
         return model_map
+
+    def datetime_path(self, model_map, attribute, base_type):
+        '''
+        PENDING: when defining these, it might be good to have info from the entity attribute
+        about the granularity we wanna go to, as well as defaults for granularity
+        PENDING: what happens if value is Null? Everything returns null? RN seems to automatically cast it to now()
+        Might need to put a path there to also return null if underlying value is also null
+        PENDING: add a leading 0 if needed for month
+        # NOTE: currently we are assuming only one source_column
+
+        '''
+        col_name = attribute.source_columns[0]
+        col = model_map[attribute.source_table][col_name]
+        table = attribute.source_table
+
+        # todo: need to check if these are the correct names for extracting
+        ordered_fields = ["year", "month", "day", "hour", "minute", "second", "microsecond"]
+        minField = attribute.dateMinGranularity
+        maxField = attribute.dateMaxGranularity
+        minID = ordered_fields.index(minField)
+        maxID = ordered_fields.index(maxField)
+
+        relevant_fields = ordered_fields[maxID:minID+1]
+
+        extr_dct = {}
+        for idx, field in enumerate(relevant_fields):
+
+            gran_name ="_only" + field if field != "year" else "_" + field
+            # todo: need to cast after extract
+            extr = extract(field, col)
+            if field != "year" and field != "microsecond":
+                extr = func.right("00" + cast(extr, String), 2)
+            model_map[table][col_name + gran_name] = column_property(cast(extr, String))
+            extr_dct[field] = extr
+
+        # check if year month day valid
+        if minID > 1 and maxID == 0:
+            # do year month day
+            model_map[table][col_name + "_date"] = column_property(concat(extr_dct["year"], "/", extr_dct["month"], "/", extr_dct["day"]))
+            # do day of week
+            model_map[table][col_name + "_dayofweek"] = column_property(cast(extract("dow", model_map[attribute.source_table][col_name]), String))
+        
+        # check if year month valid
+        if minID > 0 and maxID == 0:
+            model_map[table][col_name + "_month"] = column_property(concat(extr_dct["year"], "/", extr_dct["month"]))
+
+        # check if month day valid
+        if minID > 1 and maxID < 2:
+            model_map[table][col_name + "_monthday"] = column_property(concat(extr_dct["month"], "/", extr_dct["day"]))
+
+        # check if time valid
+        if minID == 5 and maxID < 4:
+            model_map[table][col_name + "_time"] = column_property(concat(extr_dct["hour"], ":", extr_dct["minute"], ":", extr_dct["second"]))
+
+        # check if datetime valid
+        if minID == 5 and maxID == 0:
+            model_map[table][col_name + "_datetime"] = column_property(concat(extr_dct["year"], "/", extr_dct["month"], "/", extr_dct["day"], "|", extr_dct["hour"], ":", extr_dct["minute"], ":", extr_dct["second"]))
+
+
+        # For the fields smaller than "field", concatenate and add new column property
+        # Edge cases to remove/rename:
+        # - datetime: year month day hour minute second
+        # - date: year month day
+        # - time: hour minute second
+
+
+
+        # # year
+        # model_map[table][col_name + "_year"] = column_property(extract('year', col)) 
+
+        # # month
+        # model_map[table][col_name + "_onlymonth"] = column_property(extract('month', col)) 
+
+        # # day
+        # model_map[table][col_name + "_onlyday"] = column_property(extract('day', col)) 
+
+        # # month + year
+        # model_map[table][col_name + "_month"] = column_property(concat(extract('year', col), "/", extract('month', col))) 
+
+        # month + year + day (i.e. strip time)
+
+        # if datetime: include more
+
+        return model_map
+
 
     def build_joins(self, model_map):
         # TODO: make this fully handle multi-hops and all one-to-many, many-to-many, etc conditions
