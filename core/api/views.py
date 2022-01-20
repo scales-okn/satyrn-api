@@ -146,7 +146,7 @@ def runAnalysis(ringId, version, targetEntity):
 
     searchSpace = ringExtractor.getSearchSpace(targetEntity)
     searchOpts = organizeFilters(request, searchSpace)
-    raw_results = run_analysis(s_opts=searchOpts, a_opts=analysisOpts, targetEntity=targetEntity)
+    raw_results = run_analysis(s_opts=searchOpts, a_opts=analysisOpts, targetEntity=targetEntity, ring=ring, extractor=ringExtractor)
 
     print(raw_results)
 

@@ -4,7 +4,7 @@ def _get_join_field(path_bit, db):
     field = getattr(model, field_name)
     return field
 
-def _name(ringId, entity, attribute, op=None, transform=None):
+def _name(entity, attribute, op=None, transform=None):
 
     lst = [entity, attribute]
     if transform:

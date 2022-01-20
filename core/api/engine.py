@@ -19,7 +19,7 @@ cache = current_app.cache
 CACHE_TIMEOUT=3000
 
 
-def run_analysis(s_opts, a_opts, targetEntity):
+def run_analysis(s_opts, a_opts, targetEntity, ring, extractor):
     '''
     Callable function for the views API
     Theoretically no other function should be called from here by views
@@ -42,8 +42,8 @@ def run_analysis(s_opts, a_opts, targetEntity):
         score: float (only for correlation)
     }
     '''
-    def _get_db_sess(ringId):
-        db = current_app.rings[ringId].db
+    def _get_db_sess(ring):
+        db = ring.db
         sess = db.Session()
         return db, sess
 
@@ -51,11 +51,12 @@ def run_analysis(s_opts, a_opts, targetEntity):
     if len(a_opts["rings"]) > 1:
         analysis_across_two_rings(s_opts, a_opts)
     else:
-        db, sess  = _get_db_sess(a_opts["rings"][0])
-        return single_ring_analysis(s_opts, a_opts, a_opts["rings"][0], targetEntity, sess, db)
+
+        db, sess  = _get_db_sess(ring)
+        return single_ring_analysis(s_opts, a_opts, ring, extractor, targetEntity, sess, db)
 
 
-def single_ring_analysis(s_opts, a_opts, ringId, targetEntity, sess, db):
+def single_ring_analysis(s_opts, a_opts, ring, extractor, targetEntity, sess, db):
     # Analysis over only one ring
 
     op = a_opts["op"]
@@ -69,7 +70,7 @@ def single_ring_analysis(s_opts, a_opts, ringId, targetEntity, sess, db):
         addit_target = [field for field, dct in OPS[op]["fields"].items() if dct["fieldType"] == "target" and field not in field_types["target"]]
         field_types["group"].extend(addit_groups)
         field_types["target"].extend(addit_target)
-        results, new_opts, field_names, col_names, units = complex_operation(s_opts, a_opts, ringId, targetEntity, sess, db, field_types)
+        results, new_opts, field_names, col_names, units = complex_operation(s_opts, a_opts, ring, extractor, targetEntity, sess, db, field_types)
         a_opts = new_opts
         # print("new opts")
         # print(a_opts)
@@ -79,25 +80,25 @@ def single_ring_analysis(s_opts, a_opts, ringId, targetEntity, sess, db):
     else:
         if OPS[op]["type"] == "simple":
             new_a_opts = OPS[op]["queryPrep"](s_opts, a_opts, targetEntity)[1]
-            query, groupby_args, field_names, col_names = simple_query(s_opts, new_a_opts, ringId, targetEntity, sess, db, field_types)
+            query, groupby_args, field_names, col_names = simple_query(s_opts, new_a_opts, ring, extractor, targetEntity, sess, db, field_types)
             query = query.group_by(*groupby_args) if len(groupby_args) else query
         elif OPS[op]["type"] == "recursive":
-            query, field_names, col_names = recursive_query(s_opts, a_opts, ringId, targetEntity, sess, db, field_types)
+            query, field_names, col_names = recursive_query(s_opts, a_opts, ring, extractor, targetEntity, sess, db, field_types)
         else:
             print("unclear waht op")
             exit()
-        units = get_units(a_opts, ringId, field_types, field_names, col_names)
+        units = get_units(a_opts, extractor, field_types, field_names, col_names)
         results = {"results": query.all(), "field_names": field_names, "field_types": col_names, "units": {"results": units}}
         
     # print("gonna start rocount")
     results.update({
-        "entity_counts": row_count_query(s_opts, a_opts, ringId, targetEntity, sess, db, field_types),
+        "entity_counts": row_count_query(s_opts, a_opts, ring, extractor, targetEntity, sess, db, field_types),
     })
 
     return results
 
 
-def complex_operation(s_opts, a_opts, ringId, targetEntity, session, db, field_types):
+def complex_operation(s_opts, a_opts, ring, extractor, targetEntity, session, db, field_types):
     '''
     Complex operation (distribution, correlationm comparison)
 
@@ -123,7 +124,7 @@ def complex_operation(s_opts, a_opts, ringId, targetEntity, session, db, field_t
 
     # print(new_a_opts)
 
-    query, group_args, field_names, col_names = simple_query(s_opts, new_a_opts, ringId, targetEntity, session, db, field_types)
+    query, group_args, field_names, col_names = simple_query(s_opts, new_a_opts, ring, extractor, targetEntity, session, db, field_types)
     query = query.group_by(*group_args)
     results = query.all()
 
@@ -131,14 +132,14 @@ def complex_operation(s_opts, a_opts, ringId, targetEntity, session, db, field_t
     results, field_names, col_names = OPS[op_name]["pandasFunc"]["op"](new_a_opts, results, group_args, field_names, col_names)
 
     # Do units
-    init_units = get_units(new_a_opts, ringId, field_types, field_names, col_names)
+    init_units = get_units(new_a_opts, extractor, field_types, field_names, col_names)
     units = OPS[op_name]["unitsPrep"](a_opts, field_names, col_names, init_units)
 
 
     return results, new_a_opts, field_names, col_names, units
 
 
-def recursive_query(s_opts, a_opts, ringId, targetEntity, session, db, field_types):
+def recursive_query(s_opts, a_opts, ring, extractor, targetEntity, session, db, field_types):
     '''
     averageCount and averageSum operations
     Could expand to other "recursive" operations (e.g. min average)
@@ -148,7 +149,7 @@ def recursive_query(s_opts, a_opts, ringId, targetEntity, session, db, field_typ
     copy_opts = deepcopy(a_opts)
     copy_opts["op"] = "count" if a_opts["op"] == "averageCount" else "sum"
     copy_opts = OPS[copy_opts["op"]]["queryPrep"](s_opts, copy_opts, targetEntity)[1]
-    query, query_args, field_names, col_names = simple_query(s_opts, copy_opts, ringId, targetEntity, session, db, field_types)
+    query, query_args, field_names, col_names = simple_query(s_opts, copy_opts, ring, extractor, targetEntity, session, db, field_types)
 
     query = query.group_by(*query_args)
 
@@ -167,7 +168,7 @@ def recursive_query(s_opts, a_opts, ringId, targetEntity, session, db, field_typ
         del lst[per_idx]
 
     # Run query
-    query_args.append(func.avg(s_query.c[_name(ringId, a_opts["target"]["entity"], a_opts["target"]["field"], copy_opts["op"])]))
+    query_args.append(func.avg(s_query.c[_name(a_opts["target"]["entity"], a_opts["target"]["field"], copy_opts["op"])]))
     query = session.query(*query_args)
 
     # Build new group args by removing the new target field
@@ -177,7 +178,7 @@ def recursive_query(s_opts, a_opts, ringId, targetEntity, session, db, field_typ
     return query, field_names, col_names
 
 
-def simple_query(s_opts, a_opts, ringId, targetEntity, session, db, field_types):
+def simple_query(s_opts, a_opts, ring, extractor, targetEntity, session, db, field_types):
     '''
     Main querying function use for simple, recursive, and complex analyses
     Queries from db, filters, and joins
@@ -185,23 +186,23 @@ def simple_query(s_opts, a_opts, ringId, targetEntity, session, db, field_types)
     '''
 
     # Query fields
-    q_args, tables, entity_ids, entity_names, field_names, col_names = _prep_query(a_opts, ringId, db, field_types=field_types)
+    q_args, tables, entity_ids, entity_names, field_names, col_names = _prep_query(a_opts, extractor, db, field_types=field_types)
     query = session.query(*q_args)
 
     # Do filtering
-    query = _do_filters(query, s_opts, ringId, targetEntity, field_names, session, db)
+    query = _do_filters(query, s_opts, ring, extractor, targetEntity, field_names, session, db)
 
     # Do joins
-    query = _do_joins(query, tables, a_opts["relationships"] if "relationships" in a_opts else [], ringId, targetEntity, db)
+    query = _do_joins(query, tables, a_opts["relationships"] if "relationships" in a_opts else [], extractor, targetEntity, db)
 
     # ADD THE UNIQUE CONSTRAINT ON THE TUPLES OF THE IMPORTANT FIELDS IDS
     # PENDING: this gives errors. right now will not add entity ids
     # query = query.distinct(*entity_ids)
 
-    group_args = [_name(ringId, d["entity"], d["field"], transform=d.get("transform")) for d in a_opts["groupBy"]] if "groupBy" in a_opts else []
+    group_args = [_name(d["entity"], d["field"], transform=d.get("transform")) for d in a_opts["groupBy"]] if "groupBy" in a_opts else []
     for field in field_types["group"]:
         if field in a_opts:
-             group_args.append(_name(ringId, a_opts[field]["entity"], a_opts[field]["field"], transform=a_opts[field].get("transform")))
+             group_args.append(_name(a_opts[field]["entity"], a_opts[field]["field"], transform=a_opts[field].get("transform")))
 
      # Modify field_names so that it also return type of field
     return query, group_args, field_names, col_names
@@ -232,7 +233,7 @@ def _remove_duplicates(a_opts):
     return a_opts, del_keys
 
 
-def row_count_query(s_opts, a_opts, ringId, targetEntity, session, db, field_types):
+def row_count_query(s_opts, a_opts, ring, extractor, targetEntity, session, db, field_types):
     '''
     Queries to count entities
     Basically like a simple query but for the purpose of counting entities
@@ -256,14 +257,14 @@ def row_count_query(s_opts, a_opts, ringId, targetEntity, session, db, field_typ
     print(a_opts)
     print(del_keys)
 
-    q_args, tables, entity_ids, entity_names, field_names, col_names = _prep_query(a_opts, ringId, db, field_types=field_types, counts=True)
+    q_args, tables, entity_ids, entity_names, field_names, col_names = _prep_query(a_opts, extractor, db, field_types=field_types, counts=True)
     query = session.query(*q_args)
 
     # Do filtering
-    query = _do_filters(query, s_opts, ringId, targetEntity, field_names, session, db)
+    query = _do_filters(query, s_opts, ring, extractor, targetEntity, field_names, session, db)
 
     # Do joins
-    query = _do_joins(query, tables, a_opts["relationships"] if "relationships" in a_opts else [], ringId, targetEntity, db)
+    query = _do_joins(query, tables, a_opts["relationships"] if "relationships" in a_opts else [], extractor, targetEntity, db)
 
     # Count entities
     entity_counts = {}
@@ -277,14 +278,14 @@ def row_count_query(s_opts, a_opts, ringId, targetEntity, session, db, field_typ
 
     return entity_counts
 
-def get_units(a_opts, ringId, field_types, field_names, col_names):
+def get_units(a_opts, extractor, field_types, field_names, col_names):
     '''
     Returns units for each field in field_names/col_names
     '''
 
     def _get_field_units(entity, attribute, transform=None):
         # returns the field from entity in ring
-        entity_dict = current_app.ringExtractors[ringId].resolveEntity(entity)[1]
+        entity_dict = extractor.resolveEntity(entity)[1]
         if attribute != "id":
             attr_obj = [attr for attr in entity_dict.attributes if attr.name == attribute][0]
             unit = attr_obj.units[0] if attr_obj.units else attr_obj.nicename[0]
@@ -337,7 +338,7 @@ def get_units(a_opts, ringId, field_types, field_names, col_names):
 
 # PENDING: Add transforms (d: gotta define space of possible transforms to have available transformations)
 # PENDING: Add "nice" representation for groupby values (for nice names and stuff) (d: )
-def _prep_query(a_opts, ringId, db, field_types, counts=False):
+def _prep_query(a_opts, extractor, db, field_types, counts=False):
     # Called to query across a (or multiple) computed values
 
     q_args = []
@@ -357,11 +358,11 @@ def _prep_query(a_opts, ringId, db, field_types, counts=False):
 
     for group in groupby_fields:
         # TODO : add transform here to _get
-        the_field, name = _get(ringId, group["entity"], group["field"], db,
+        the_field, name = _get(extractor, group["entity"], group["field"], db,
                                 transform=group.get("transform", None), date_transform=group.get("dateTransform", None))
         q_args.append(the_field)
         col_names.append(name)
-        table = _get_table_name(ringId, group["entity"], group["field"])
+        table = _get_table_name(extractor, group["entity"], group["field"])
         if table not in tables:
             tables.append(table)
         if group["entity"] not in unique_entities:
@@ -377,11 +378,11 @@ def _prep_query(a_opts, ringId, db, field_types, counts=False):
 
     # print(target_fields)
     for target in target_fields:
-        the_field, field_name = _get(ringId, target["entity"], target["field"], db, op=target["op"],
+        the_field, field_name = _get(extractor, target["entity"], target["field"], db, op=target["op"],
                                         transform=target.get("transform", None))
         q_args.append(OPS[target["op"]]["funcDict"]["op"](the_field, target["extra"]).label(field_name))
         col_names.append(field_name)
-        table = _get_table_name(ringId, target["entity"], target["field"])
+        table = _get_table_name(extractor, target["entity"], target["field"])
         if table not in tables:
             tables.append(table)
         if target["entity"] not in unique_entities:
@@ -390,7 +391,7 @@ def _prep_query(a_opts, ringId, db, field_types, counts=False):
     # Query the IDs of the entities we care about (as well as the nice name stuff for them)
     entity_ids = []
     for entity in unique_entities:
-        the_field, name = _get(ringId, entity, "id", db)
+        the_field, name = _get(extractor, entity, "id", db)
         entity_ids.append(name)
         if name not in col_names and counts:
             q_args.append(the_field)
@@ -401,18 +402,18 @@ def _prep_query(a_opts, ringId, db, field_types, counts=False):
 
 
 # PENDING: Finish filling this out for prefilters
-def _do_filters(query, s_opts, ringId, targetEntity, col_names, session, db):
+def _do_filters(query, s_opts, ring, extractor, targetEntity, col_names, session, db):
     '''
     Adding filters
     '''
 
     # do prefilters
 
-    query = query.filter(_get(ringId, targetEntity, "id", db) != None)
+    query = query.filter(_get(extractor, targetEntity, "id", db) != None)
 
     # do normal filters
     if s_opts:
-        query = rawGetResultSet(s_opts, ringId, targetEntity, targetRange=None, simpleResults=True, just_query=True, sess=session, query=query)
+        query = rawGetResultSet(s_opts, ring, extractor, targetEntity, targetRange=None, simpleResults=True, just_query=True, sess=session, query=query)
 
     # do nan filtering
     # Need to get a list of all the attributes that are being used in the query
@@ -421,7 +422,7 @@ def _do_filters(query, s_opts, ringId, targetEntity, col_names, session, db):
     for name in col_names:
         param_dct = _entity_from_name(name)
         # print(param_dct)
-        entity_dict = current_app.ringExtractors[ringId].resolveEntity(param_dct["entity"])[1]
+        entity_dict = extractor.resolveEntity(param_dct["entity"])[1]
         if param_dct["attribute"] != "id":
             attr_obj = [attr for attr in entity_dict.attributes if attr.name == param_dct["attribute"]][0]
         else:
@@ -434,7 +435,7 @@ def _do_filters(query, s_opts, ringId, targetEntity, col_names, session, db):
                 # meaning we cant directly use the name of the object, so we have to
                 # again get the "real" field and filter off of that
                 # PENDING: might have issues since there could be multiple fields with same name
-                field, name = _get(ringId, param_dct["entity"], param_dct["attribute"], db)
+                field, name = _get(extractor, param_dct["entity"], param_dct["attribute"], db)
                 query = query.filter(field != None)
 
 
@@ -465,7 +466,7 @@ def _do_filters(query, s_opts, ringId, targetEntity, col_names, session, db):
 # PENDING: Should try to share this with seekers as much as possible
 # PENDING: have yet to test the case where single entity across multiple tables
 # PENDING: have yet to test teh case where multiple entities in one table (tho it should be fine)
-def _do_joins(query, tables, relationships, ringId, targetEntity, db):
+def _do_joins(query, tables, relationships, extractor, targetEntity, db):
     '''
     Do joins, if needed
     We have a list of SQL tables that we are using, as well as the needed relationships
@@ -473,7 +474,7 @@ def _do_joins(query, tables, relationships, ringId, targetEntity, db):
     '''
 
     joined_tables = []
-    p_table = _get_table_name(ringId, targetEntity, "id")
+    p_table = _get_table_name(extractor, targetEntity, "id")
     primary_bool = any(table == p_table for table in tables)
 
 
@@ -491,7 +492,7 @@ def _do_joins(query, tables, relationships, ringId, targetEntity, db):
                             isouter=True
                             ), the_table
 
-    rel_items = [current_app.ringExtractors[ringId].resolveRelationship(rel)[1] for rel in relationships]
+    rel_items = [extractor.resolveRelationship(rel)[1] for rel in relationships]
 
     if not primary_bool:
         # If the primary table is not in the queried fields,
@@ -504,7 +505,7 @@ def _do_joins(query, tables, relationships, ringId, targetEntity, db):
                 return False
             if not len(rel_item.join):
                 return False
-            join = current_app.ringExtractors[ringId].resolveJoin(rel_item.join[0])[1]
+            join = extractor.resolveJoin(rel_item.join[0])[1]
             if join.from_ != table and join.to != table:
                 return False
             return True
@@ -514,7 +515,7 @@ def _do_joins(query, tables, relationships, ringId, targetEntity, db):
 
         # Iterate thru these and join them
         for rel_item in rels:
-            join = current_app.ringExtractors[ringId].resolveJoin(rel_item.join[0])[1]
+            join = extractor.resolveJoin(rel_item.join[0])[1]
             if join.from_ in tables:
                 joined_tables.append(join.from_)
             else:
@@ -527,12 +528,12 @@ def _do_joins(query, tables, relationships, ringId, targetEntity, db):
         rel_items = [rel for rel in rel_items if not rel_contains_entity_table(rel, targetEntity, p_table)]
 
     else:
-        joined_tables.append(_get_table_name(ringId, targetEntity, "id"))
+        joined_tables.append(_get_table_name(extractor, targetEntity, "id"))
 
 
     for rel_item in rel_items:
         if len(rel_item.join):
-            join = current_app.ringExtractors[ringId].resolveJoin(rel_item.join[0])[1]
+            join = extractor.resolveJoin(rel_item.join[0])[1]
             for path in join.path:
                 query, add_table = do_join(query, path, joined_tables)
                 joined_tables.append(add_table)
@@ -564,11 +565,11 @@ def _format_results():
 
 
 # PENDING: handling multiple columns in the columns of source
-def _get(ringId, entity, attribute, db, transform=None, date_transform=None, op=None):
+def _get(extractor, entity, attribute, db, transform=None, date_transform=None, op=None):
     '''
     Returns the field from entity in ring, and the label of the field
     '''
-    entity_dict = current_app.ringExtractors[ringId].resolveEntity(entity)[1]
+    entity_dict = extractor.resolveEntity(entity)[1]
     if attribute != "id":
         attr_obj = [attr for attr in entity_dict.attributes if attr.name == attribute][0]
         model_name = attr_obj.source_table
@@ -582,7 +583,7 @@ def _get(ringId, entity, attribute, db, transform=None, date_transform=None, op=
 
     model = getattr(db, model_name)
     field = getattr(model, field_name)
-    name = _name(ringId, entity, attribute, op, transform)
+    name = _name(entity, attribute, op, transform)
 
     # Get null handling
     if attr_obj:
@@ -594,12 +595,12 @@ def _get(ringId, entity, attribute, db, transform=None, date_transform=None, op=
 
     return field.label(name), name
 
-def _get_table_name(ringId, entity, attribute):
+def _get_table_name(extractor, entity, attribute):
     '''
     Returns the table name correponding to an entity's attribute in the ring
     '''
     # returns the table corresponding to an entity in ring   
-    entity_dict = current_app.ringExtractors[ringId].resolveEntity(entity)[1]
+    entity_dict = extractor.resolveEntity(entity)[1]
     if attribute != "id":
         attr_obj = [attr for attr in entity_dict.attributes if attr.name == attribute][0]
         model_name = attr_obj.source_table
@@ -615,26 +616,28 @@ def _nan_cast(field, cast_val):
 
 '''
 
-Next steps (11/18/2021):
+Pending Stuff (1/18/2022):
 
-2. Polish off date manager
-DONE- Adding to the config options for
-DONE    - Granularity
-DONE    - Datetime format
-DONE- Modifying compiler to handle granularity and datetime format
-DONE- Modifying engine to handle granularity and datetime format (should be minimal)
-DONE- test
-DONE- cast things to strings (also day of week into actual days? or maybe jsut as string as well for now)
+- Querying multiple columns for one attribute
+    e.g. date: year, month, day
+    e.g. name: first, middle, last
+- Querying niceName from id columns when grouping by id column
+- Defining JSON with default behaviors (all of these can be added to config attributes)
+    - Rounding figures
+    - Date and datetime granularities
+    - True/False conversion/format
+    - Null dropping/converting behavior
+    - Multiple column behavior
+        - concatenate by default for all
+            - Might need to cast all to string first if not already string
+        
+- Implement stuff to utilize the JSON
+    - Might just use it at compile time and add it to compiled ring?
 
-4. Transforms
-DONEish- Define a couple of transforms in the transforms.py file to show stuff
-DONE- Consider cases where there might be a transform AND a granularity param (fine if this does not exist)
-DONE- Define some test cases for transforms
-DONE- Modify engine to handle transforms
-DONE-test
+- Apply some changes that we talked about in slack that one time
 
-5. Other engine stuff
-DONE- More efficient distinct counting
+
+
 
 Next steps (11/26/2021)
 
@@ -647,21 +650,12 @@ Pending stuff
             - We communicate what kind of visualization we want to do
     - Create a pipy or whatevs repo for our own analysis plugins
     - Figure out how to import that repo to our own satyrn stuff
-- Handling the case better of whether we have already built the file
+- Handling the case better of whether we have already built the file for CSV/Kafarella
 - Distinct key checking for when multiple joins
 - Transform
     - Add test case where in config we have ae defined inequalities thingy
 
 
-(D: Just check in with andru to make sure this makes sense)
-- Querying the "nice name" of things (e.g. contributor.id -> also query contributor.name)
-- Querying multiple columns for a single thing
-    e.g. date: year, month, day
-    e.g. name: first, middle, last
-- Formatting
-    - Rounding
-    - Transforming stuff (e.g. bools into something else)
-- Standardizing things for date manager so that they mostly sit in one place (rn its spread out in engine and compiler)
 
 
 
@@ -705,15 +699,6 @@ It'll return grouped by True/False, but maybe we wanted it formatted differently
         sometimes we might want it to be in its "raw" form (or some analysis plugins might want it raw)
 - QFA: get his thoughts on it
 
-Rounding:
-- Would add something to the config or to defaults
-- QFA: sound good?
-
-NOTE: It might be good to have some sort of "defaults" file, with stuff about
-- Rounding defaults
-- Null default behavior
-- Maybe some of the datemanager stuff there as well? or within the same vicinity
-
 
 Standardizing date manager stuff
 - I was thinking of just putting it all in a file called datemanager.py
@@ -724,13 +709,14 @@ Standardizing date manager stuff
     - where would I put this file? This would be used mostly by the compiler and the statement generator
 
 
-
-TRansform
-- Walk thru what i've done
-- Talk about example for inequality that we might want to use
-
-
-
 FOOTNOTE: something andrew made up bout two time frames on a single thing
+
+
+
+Stuff that might be good in one file
+- date manager stuff/settings/defaults
+- defaults for nulls
+- rounding behavior
+
 
 '''

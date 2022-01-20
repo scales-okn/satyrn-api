@@ -61,6 +61,7 @@ def cleanDate(dte):
 # to get or create ring as necessary
 def getOrCreateRing(ringId, version=None, forceRefresh=False):
     # breakpoint()
+    version = int(version) if version else version
     if (ringId not in app.rings) or (version and version not in app.rings.get(ringId, {})) or forceRefresh:
         getRingFromService(ringId, version)
     if not version:

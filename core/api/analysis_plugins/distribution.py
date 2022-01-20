@@ -18,7 +18,7 @@ def pandasDistribution(a_opts, results, group_args, field_names, col_names):
     df = pd.DataFrame(results, columns=field_names)
     ring = a_opts["rings"][0]
 
-    target_arg = _name(ring, a_opts["target"]["entity"], a_opts["target"]["field"], a_opts["target"]["op"])
+    target_arg = _name(a_opts["target"]["entity"], a_opts["target"]["field"], a_opts["target"]["op"])
     group_args.pop()
 
     if group_args:

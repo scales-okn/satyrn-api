@@ -14,13 +14,11 @@ from core.api.utils import _name
 def correlationQuery(s_opts, orig_a_opts, targetEntity):
 
     a_opts = deepcopy(orig_a_opts)
-    for targ, num in zip(["target", "target2"], ["numerator", "numerator2"]):
-        num_name = "numerator"
-        if num in a_opts:
+    for targ in ["target", "target2"]:
+        if "numerator" in a_opts[targ]:
             a_opts[targ].update({"op": a_opts[targ]["op"] if "op" in a_opts[targ] else "oneHot",
-                            "extra": {num_name: a_opts[num]}
+                            "extra": {"numerator": a_opts[targ]["numerator"]}
                         })
-            #  del a_opts[num] 
         elif "op" not in a_opts[targ]:             
             a_opts[targ].update({
                             "op": "None",
@@ -41,8 +39,8 @@ def pandasCorrelation(a_opts, results, group_args, field_names, col_names):
 
     df_unique = df.nunique()
 
-    col_1 = _name(ring, a_opts["target"]["entity"], a_opts["target"]["field"], a_opts["target"]["op"])
-    col_2 = _name(ring, a_opts["target2"]["entity"], a_opts["target2"]["field"], a_opts["target2"]["op"])
+    col_1 = _name(a_opts["target"]["entity"], a_opts["target"]["field"], a_opts["target"]["op"])
+    col_2 = _name(a_opts["target2"]["entity"], a_opts["target2"]["field"], a_opts["target2"]["op"])
 
     corr_val = corr_matrix[col_1][col_2]
 
@@ -58,20 +56,22 @@ dct = {
             "target": {
                 "types": ["string", "bool", "int", "float", "average", "count"],
                 "fieldType": "target",
+                "extra": {
+                    "numerator": {
+                        "types": ["== target"],
+                        "required": ["target == bool", "target == string"],             
+                    }
+                }
             },
             "target2": {
                 "types": ["string", "bool", "int", "float", "average", "count"],
                 "fieldType": "target",
-            },
-            "numerator": {
-                "types": ["== target"],
-                "required": ["target == bool", "target == string"],
-                "fieldType": "extra",
-            },
-            "numerator2": {
-                "types": ["== target"],
-                "required": ["target == bool", "target == string"],
-                "fieldType": "extra",
+                "extra": {
+                    "numerator": {
+                        "types": ["== target"],
+                        "required": ["target == bool", "target == string"],             
+                    }
+                }
             },
             "grouping": {
                 "types": ["id"],

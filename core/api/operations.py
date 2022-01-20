@@ -106,7 +106,7 @@ def base_query_prep(s_opts, orig_a_opts, targetEntity):
 
     a_opts = deepcopy(orig_a_opts)
     a_opts["target"].update({"op": a_opts["op"],
-                    "extra": {"numerator": a_opts["numerator"]} if "numerator" in a_opts else {}
+                    "extra": {"numerator": a_opts["numerator"]} if "numerator" in a_opts["target"] else {}
                 })
     return s_opts, a_opts, targetEntity
 
