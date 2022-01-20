@@ -3,7 +3,7 @@
 # bootstraps the app and db elements in context for CLI exploration
 import IPython
 
-from satyrnBundler import app
+from core.satyrnBundler import app
 
 with app.app_context():
     print("\033[92m=============================================")
