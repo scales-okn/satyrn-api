@@ -118,7 +118,7 @@ OPERATION_SPACE = {
                 "types": ["float", "int"]
             }
         },
-        "units": "unchanged", 
+        "units": "unchanged",
         "nicename": "Average",
         "queryPrep": base_query_prep,
         "funcDict": {
@@ -135,7 +135,7 @@ OPERATION_SPACE = {
                 "types": ["id"]
             }
         },
-        "units": "unchanged", 
+        "units": "unchanged",
         "nicename": "Count of",
         "queryPrep": base_query_prep,
         "funcDict": {
@@ -153,7 +153,7 @@ OPERATION_SPACE = {
                 "types": ["float", "int"]
             }
         },
-        "units": "unchanged", 
+        "units": "unchanged",
         "nicename": "Total",
         "queryPrep": base_query_prep,
         "funcDict": {
@@ -170,7 +170,7 @@ OPERATION_SPACE = {
                 "types": ["float", "int"]
             }
         },
-        "units": "unchanged", 
+        "units": "unchanged",
         "nicename": "Minimum",
         "queryPrep": base_query_prep,
         "funcDict": {
@@ -187,7 +187,7 @@ OPERATION_SPACE = {
                 "types": ["float", "int"]
             }
         },
-        "units": "unchanged", 
+        "units": "unchanged",
         "nicename": "Maximum",
         "queryPrep": base_query_prep,
         "funcDict": {
@@ -218,7 +218,7 @@ OPERATION_SPACE = {
                 "types": ["float", "int"]
             },
         },
-        "units": "unchanged", 
+        "units": "unchanged",
         "nicename": "Median",
         "queryPrep": base_query_prep,
         "funcDict": {
@@ -236,7 +236,7 @@ OPERATION_SPACE = {
                 "types": ["id"]
             }
         },
-        "units": "target/per", 
+        "units": "target/per",
         "nicename": "Average Count of",
         "queryPrep": base_query_prep,
         "funcDict": {
@@ -258,7 +258,7 @@ OPERATION_SPACE = {
                 "types": ["id"]
             }
         },
-        "units": "target/per", 
+        "units": "target/per",
         "nicename": "Average Total of",
         "queryPrep": base_query_prep,
         "funcDict": {
@@ -280,7 +280,7 @@ OPERATION_SPACE = {
                 "types": ["== target"]
             }
         },
-        "units": "percentage", 
+        "units": "percentage",
         "nicename": "Percentage of",
         "queryPrep": base_query_prep,
         "funcDict": {
@@ -301,7 +301,7 @@ OPERATION_SPACE = {
                 "types": ["== target"]
             }
         },
-        "units": "none", 
+        "units": "none",
         # "nicename": "Percentage of",
         "queryPrep": base_query_prep,
         "funcDict": {
@@ -332,7 +332,7 @@ OPERATION_SPACE = {
                 "types": ["int, float"]
             },
         },
-        "units": "unchanged", 
+        "units": "unchanged",
         "nicename": "Summary Statistics",
         "funcDict": {
             "summaryTableFunction": "fdjkfdjkjd",
@@ -344,9 +344,10 @@ OPERATION_SPACE = {
 
 
 import importlib.util
-
 import os
-directory = os.path.join(os.getcwd(), os.path.join("core","api","analysis_plugins"))
+
+base_dir = os.environ.get("SATYRN_ROOT_DIR", os.getcwd())
+directory = os.path.join(base_dir, os.path.join("core","api","analysis_plugins"))
 for filename in os.listdir(directory):
     if filename != "__init__.py" and filename.endswith(".py"):
         name = ".".join(["core", "api", "analysis_plugins", filename[:-3]])
