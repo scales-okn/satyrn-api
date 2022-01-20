@@ -631,32 +631,35 @@ class Ring_Compiler(object):
             # todo: need to cast after extract
             extr = extract(field, col)
             if field != "year" and field != "microsecond":
-                extr = func.right("00" + cast(extr, String), 2)
-            model_map[table][col_name + gran_name] = column_property(cast(extr, String))
+                # extr = func.right("00" + cast(extr, String), 2)
+                pass
+            else:
+                extr = cast(extr, String)
+            model_map[table][col_name + gran_name] = column_property(extr)
             extr_dct[field] = extr
 
         # check if year month day valid
         if minID > 1 and maxID == 0:
             # do year month day
-            model_map[table][col_name + "_date"] = column_property(concat(extr_dct["year"], "/", extr_dct["month"], "/", extr_dct["day"]))
+            # model_map[table][col_name + "_date"] = column_property(concat(extr_dct["year"], "/", extr_dct["month"], "/", extr_dct["day"]))
             # do day of week
             model_map[table][col_name + "_dayofweek"] = column_property(cast(extract("dow", model_map[attribute.source_table][col_name]), String))
         
         # check if year month valid
-        if minID > 0 and maxID == 0:
-            model_map[table][col_name + "_month"] = column_property(concat(extr_dct["year"], "/", extr_dct["month"]))
+        # if minID > 0 and maxID == 0:
+        #     model_map[table][col_name + "_month"] = column_property(concat(extr_dct["year"], "/", extr_dct["month"]))
 
-        # check if month day valid
-        if minID > 1 and maxID < 2:
-            model_map[table][col_name + "_monthday"] = column_property(concat(extr_dct["month"], "/", extr_dct["day"]))
+        # # check if month day valid
+        # if minID > 1 and maxID < 2:
+        #     model_map[table][col_name + "_monthday"] = column_property(concat(extr_dct["month"], "/", extr_dct["day"]))
 
-        # check if time valid
-        if minID == 5 and maxID < 4:
-            model_map[table][col_name + "_time"] = column_property(concat(extr_dct["hour"], ":", extr_dct["minute"], ":", extr_dct["second"]))
+        # # check if time valid
+        # if minID == 5 and maxID < 4:
+        #     model_map[table][col_name + "_time"] = column_property(concat(extr_dct["hour"], ":", extr_dct["minute"], ":", extr_dct["second"]))
 
-        # check if datetime valid
-        if minID == 5 and maxID == 0:
-            model_map[table][col_name + "_datetime"] = column_property(concat(extr_dct["year"], "/", extr_dct["month"], "/", extr_dct["day"], "|", extr_dct["hour"], ":", extr_dct["minute"], ":", extr_dct["second"]))
+        # # check if datetime valid
+        # if minID == 5 and maxID == 0:
+        #     model_map[table][col_name + "_datetime"] = column_property(concat(extr_dct["year"], "/", extr_dct["month"], "/", extr_dct["day"], "|", extr_dct["hour"], ":", extr_dct["minute"], ":", extr_dct["second"]))
 
 
         # For the fields smaller than "field", concatenate and add new column property
