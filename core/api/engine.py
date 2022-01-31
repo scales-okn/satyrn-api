@@ -11,7 +11,7 @@ from pandas import DataFrame
 from .operations import OPERATION_SPACE as OPS
 from .seekers import rawGetResultSet
 from .transforms import TRANSFORMS_SPACE as TRS
-from .utils import _get_join_field, _name, _outerjoin_name, _entity_from_name, _remove_duplicate_vals
+from .utils import _get_join_field, _name, _outerjoin_name, _entity_from_name, _remove_duplicate_vals, count_entities
 
 # PREFILTERS = current_app.satConf.preFilters
 
@@ -213,7 +213,6 @@ def row_count_query(s_opts, a_opts, ring, extractor, targetEntity, session, db, 
     '''
     Queries to count entities
     Basically like a simple query but for the purpose of counting entities
-    Currently done in the most inefficient way possible
     '''    
 
     # Query fields
@@ -239,17 +238,9 @@ def row_count_query(s_opts, a_opts, ring, extractor, targetEntity, session, db, 
     # Do joins
     query = _do_joins(query, tables, a_opts["relationships"] if "relationships" in a_opts else [], extractor, targetEntity, db)
 
-    # TODO: For some reason, this method works for postgres, not for sqlite
-    # Below method works for both
     # Count entities
-    # entity_counts = {}
-    # for entity, name in zip(entity_ids, entity_names):
-    #     entity_counts[entity] = query.distinct(entity).count()
-
-    df = DataFrame(query.all(), columns=field_names).nunique()
-    entity_counts = {}
-    for entity, name in zip(entity_ids, entity_names):
-        entity_counts[entity] = df[entity]
+    db_type = extractor.getDBType()
+    entity_counts = count_entities(query, entity_ids, field_names, db_type)
 
     return entity_counts
 

@@ -26,6 +26,9 @@ class RingConfigExtractor(object):
     def resolveRelationship(self, relation):
         return relation, [ent for ent in self.config.relationships if ent.name == relation][0]
 
+    def getDBType(self):
+        return self.config.source.type
+
     def getSearchSpace(self, target=None):
         target, targetEnt = self.resolveEntity(target)
         if "searchSpace" in self.cache[target]:

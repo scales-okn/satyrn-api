@@ -22,6 +22,11 @@ try:
 except:
     from .extractors import RingConfigExtractor
 
+try:
+    from api import utils
+except:
+    from .api import utils
+
 # This is an abstract class which serves as the superclass for concrete ring classes
 class Ring_Object(object):
 
@@ -624,6 +629,8 @@ class Ring_Compiler(object):
 
         relevant_fields = ordered_fields[maxID:minID+1]
 
+        db_type = self.config.source.type
+
         extr_dct = {}
         for idx, field in enumerate(relevant_fields):
 
@@ -631,12 +638,10 @@ class Ring_Compiler(object):
             # todo: need to cast after extract
             extr = extract(field, col)
             if field != "year" and field != "microsecond":
-                # TODO: check if this works in postgres
                 # extr = func.substr("00" + cast(extr, String), -2, 2)
                 # extr = func.substr(concat("00", cast(extr, String)), -2, 2)
-                extr = func.right("00" + cast(extr, String), 2)
+                extr = utils.sql_right("00" + cast(extr, String), db_type, 2)
                 # extr = cast(extr, String)
-                pass
             else:
                 extr = cast(extr, String)
             model_map[table][col_name + gran_name] = column_property(extr)
@@ -647,7 +652,6 @@ class Ring_Compiler(object):
             # do year month day
             # model_map[table][col_name + "_date"] = column_property(concat(extr_dct["year"], "/", extr_dct["month"], "/", extr_dct["day"]))
             model_map[table][col_name + "_date"] = column_property(concat(extr_dct["year"], extr_dct["month"],  extr_dct["day"]))
-            # TODO: check if this works for postgres. mostlikely not, so we might need to bifurcate here
             model_map[table][col_name + "_date"] = column_property(extr_dct["year"] + "/" + extr_dct["month"] +  "/" + extr_dct["day"])
             # do day of week
             model_map[table][col_name + "_dayofweek"] = column_property(cast(extract("dow", model_map[attribute.source_table][col_name]), String))
@@ -675,23 +679,6 @@ class Ring_Compiler(object):
         # - date: year month day
         # - time: hour minute second
 
-
-
-        # # year
-        # model_map[table][col_name + "_year"] = column_property(extract('year', col)) 
-
-        # # month
-        # model_map[table][col_name + "_onlymonth"] = column_property(extract('month', col)) 
-
-        # # day
-        # model_map[table][col_name + "_onlyday"] = column_property(extract('day', col)) 
-
-        # # month + year
-        # model_map[table][col_name + "_month"] = column_property(concat(extract('year', col), "/", extract('month', col))) 
-
-        # month + year + day (i.e. strip time)
-
-        # if datetime: include more
 
         return model_map
 

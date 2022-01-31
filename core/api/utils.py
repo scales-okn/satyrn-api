@@ -1,3 +1,42 @@
+
+
+from sqlalchemy import func
+# MEthods for databases
+
+from pandas import DataFrame
+
+def sql_right(field, db_type, char_n=2):
+    # Given a sqlalchemy string field, return the last char_n chars
+    if db_type == "sqlite":
+        return func.substr(field, -2, 2)
+    elif db_type == "postgres":
+        return func.right(field, 2)
+
+def sql_concat(field_lst, db_type):
+    # For now, not implemented, will do sop if needed in the future
+    # since or sqlite and postgres + works for both
+    pass
+
+
+
+def count_entities(query, entity_ids, field_names, db_type):
+
+    entity_counts = {}
+    if db_type == "sqlite":
+        df = DataFrame(query.all(), columns=field_names).nunique()
+        for entity in entity_ids:
+            entity_counts[entity] = df[entity]
+    elif db_type == "postgres":
+        for entity in entity_ids:
+            entity_counts[entity] = query.distinct(entity).count()
+
+    return entity_counts
+
+
+
+
+
+
 def _get_join_field(path_bit, db):
     model_name, field_name = path_bit.split(".")
     model = getattr(db, model_name)
