@@ -130,7 +130,7 @@ def searchDB(ringId, version, targetEntity):
 
 # PENDING: Add some check here that analysis opts are valid
 # PENDING: Use fieldTypes?
-@api.route("/analysis/<ringId>/<version>/<targetEntity>/")
+@api.route("/analysis/<ringId>/<version>/<targetEntity>/", methods=["GET","POST"])
 @apiKeyCheck
 def runAnalysis(ringId, version, targetEntity):
     ring, ringExtractor = getOrCreateRing(ringId, version)
