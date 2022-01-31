@@ -8,6 +8,7 @@ import numpy as np
 
 def distributionQuery(s_opts, orig_a_opts, targetEntity):
 
+
     a_opts = deepcopy(orig_a_opts)
     # a_opts["target"]["extra"] = {}
     return s_opts, a_opts, targetEntity

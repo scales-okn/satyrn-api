@@ -11,7 +11,7 @@ def comparisonQuery(s_opts, orig_a_opts, targetEntity):
             a_opts[targ].update({"op": a_opts[targ]["op"] if "op" in a_opts[targ] else "oneHot",
                             "extra": {"numerator": a_opts[targ]["numerator"]}
                         })
-        elif "op" not in a_opts[targ]:             
+        elif "op" not in a_opts[targ]:         
             a_opts[targ].update({
                             "op": "None",
                         })

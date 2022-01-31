@@ -325,19 +325,7 @@ OPERATION_SPACE = {
         },
         "units": "unchanged",
         "type": "simple"
-    },
-    "summaryStatistics": {
-        "fields": {
-            "target": {
-                "types": ["int, float"]
-            },
-        },
-        "units": "unchanged",
-        "nicename": "Summary Statistics",
-        "funcDict": {
-            "summaryTableFunction": "fdjkfdjkjd",
-        }
-    },
+    }
 
 }
 

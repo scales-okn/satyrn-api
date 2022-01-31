@@ -13,6 +13,8 @@ from core.api.utils import _name
 
 def correlationQuery(s_opts, orig_a_opts, targetEntity):
 
+    print(orig_a_opts)
+
     a_opts = deepcopy(orig_a_opts)
     for targ in ["target", "target2"]:
         if "numerator" in a_opts[targ]:
@@ -28,10 +30,18 @@ def correlationQuery(s_opts, orig_a_opts, targetEntity):
             #                 "extra": {}
             #             })
             pass
+
+    print(a_opts)
     return s_opts, a_opts, targetEntity
 
 
 def pandasCorrelation(a_opts, results, group_args, field_names, col_names):
+
+    print(a_opts)
+    print(results)
+    print(group_args)
+    print(field_names)
+    print(col_names)
 
     df = pd.DataFrame(results, columns=field_names)
     corr_matrix = df.corr("pearson")
@@ -44,10 +54,19 @@ def pandasCorrelation(a_opts, results, group_args, field_names, col_names):
 
     corr_val = corr_matrix[col_1][col_2]
 
+    print({"results": results, "score": corr_val})
+    print(field_names)
+    print(col_names)
+
     return {"results": results, "score": corr_val}, field_names, col_names
 
 
 def corrUnits(a_opts, field_names, col_names, init_units):
+    print(a_opts)
+    print(field_names)
+    print(col_names)
+    print(init_units)
+    print({"results": init_units, "score": "no units"})
     return {"results": init_units, "score": "no units"}
 
 dct = {    

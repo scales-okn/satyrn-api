@@ -11,7 +11,7 @@ from pandas import DataFrame
 from .operations import OPERATION_SPACE as OPS
 from .seekers import rawGetResultSet
 from .transforms import TRANSFORMS_SPACE as TRS
-from .utils import _get_join_field, _name, _outerjoin_name, _entity_from_name
+from .utils import _get_join_field, _name, _outerjoin_name, _entity_from_name, _remove_duplicate_vals
 
 # PREFILTERS = current_app.satConf.preFilters
 
@@ -29,7 +29,9 @@ def run_analysis(s_opts, a_opts, targetEntity, ring, extractor):
         targetEntity: searchable entity
     Returns the following:
     {
-        results: [(), ]
+        results: {
+            [(), ]
+        }
         column names: []
         units: {}
         Counts:{
@@ -49,7 +51,8 @@ def run_analysis(s_opts, a_opts, targetEntity, ring, extractor):
 
     # If across two rings, do a different path
     if len(a_opts["rings"]) > 1:
-        analysis_across_two_rings(s_opts, a_opts)
+        # analysis_across_two_rings(s_opts, a_opts)
+        pass
     else:
 
         db, sess  = _get_db_sess(ring)
@@ -58,6 +61,20 @@ def run_analysis(s_opts, a_opts, targetEntity, ring, extractor):
 
 def single_ring_analysis(s_opts, a_opts, ring, extractor, targetEntity, sess, db):
     # Analysis over only one ring
+    '''
+    Returns results dictionary, format:
+    {
+        "results": ,
+        "field_names": ,
+        "field_types": ,
+        "units": {
+            "results": 
+        }
+        "entity_counts": {
+            ""
+        }
+    }
+    '''
 
     op = a_opts["op"]
     field_types = {
@@ -72,8 +89,6 @@ def single_ring_analysis(s_opts, a_opts, ring, extractor, targetEntity, sess, db
         field_types["target"].extend(addit_target)
         results, new_opts, field_names, col_names, units = complex_operation(s_opts, a_opts, ring, extractor, targetEntity, sess, db, field_types)
         a_opts = new_opts
-        # print("new opts")
-        # print(a_opts)
         
         results.update({"field_names": field_names, "field_types": col_names, "units": units})
 
@@ -90,7 +105,6 @@ def single_ring_analysis(s_opts, a_opts, ring, extractor, targetEntity, sess, db
         units = get_units(a_opts, extractor, field_types, field_names, col_names)
         results = {"results": query.all(), "field_names": field_names, "field_types": col_names, "units": {"results": units}}
         
-    # print("gonna start rocount")
     results.update({
         "entity_counts": row_count_query(s_opts, a_opts, ring, extractor, targetEntity, sess, db, field_types),
     })
@@ -100,43 +114,30 @@ def single_ring_analysis(s_opts, a_opts, ring, extractor, targetEntity, sess, db
 
 def complex_operation(s_opts, a_opts, ring, extractor, targetEntity, session, db, field_types):
     '''
-    Complex operation (distribution, correlationm comparison)
-
-    This would be where there would be space for analysis plugins
-
-    Potentially three main parts that others would define:
-    1. What to query
-        e.g. with correlation having two targets, querying these
-    2. What to do with the queries results
-        e.g. with correlation, calculating correlation score
-    3. Formatting (if any)
-        e.g. with correlation, decimal rounding for the score
-             with correaltion, returning score in addition to the raw results
+    Complex operation defined via analysis plugins
+    More on these in the analysis_plugins folder
     
     '''
     op_name = a_opts["op"]
 
-    # 1. what to query
+    # What to query/Query translation
     new_a_opts = OPS[op_name]["queryPrep"](s_opts, a_opts, targetEntity)[1]
     for key in field_types["target"]:
         if key in new_a_opts and "extra" not in new_a_opts[key]:
             new_a_opts[key]["extra"] = {}
 
-    # print(new_a_opts)
-
     query, group_args, field_names, col_names = simple_query(s_opts, new_a_opts, ring, extractor, targetEntity, session, db, field_types)
     query = query.group_by(*group_args)
     results = query.all()
 
-    # 2. and 3. What to do with the queries results and formatting
-    results, field_names, col_names = OPS[op_name]["pandasFunc"]["op"](new_a_opts, results, group_args, field_names, col_names)
+    # What to do with the queries results and formatting
+    results, new_field_names, new_col_names = OPS[op_name]["pandasFunc"]["op"](new_a_opts, results, group_args, field_names, col_names)
 
     # Do units
     init_units = get_units(new_a_opts, extractor, field_types, field_names, col_names)
     units = OPS[op_name]["unitsPrep"](a_opts, field_names, col_names, init_units)
 
-
-    return results, new_a_opts, field_names, col_names, units
+    return results, new_a_opts, new_field_names, new_col_names, units
 
 
 def recursive_query(s_opts, a_opts, ring, extractor, targetEntity, session, db, field_types):
@@ -208,31 +209,6 @@ def simple_query(s_opts, a_opts, ring, extractor, targetEntity, session, db, fie
     return query, group_args, field_names, col_names
 
 
-
-def _remove_duplicates(a_opts):
-    repeat_keys = [[k for k in a_opts if a_opts[k] == v] for v in a_opts.values()]
-    repeat_keys = [lst for lst in repeat_keys if len(lst) > 1]
-    repeat_keys.sort()
-    print(repeat_keys)
-    del_keys = []
-    if repeat_keys:
-        last = repeat_keys[-1]
-        for i in range(len(repeat_keys)-2, -1, -1):
-            if last == repeat_keys[i]:
-                del repeat_keys[i]
-            else:
-                last = repeat_keys[i]
-        print(repeat_keys)
-        
-        for repeat_lst in repeat_keys:
-            kept_key = repeat_lst[0]
-            for repeat_val in repeat_lst[1:]:
-                del_keys.append((repeat_val, a_opts[repeat_val]))
-                del a_opts[repeat_val]
-
-    return a_opts, del_keys
-
-
 def row_count_query(s_opts, a_opts, ring, extractor, targetEntity, session, db, field_types):
     '''
     Queries to count entities
@@ -249,13 +225,10 @@ def row_count_query(s_opts, a_opts, ring, extractor, targetEntity, session, db, 
             a_opts[key]["op"] = "None"
             if "extra" not in a_opts[key]:
                 a_opts[key]["extra"] = {}
-    for key in ["numerator", "numerator2"]:
-        a_opts.pop(key, None)
-
-    print(a_opts)
-    a_opts, del_keys = _remove_duplicates(a_opts)
-    print(a_opts)
-    print(del_keys)
+    # for key in ["numerator", "numerator2"]:
+    #     a_opts.pop(key, None)
+    # Above should be deprecated, numerator no longer shows up as key in main dct
+    a_opts, _ = _remove_duplicate_vals(a_opts)
 
     q_args, tables, entity_ids, entity_names, field_names, col_names = _prep_query(a_opts, extractor, db, field_types=field_types, counts=True)
     query = session.query(*q_args)
@@ -266,15 +239,17 @@ def row_count_query(s_opts, a_opts, ring, extractor, targetEntity, session, db, 
     # Do joins
     query = _do_joins(query, tables, a_opts["relationships"] if "relationships" in a_opts else [], extractor, targetEntity, db)
 
+    # TODO: For some reason, this method works for postgres, not for sqlite
+    # Below method works for both
     # Count entities
-    entity_counts = {}
-    for entity, name in zip(entity_ids, entity_names):
-        entity_counts[entity] = query.distinct(entity).count()
-
-    # df = DataFrame(query.all(), columns=field_names).nunique()
     # entity_counts = {}
     # for entity, name in zip(entity_ids, entity_names):
-    #     entity_counts[entity] = df[entity]
+    #     entity_counts[entity] = query.distinct(entity).count()
+
+    df = DataFrame(query.all(), columns=field_names).nunique()
+    entity_counts = {}
+    for entity, name in zip(entity_ids, entity_names):
+        entity_counts[entity] = df[entity]
 
     return entity_counts
 
@@ -311,7 +286,7 @@ def get_units(a_opts, extractor, field_types, field_names, col_names):
             units_dict[key] = _get_field_units(a_opts[key]["entity"], a_opts[key]["field"], a_opts[key].get("transform", None))
 
     if "groupBy" in a_opts:
-        units_dict["groupBy"] = [_get_field_units(group["entity"], group["field"], group.get("transform, None")) for group in a_opts["groupBy"]]
+        units_dict["groupBy"] = [_get_field_units(group["entity"], group["field"], group.get("transform", None)) for group in a_opts["groupBy"]]
 
     for key in field_types["target"]:
         if key in a_opts:
@@ -335,33 +310,30 @@ def get_units(a_opts, extractor, field_types, field_names, col_names):
     return units_lst
 
 
-
-# PENDING: Add transforms (d: gotta define space of possible transforms to have available transformations)
 # PENDING: Add "nice" representation for groupby values (for nice names and stuff) (d: )
 def _prep_query(a_opts, extractor, db, field_types, counts=False):
     # Called to query across a (or multiple) computed values
 
     q_args = []
     tables = []
-    col_names = []
+    field_names = []
     unique_entities = []
-    col_fields = []
+    col_names = []
 
     # Get groupby fields
     groupby_fields = deepcopy(a_opts["groupBy"]) if "groupBy" in a_opts else []
-    col_fields = ["groupBy" + str(idx) for idx, val in enumerate(groupby_fields)]
+    col_names = ["groupBy" + str(idx) for idx, val in enumerate(groupby_fields)]
 
     for field in field_types["group"]:
         if field in a_opts:
             groupby_fields.append(a_opts[field])
-            col_fields.append(field)
+            col_names.append(field)
 
     for group in groupby_fields:
-        # TODO : add transform here to _get
         the_field, name = _get(extractor, group["entity"], group["field"], db,
                                 transform=group.get("transform", None), date_transform=group.get("dateTransform", None))
         q_args.append(the_field)
-        col_names.append(name)
+        field_names.append(name)
         table = _get_table_name(extractor, group["entity"], group["field"])
         if table not in tables:
             tables.append(table)
@@ -374,14 +346,13 @@ def _prep_query(a_opts, extractor, db, field_types, counts=False):
         if targ in a_opts:
             target = deepcopy(a_opts[targ])             
             target_fields.append(target)
-            col_fields.append(targ)
+            col_names.append(targ)
 
-    # print(target_fields)
     for target in target_fields:
         the_field, field_name = _get(extractor, target["entity"], target["field"], db, op=target["op"],
                                         transform=target.get("transform", None))
         q_args.append(OPS[target["op"]]["funcDict"]["op"](the_field, target["extra"]).label(field_name))
-        col_names.append(field_name)
+        field_names.append(field_name)
         table = _get_table_name(extractor, target["entity"], target["field"])
         if table not in tables:
             tables.append(table)
@@ -393,35 +364,32 @@ def _prep_query(a_opts, extractor, db, field_types, counts=False):
     for entity in unique_entities:
         the_field, name = _get(extractor, entity, "id", db)
         entity_ids.append(name)
-        if name not in col_names and counts:
+        if name not in field_names and counts:
             q_args.append(the_field)
-            col_names.append(name)
-            col_fields.append(name + "_id")
+            field_names.append(name)
+            col_names.append(name + "_id")
 
-    return q_args, tables, entity_ids, unique_entities, col_names, col_fields
+    return q_args, tables, entity_ids, unique_entities, field_names, col_names
 
 
 # PENDING: Finish filling this out for prefilters
+# PENDING: do counts before/after filtering?
 def _do_filters(query, s_opts, ring, extractor, targetEntity, col_names, session, db):
     '''
     Adding filters
     '''
 
     # do prefilters
-
-    query = query.filter(_get(extractor, targetEntity, "id", db) != None)
+    pass
+    # query = query.filter(_get(extractor, targetEntity, "id", db) != None)
 
     # do normal filters
     if s_opts:
         query = rawGetResultSet(s_opts, ring, extractor, targetEntity, targetRange=None, simpleResults=True, just_query=True, sess=session, query=query)
 
     # do nan filtering
-    # Need to get a list of all the attributes that are being used in the query
-    # For each of these, get the attr_obj using something like the following
-
     for name in col_names:
         param_dct = _entity_from_name(name)
-        # print(param_dct)
         entity_dict = extractor.resolveEntity(param_dct["entity"])[1]
         if param_dct["attribute"] != "id":
             attr_obj = [attr for attr in entity_dict.attributes if attr.name == param_dct["attribute"]][0]
@@ -437,27 +405,6 @@ def _do_filters(query, s_opts, ring, extractor, targetEntity, col_names, session
                 # PENDING: might have issues since there could be multiple fields with same name
                 field, name = _get(extractor, param_dct["entity"], param_dct["attribute"], db)
                 query = query.filter(field != None)
-
-
-
-    '''
-    entity_dict = current_app.ringExtractors[ringId].resolveEntity(entity)[1]
-    if attribute != "id":
-        attr_obj = [attr for attr in entity_dict.attributes if attr.name == attribute][0]
-
-    if attr_obj:
-        if attr_obj.nullHandling and attr_obj.nullHandling == "cast":
-            field = _nan_cast(field, attr_obj.nullValue)
-    '''
-    # Then, if nullhandling == drop, do a line like below
-    '''
-        # Do nan dropping if needed
-        for field in fields_list:
-            if AMS[field]["nulls"] == "ignore": # and not (AMS[field]["type"] in ["float", "int", "datetime"] and "transform" in AMS[field]):
-                query = query.filter(getattr(AMS[field]["model"], AMS[field]["field"]) != None)
-                if count_bool:
-                    counts.append({"filter": field, "rowCount": query.count(), "type": "nullIgnore"})
-    '''
 
     return query
 
@@ -531,16 +478,19 @@ def _do_joins(query, tables, relationships, extractor, targetEntity, db):
         joined_tables.append(_get_table_name(extractor, targetEntity, "id"))
 
 
+    # for the pending relationships, join them
     for rel_item in rel_items:
         if len(rel_item.join):
             join = extractor.resolveJoin(rel_item.join[0])[1]
             for path in join.path:
+                print(path)
                 query, add_table = do_join(query, path, joined_tables)
                 joined_tables.append(add_table)
 
     return query
 
 # PENDING: Do this
+# PNEDING: See if we actually need to do this, not sure if we do
 def _format_results():
     # make human legible
 
@@ -565,6 +515,8 @@ def _format_results():
 
 
 # PENDING: handling multiple columns in the columns of source
+# PENDING: add rounding here
+# PENDING: Add "Conversion" to pretty name here (e.g. True/False to other stuff)
 def _get(extractor, entity, attribute, db, transform=None, date_transform=None, op=None):
     '''
     Returns the field from entity in ring, and the label of the field
@@ -618,10 +570,14 @@ def _nan_cast(field, cast_val):
 
 Pending Stuff (1/18/2022):
 
+
+
+- Querying niceName from id columns when grouping by id column
+
 - Querying multiple columns for one attribute
     e.g. date: year, month, day
     e.g. name: first, middle, last
-- Querying niceName from id columns when grouping by id column
+
 - Defining JSON with default behaviors (all of these can be added to config attributes)
     - Rounding figures
     - Date and datetime granularities
@@ -633,9 +589,6 @@ Pending Stuff (1/18/2022):
         
 - Implement stuff to utilize the JSON
     - Might just use it at compile time and add it to compiled ring?
-
-- Apply some changes that we talked about in slack that one time
-
 
 
 
@@ -657,12 +610,9 @@ Pending stuff
 
 
 
-
-
 Querying "Nice Name"
 e.g. suppose you want to query "average contribution grouped by contributor"
 The database is gonna get it by contributor.id, but in reality we want to have it by contributor.name
-- Solution woul
 - QFA: 
     would we just use the "reference" field?
         I think for contribution its "amount" which might be weird
@@ -710,13 +660,6 @@ Standardizing date manager stuff
 
 
 FOOTNOTE: something andrew made up bout two time frames on a single thing
-
-
-
-Stuff that might be good in one file
-- date manager stuff/settings/defaults
-- defaults for nulls
-- rounding behavior
 
 
 '''

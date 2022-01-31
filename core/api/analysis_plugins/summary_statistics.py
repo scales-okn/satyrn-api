@@ -27,7 +27,7 @@ dct = {
     "summaryStatistics": {
         "fields": {
             "target": {
-                "types": ["string", "bool", "int", "float", "average", "count"],
+                "types": ["string", "int", "float", "average", "count"],
                 "fieldType": "target",
             },
             "target0": {

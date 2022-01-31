@@ -631,7 +631,11 @@ class Ring_Compiler(object):
             # todo: need to cast after extract
             extr = extract(field, col)
             if field != "year" and field != "microsecond":
-                # extr = func.right("00" + cast(extr, String), 2)
+                # TODO: check if this works in postgres
+                # extr = func.substr("00" + cast(extr, String), -2, 2)
+                # extr = func.substr(concat("00", cast(extr, String)), -2, 2)
+                extr = func.right("00" + cast(extr, String), 2)
+                # extr = cast(extr, String)
                 pass
             else:
                 extr = cast(extr, String)
@@ -642,6 +646,9 @@ class Ring_Compiler(object):
         if minID > 1 and maxID == 0:
             # do year month day
             # model_map[table][col_name + "_date"] = column_property(concat(extr_dct["year"], "/", extr_dct["month"], "/", extr_dct["day"]))
+            model_map[table][col_name + "_date"] = column_property(concat(extr_dct["year"], extr_dct["month"],  extr_dct["day"]))
+            # TODO: check if this works for postgres. mostlikely not, so we might need to bifurcate here
+            model_map[table][col_name + "_date"] = column_property(extr_dct["year"] + "/" + extr_dct["month"] +  "/" + extr_dct["day"])
             # do day of week
             model_map[table][col_name + "_dayofweek"] = column_property(cast(extract("dow", model_map[attribute.source_table][col_name]), String))
         
