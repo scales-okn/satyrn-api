@@ -2,6 +2,8 @@ import datetime
 from functools import reduce
 import json
 import os
+import requests
+import sys,getopt
 
 import sqlalchemy as sa
 from sqlalchemy import Boolean, Column, ForeignKey, Integer, Float, String, DateTime, Date
@@ -17,15 +19,6 @@ import pandas as pd
 
 from dateutil import parser
 
-try:
-    from extractors import RingConfigExtractor
-except:
-    from .extractors import RingConfigExtractor
-
-try:
-    from api import utils
-except:
-    from .api import utils
 
 # This is an abstract class which serves as the superclass for concrete ring classes
 class Ring_Object(object):
@@ -696,7 +689,7 @@ class Ring_Compiler(object):
     def build_models(self):
         # Check configuration for validity before constructing models
         if not self.config.is_valid()[0]:
-            raise ValueError(self.config.is_valid()[1])
+            raise ValueError( self.config.is_valid()[1])
 
         # build model stubs
         # different approach than prototype
@@ -751,7 +744,6 @@ class Ring_Compiler(object):
         Might need to put a path there to also return null if underlying value is also null
         PENDING: add a leading 0 if needed for month
         # NOTE: currently we are assuming only one source_column
-
         '''
         col_name = attribute.source_columns[0]
         col = model_map[attribute.source_table][col_name]
@@ -766,8 +758,6 @@ class Ring_Compiler(object):
 
         relevant_fields = ordered_fields[maxID:minID+1]
 
-        db_type = self.config.source.type
-
         extr_dct = {}
         for idx, field in enumerate(relevant_fields):
 
@@ -775,10 +765,8 @@ class Ring_Compiler(object):
             # todo: need to cast after extract
             extr = extract(field, col)
             if field != "year" and field != "microsecond":
-                # extr = func.substr("00" + cast(extr, String), -2, 2)
-                # extr = func.substr(concat("00", cast(extr, String)), -2, 2)
-                extr = utils.sql_right("00" + cast(extr, String), db_type, 2)
-                # extr = cast(extr, String)
+                # extr = func.right("00" + cast(extr, String), 2)
+                pass
             else:
                 extr = cast(extr, String)
             model_map[table][col_name + gran_name] = column_property(extr)
@@ -788,8 +776,6 @@ class Ring_Compiler(object):
         if minID > 1 and maxID == 0:
             # do year month day
             # model_map[table][col_name + "_date"] = column_property(concat(extr_dct["year"], "/", extr_dct["month"], "/", extr_dct["day"]))
-            model_map[table][col_name + "_date"] = column_property(concat(extr_dct["year"], extr_dct["month"],  extr_dct["day"]))
-            model_map[table][col_name + "_date"] = column_property(extr_dct["year"] + "/" + extr_dct["month"] +  "/" + extr_dct["day"])
             # do day of week
             model_map[table][col_name + "_dayofweek"] = column_property(cast(extract("dow", model_map[attribute.source_table][col_name]), String))
         
@@ -816,6 +802,23 @@ class Ring_Compiler(object):
         # - date: year month day
         # - time: hour minute second
 
+
+
+        # # year
+        # model_map[table][col_name + "_year"] = column_property(extract('year', col)) 
+
+        # # month
+        # model_map[table][col_name + "_onlymonth"] = column_property(extract('month', col)) 
+
+        # # day
+        # model_map[table][col_name + "_onlyday"] = column_property(extract('day', col)) 
+
+        # # month + year
+        # model_map[table][col_name + "_month"] = column_property(concat(extract('year', col), "/", extract('month', col))) 
+
+        # month + year + day (i.e. strip time)
+
+        # if datetime: include more
 
         return model_map
 
@@ -874,7 +877,7 @@ def compile_rings(rings_list):
             rings[config.id] = {}
             extractors[config.id] = {}
         rings[config.id][config.version] = config
-        extractors[config.id][config.version] = RingConfigExtractor(config)
+        ##extractors[config.id][config.version] = RingConfigExtractor(config)
     return rings, extractors
 
 def compile_ring(ring, in_type="json"):
@@ -902,3 +905,29 @@ UPPER_ONTOLOGY = {
         # TODO: how to cover info about styling (templates?), types of denominations, etc
     }
 }
+
+def main():
+    inputfile = ''
+    try:
+        opts, args = getopt.getopt(sys.argv[1:], "r:")
+    except getopt.GetoptError as err:
+        print(err)
+        usage()
+        sys.exit(2)
+        #raise ValueError("ring path is not valid, check the input and try again.")
+    ring_path = None
+    count = 1
+    for opt, arg in opts:
+        if opt in ['-r']:
+            ring_path = arg
+        else:
+            raise ValueError ("Incorrect usage: only vailable option is: -r .")
+    compile_ring(ring_path, in_type="path")
+
+
+if __name__ == "__main__":
+    '''
+    Usage: To check the validity of a ring run the following command:
+        python ring_checker.py -r <local path to ring>
+    '''
+    main()
