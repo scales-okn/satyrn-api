@@ -78,7 +78,7 @@ def getRingFromService(ringId, version=None):
     # TODO: go get ring config and hydrate and append to app.rings / app.ringExtractors
     headers = {"x-api-key": app.config["UX_SERVICE_API_KEY"]}
     if version:
-        request = requests.get(os.path.join(app.uxServiceAPI, "rings", ringId, version), headers=headers)
+        request = requests.get(os.path.join(app.uxServiceAPI, "rings", ringId, str(version)), headers=headers)
     else:
         # get the latest...
         request = requests.get(os.path.join(app.uxServiceAPI, "rings", ringId), headers=headers)
