@@ -63,7 +63,13 @@ def getOrCreateRing(ringId, version=None, forceRefresh=False):
     # breakpoint()
     version = int(version) if version else version
     if (ringId not in app.rings) or (version and version not in app.rings.get(ringId, {})) or forceRefresh:
-        getRingFromService(ringId, version)
+        try:
+            getRingFromService(ringId, version)
+        except:
+            msg = "Ring with id {} ".format(ringId)
+            msg += "and version number {} ".format(version) if version is not None else "at any version number "
+            msg += "could not be loaded from service. This is likely either because a ring with this ID/version number can't be found or because the asset service is down."
+            return {"success": False, "message": msg}, None
     if not version:
         # get the highest version number available (mirrors behavior of the get)
         versions = sorted(app.rings[ringId].keys())
