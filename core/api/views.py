@@ -1,6 +1,7 @@
 import json
 
-from flask import current_app, Blueprint, request, send_from_directory
+from flask import Blueprint, current_app, jsonify, request, send_from_directory
+from flask_cors import cross_origin
 from flask_security import login_required
 
 # from .analysisSpace import ANALYSIS_MODEL_SPACE as ANALYSIS_SPACE
@@ -146,6 +147,7 @@ def searchDB(ringId, version, targetEntity):
 # PENDING: Add some check here that analysis opts are valid
 # PENDING: Use fieldTypes?
 @api.route("/analysis/<ringId>/<version>/<targetEntity>/", methods=["GET","POST"])
+@cross_origin(supports_credentials=True)
 @apiKeyCheck
 def runAnalysis(ringId, version, targetEntity):
     ring, ringExtractor = getOrCreateRing(ringId, version)
@@ -177,7 +179,12 @@ def runAnalysis(ringId, version, targetEntity):
     }
     if "score" in raw_results:
         results["score"] = raw_results["score"]
-    return json.dumps(results, default=str)
+    # this next line is a bit of a hack to deal with un-jsonable things by coercing them
+    # to strings without having to write quick managers for every possible type (date, datetime, int64, etc)
+    results = json.loads(json.dumps(results, default=str))
+    # doing jsonify here manages the mimetype
+    return jsonify(results)
+
 
 @api.route("/result/<id>/")
 @apiKeyCheck
