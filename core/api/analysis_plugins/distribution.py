@@ -20,7 +20,12 @@ def pandasDistribution(a_opts, results, group_args, field_names, col_names):
     ring = a_opts["rings"][0]
 
     target_arg = _name(a_opts["target"]["entity"], a_opts["target"]["field"], a_opts["target"]["op"])
-    group_args.pop()
+
+    # remove the "over" attributes from the group_args
+    group_args = [group for group in group_args if not col_names[field_names.index(group)].startswith("over") ]
+    # print(group_args)
+
+    # group_args.pop()
 
     if group_args:
         counts = df.groupby(group_args)[target_arg].sum()

@@ -5,6 +5,8 @@ from sqlalchemy import func
 
 from pandas import DataFrame
 
+from functools import reduce
+
 def sql_right(field, db_type, char_n=2):
     # Given a sqlalchemy string field, return the last char_n chars
     if db_type == "sqlite":
@@ -15,7 +17,24 @@ def sql_right(field, db_type, char_n=2):
 def sql_concat(field_lst, db_type):
     # For now, not implemented, will do sop if needed in the future
     # since or sqlite and postgres + works for both
+    if len(field_lst) == 1:
+        return field_lst[0]
+
+    if db_type == "sqlite":
+        return reduce(lambda a, b: a + b, field_lst, "")
+
+    elif db_type == "postgres":
+        return func.concatenate(field_lst)
+
     pass
+
+def sql_median(field, db_type):
+    # Given a sqlalchemy string field, return the last char_n chars
+    if db_type == "sqlite":
+        return func.median(field)
+    elif db_type == "postgres":
+        return func.percentile_disc(0.5).within_group(field.asc()),
+
 
 
 

@@ -27,6 +27,83 @@ try:
 except:
     from .api import utils
 
+
+# STuff for sqlite extension
+try:
+    from satyrnBundler import app
+except:
+    from .satyrnBundler import app
+
+import platform
+from sqlalchemy.event import listen
+
+
+
+
+def connect_to_extensions(engine, packages=["stats"]):
+
+    os_type = platform.system()
+    os_type_dct = {
+        "Windows": ".dll",
+        "Linux": ".so",
+        "Darwin": ".dylib",
+    }
+    if os_type not in os_type_dct:
+        print(f"unknown os_type: {os_type}")
+        print("will not try to do extensions, be wary of some sqlite functionality")
+        return False
+
+        # print(file_name)
+
+        # if not os.path.isfile(file_name):
+        #     print(f"file does not exist: {file_name}")
+        #     print("will not try to do extensions, be wary of some sqlite functionality")
+        #     continue
+            # return False
+
+    def load_extension(dbapi_conn, unused):
+
+        os_type = platform.system()
+        os_type_dct = {
+            "Windows": ".dll",
+            "Linux": ".so",
+            "Darwin": ".dylib",
+        }
+        mypath = os.environ.get("SATYRN_ROOT_DIR") + "/" +"core" + "/" +"sqlite_extensions" + "/"
+        onlyfiles = [f for f in os.listdir(mypath) if os.path.isfile(os.path.join(mypath, f)) and f.endswith(os_type_dct[os_type])]
+        for thefile in onlyfiles:
+            # file_name = , package + os_type_dct[os_type])
+            file_name = os.path.join(mypath, thefile)
+            # file_name = os.path.join(mypath, "stats.dll")
+            dbapi_conn.enable_load_extension(True)
+            print(file_name)
+            # dbapi_conn.load_extension('C:/Users/aluis/Downloads/stats.dll')
+            # dbapi_conn.load_extension('C:/Users/aluis/Documents/NOACRI/satyrn/satyrn-api/core/sqlite_extensions/stats.dll')
+            dbapi_conn.load_extension(file_name)
+            # print(os.environ.get("TESTING_STUFF", "development"))
+            # dbapi_conn.load_extension(os.environ.get("TESTING_STUFF", "development"))
+            dbapi_conn.enable_load_extension(False)
+
+        # file_name = 'C:/Users/aluis/Documents/NOACRI/satyrn/satyrn-api/core/sqlite_extensions/stats.dll'
+        # print(file_name)
+
+        # file_name = os.path.join("C:/Users/aluis/Documents/NOACRI/satyrn/satyrn-api/core/sqlite_extensions/", "stats.dll")
+        # print(file_name)
+        # file_name = os.path.join(os.environ.get("SATYRN_ROOT_DIR"), "core", "sqlite_extensions", "stats.dll")
+        # file_name = os.environ.get("SATYRN_ROOT_DIR") + "/" + "core" + "/" +"sqlite_extensions" + "/" +"stats.dll"
+        # dbapi_conn.enable_load_extension(True)
+        # print(file_name)
+        # dbapi_conn.load_extension(file_name)
+        # dbapi_conn.enable_load_extension(False)
+
+    with app.app_context():
+        listen(engine, 'connect', load_extension)
+
+
+    return True
+
+# end of stuff for sqlite extension
+
 # This is an abstract class which serves as the superclass for concrete ring classes
 class Ring_Object(object):
 
@@ -300,6 +377,7 @@ class Ring_Source(Ring_Object):
     def make_connection(self, db):
         if self.type == "sqlite":
             self.eng = create_engine("sqlite:///{}".format(self.connection_string))
+            connect_to_extensions(self.eng)
             self.Session = sessionmaker(bind=self.eng)
         elif self.type == "csv":
             self.eng, self.Session = self.csv_file_pathway(self.connection_string, db)
@@ -325,6 +403,7 @@ class Ring_Source(Ring_Object):
         path = os.path.join(self.connection_string, satyrn_file)
         if os.path.isfile(path):
             self.eng = create_engine("sqlite:///" + path)
+            connect_to_extensions(self.eng)
             self.Session = sessionmaker(bind=self.eng)
             # Here add something about checking
             # compare number of rows?
@@ -332,6 +411,7 @@ class Ring_Source(Ring_Object):
             return self.eng, self.Session
         else:
             self.eng = create_engine("sqlite:///" + path)
+            connect_to_extensions(self.eng)
             self.Session = sessionmaker(bind=self.eng)            
 
         def cast_value(value, tpe, dateparse=None):

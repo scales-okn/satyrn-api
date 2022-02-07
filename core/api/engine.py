@@ -11,7 +11,7 @@ from pandas import DataFrame
 from .operations import OPERATION_SPACE as OPS
 from .seekers import rawGetResultSet
 from .transforms import TRANSFORMS_SPACE as TRS
-from .utils import _get_join_field, _name, _outerjoin_name, _entity_from_name, _remove_duplicate_vals, count_entities
+from .utils import _get_join_field, _name, _outerjoin_name, _entity_from_name, _remove_duplicate_vals, count_entities, sql_concat
 
 # PREFILTERS = current_app.satConf.preFilters
 
@@ -59,6 +59,92 @@ def run_analysis(s_opts, a_opts, targetEntity, ring, extractor):
         return single_ring_analysis(s_opts, a_opts, ring, extractor, targetEntity, sess, db)
 
 
+
+
+# TODO:
+# I think here is where we expand to include
+# mirrors: groupby0 => groupby0_ref
+# over => over_ref
+# special case: ignore the "per" case and that should be it i think
+# everything should stem fine from this
+
+'''
+{
+    groupby: [contrib.instate, contrib.id]
+}
+
+{
+    groupby: [contrib.instate, contrib.id]
+    groupby1ref: contrib.id
+}
+
+{
+    groupby: [contrib.instate, contrib.id]
+    over: party.id
+}
+
+{
+    groupby: [contrib.instate, contrib.id]
+    groupby1ref: contrib.ref
+    overref: party.ref
+}
+
+{
+    groupby: [contrib.id]
+    per: contributor.id
+}
+{
+    groupby: [contrib.id]
+    groupby0ref: contrib.ref
+}
+
+'''
+
+
+def _add_group_ref(a_opts, field_name, pos=None):
+    # if given pos, it means the undelrying field was a list
+
+    if pos != None:
+        name = field_name + str(pos) + "_ref"
+        orig_dct = a_opts[field_name][pos]
+    else:
+        name = field_name + "_ref"
+        orig_dct = a_opts[field_name]
+
+    if orig_dct["field"] == "id":
+        new_dct = deepcopy(orig_dct)
+        new_dct["field"] = "reference"
+        a_opts[name] = new_dct
+        return a_opts, name
+    else:
+        return a_opts, None
+
+
+
+def _expand_grouping(a_opts, field_types):
+
+    extra_fields = []
+
+    # go thru the groupby args and expand as needed
+    if "groupBy" in a_opts:
+        for idx in range(len(a_opts["groupBy"])):
+            a_opts, new_field = _add_group_ref(a_opts, "groupBy", idx)
+            if new_field:
+                extra_fields.append(new_field)
+
+    # go thru the field_types[group] and expand as needed (ignore per and timesries)
+    for field in field_types["group"]:
+        if field not in ["per", "timeseries"]:
+            a_opts, new_field = _add_group_ref(a_opts, field)
+            if new_field:
+                extra_fields.append(new_field)
+
+    field_types["group"].extend(extra_fields)
+
+    return a_opts, field_types
+
+
+
 def single_ring_analysis(s_opts, a_opts, ring, extractor, targetEntity, sess, db):
     # Analysis over only one ring
     '''
@@ -71,7 +157,7 @@ def single_ring_analysis(s_opts, a_opts, ring, extractor, targetEntity, sess, db
             "results": 
         }
         "entity_counts": {
-            ""
+                ""
         }
     }
     '''
@@ -87,12 +173,16 @@ def single_ring_analysis(s_opts, a_opts, ring, extractor, targetEntity, sess, db
         addit_target = [field for field, dct in OPS[op]["fields"].items() if dct["fieldType"] == "target" and field not in field_types["target"]]
         field_types["group"].extend(addit_groups)
         field_types["target"].extend(addit_target)
+
+        a_opts, field_types = _expand_grouping(a_opts, field_types)
+
         results, new_opts, field_names, col_names, units = complex_operation(s_opts, a_opts, ring, extractor, targetEntity, sess, db, field_types)
         a_opts = new_opts
         
         results.update({"field_names": field_names, "field_types": col_names, "units": units})
 
     else:
+        a_opts, field_types = _expand_grouping(a_opts, field_types)
         if OPS[op]["type"] == "simple":
             new_a_opts = OPS[op]["queryPrep"](s_opts, a_opts, targetEntity)[1]
             query, groupby_args, field_names, col_names = simple_query(s_opts, new_a_opts, ring, extractor, targetEntity, sess, db, field_types)
@@ -252,7 +342,7 @@ def get_units(a_opts, extractor, field_types, field_names, col_names):
     def _get_field_units(entity, attribute, transform=None):
         # returns the field from entity in ring
         entity_dict = extractor.resolveEntity(entity)[1]
-        if attribute != "id":
+        if attribute not in ["id", "reference"]:
             attr_obj = [attr for attr in entity_dict.attributes if attr.name == attribute][0]
             unit = attr_obj.units[0] if attr_obj.units else attr_obj.nicename[0]
         else:
@@ -292,7 +382,7 @@ def get_units(a_opts, extractor, field_types, field_names, col_names):
     for col in col_names:
         if col == "target/per":
             units_lst.append(units_dict["target"] + '/' + units_dict["per"])
-        elif col[0:7] == "groupBy":
+        elif col[0:7] == "groupBy" and col[-3:] != "ref":
             idx = int(col[7:])
             units_lst.append(units_dict["groupBy"][idx])
         else:
@@ -301,7 +391,6 @@ def get_units(a_opts, extractor, field_types, field_names, col_names):
     return units_lst
 
 
-# PENDING: Add "nice" representation for groupby values (for nice names and stuff) (d: )
 def _prep_query(a_opts, extractor, db, field_types, counts=False):
     # Called to query across a (or multiple) computed values
 
@@ -313,8 +402,11 @@ def _prep_query(a_opts, extractor, db, field_types, counts=False):
 
     # Get groupby fields
     groupby_fields = deepcopy(a_opts["groupBy"]) if "groupBy" in a_opts else []
+
     col_names = ["groupBy" + str(idx) for idx, val in enumerate(groupby_fields)]
 
+
+    # TODO: Modify this so it accounts for lists as well (eventually ,not needed now i think)
     for field in field_types["group"]:
         if field in a_opts:
             groupby_fields.append(a_opts[field])
@@ -342,7 +434,7 @@ def _prep_query(a_opts, extractor, db, field_types, counts=False):
     for target in target_fields:
         the_field, field_name = _get(extractor, target["entity"], target["field"], db, op=target["op"],
                                         transform=target.get("transform", None))
-        q_args.append(OPS[target["op"]]["funcDict"]["op"](the_field, target["extra"]).label(field_name))
+        q_args.append(OPS[target["op"]]["funcDict"]["op"](the_field, extractor.getDBType(), target["extra"]).label(field_name))
         field_names.append(field_name)
         table = _get_table_name(extractor, target["entity"], target["field"])
         if table not in tables:
@@ -382,7 +474,7 @@ def _do_filters(query, s_opts, ring, extractor, targetEntity, col_names, session
     for name in col_names:
         param_dct = _entity_from_name(name)
         entity_dict = extractor.resolveEntity(param_dct["entity"])[1]
-        if param_dct["attribute"] != "id":
+        if param_dct["attribute"] not in  ["id", "reference"]:
             attr_obj = [attr for attr in entity_dict.attributes if attr.name == param_dct["attribute"]][0]
         else:
             attr_obj = None
@@ -505,10 +597,85 @@ def _format_results():
 
 
 
+
+def _parse_ref_string(ref_str):
+    # right now we assume ref_str is properly formed
+    # AND that there arent any other $, } in the string other than
+    # for attributes
+
+    val_lst = []
+    type_lst = []
+
+    idx = 0
+    is_attr = False
+    val_start_idx = 0
+
+    while idx < len(ref_str):
+        if ref_str[idx] == "$":
+            if idx > val_start_idx:
+                val_lst.append(ref_str[val_start_idx:idx])
+                type_lst.append(is_attr)
+
+            is_attr = True
+            val_start_idx = idx
+        elif ref_str[idx] == "}":
+
+            val_lst.append(ref_str[val_start_idx:idx+1])
+            type_lst.append(is_attr)
+            is_attr = False
+            val_start_idx = idx + 1
+
+        else:
+            pass
+        idx += 1
+
+    if val_start_idx < len(ref_str):
+        val_lst.append(ref_str[val_start_idx:len(ref_str)])
+        type_lst.append(is_attr)
+
+    return val_lst, type_lst
+
+
+# NOTE: we are assuming here that ALL fields in that reference
+# will belong to the entity
+def _parse_reference(extractor, entity, db):
+
+    entity_dict = extractor.resolveEntity(entity)[1]
+    ref = entity_dict.reference
+    val_lst, type_lst = _parse_ref_string(ref)
+
+    print(val_lst)
+    print(type_lst)
+
+    concatenable = []
+    for val, tpe in zip(val_lst, type_lst):
+        if tpe:
+            field, _ = _get_helper(extractor, entity, val[2:-1], db, None, None, None)
+            concatenable.append(field)
+        else:
+            concatenable.append(val)
+
+    name = _name(entity, "reference", None, None)
+    print(concatenable)
+    print(sql_concat(concatenable, extractor.getDBType()))
+    return sql_concat(concatenable, extractor.getDBType()).label(name), name
+
+
+
 # PENDING: handling multiple columns in the columns of source
-# PENDING: add rounding here
+# PENDING: add rounding here, if applicable
 # PENDING: Add "Conversion" to pretty name here (e.g. True/False to other stuff)
 def _get(extractor, entity, attribute, db, transform=None, date_transform=None, op=None):
+    '''
+    Returns the field from entity in ring, and the label of the field
+    '''
+    if attribute == "reference":
+        return _parse_reference(extractor, entity, db)
+    else:
+        return _get_helper(extractor, entity, attribute, db ,transform, date_transform, op)
+
+
+def _get_helper(extractor, entity, attribute, db, transform, date_transform, op):
     '''
     Returns the field from entity in ring, and the label of the field
     '''
@@ -538,13 +705,14 @@ def _get(extractor, entity, attribute, db, transform=None, date_transform=None, 
 
     return field.label(name), name
 
+
 def _get_table_name(extractor, entity, attribute):
     '''
     Returns the table name correponding to an entity's attribute in the ring
     '''
     # returns the table corresponding to an entity in ring   
     entity_dict = extractor.resolveEntity(entity)[1]
-    if attribute != "id":
+    if attribute not in  ["id", "reference"]:
         attr_obj = [attr for attr in entity_dict.attributes if attr.name == attribute][0]
         model_name = attr_obj.source_table
     else:

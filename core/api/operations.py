@@ -5,7 +5,7 @@ from sqlalchemy.sql.expression import case
 
 import pandas as pd
 from copy import deepcopy
-from .utils import _name
+from .utils import _name, sql_median
 
 
 import numpy as np
@@ -122,7 +122,7 @@ OPERATION_SPACE = {
         "nicename": "Average",
         "queryPrep": base_query_prep,
         "funcDict": {
-            "op": lambda field, extra: func.avg(field),
+            "op": lambda field, dbtype, extra: func.avg(field),
         },
         "pandasFunc": {
             "op": pandasAvg
@@ -139,7 +139,7 @@ OPERATION_SPACE = {
         "nicename": "Count of",
         "queryPrep": base_query_prep,
         "funcDict": {
-            "op": lambda field, extra: func.count(distinct(field)),
+            "op": lambda field, dbtype, extra: func.count(distinct(field)),
             # "processing": distinct
         },
         "pandasFunc": {
@@ -157,7 +157,7 @@ OPERATION_SPACE = {
         "nicename": "Total",
         "queryPrep": base_query_prep,
         "funcDict": {
-            "op": lambda field, extra: func.sum(field),
+            "op": lambda field, dbtype, extra: func.sum(field),
         },
         "pandasFunc": {
             "op": pandasSum
@@ -174,7 +174,7 @@ OPERATION_SPACE = {
         "nicename": "Minimum",
         "queryPrep": base_query_prep,
         "funcDict": {
-            "op": lambda field, extra: func.min(field),
+            "op": lambda field, dbtype, extra: func.min(field),
         },
         "pandasFunc": {
             "op": pandasMin
@@ -191,7 +191,7 @@ OPERATION_SPACE = {
         "nicename": "Maximum",
         "queryPrep": base_query_prep,
         "funcDict": {
-            "op": lambda field, extra: func.max(field),
+            "op": lambda field, dbtype, extra: func.max(field),
         },
         "pandasFunc": {
             "op": pandasMax
@@ -208,7 +208,7 @@ OPERATION_SPACE = {
         "nicename": "Mode",
         "queryPrep": base_query_prep,
         "funcDict": {
-            "op": lambda field, extra: func.mode().within_group(field.asc()),
+            "op": lambda field, dbtype, extra: func.mode().within_group(field.asc()),
         },
         "type": "simple"
     },
@@ -222,7 +222,7 @@ OPERATION_SPACE = {
         "nicename": "Median",
         "queryPrep": base_query_prep,
         "funcDict": {
-            "op": lambda field, extra: func.percentile_disc(0.5).within_group(field.asc()),
+            "op": lambda field, dbtype, extra: sql_median(field, dbtype),
         },
         "type": "simple"
     },
@@ -240,8 +240,8 @@ OPERATION_SPACE = {
         "nicename": "Average Count of",
         "queryPrep": base_query_prep,
         "funcDict": {
-            "op": lambda field, extra: func.count(distinct(field)),
-            "outerOp": lambda field, extra: func.avg(field),
+            "op": lambda field, dbtype, extra: func.count(distinct(field)),
+            "outerOp": lambda field, dbtype, extra: func.avg(field),
         },
         "pandasFunc": {
             "op": pandasAvgCount,
@@ -262,8 +262,8 @@ OPERATION_SPACE = {
         "nicename": "Average Total of",
         "queryPrep": base_query_prep,
         "funcDict": {
-            "op": lambda field, extra: func.sum(field),
-            "outerOp": lambda field, avg: func.sum(field),
+            "op": lambda field, dbtype, extra: func.sum(field),
+            "outerOp": lambda field, dbtype, extra: func.sum(field),
         },
         "pandasFunc": {
             "op": pandasAvgSum,
@@ -284,7 +284,7 @@ OPERATION_SPACE = {
         "nicename": "Percentage of",
         "queryPrep": base_query_prep,
         "funcDict": {
-            "op": lambda field, extra:  func.avg(onehot_processing(field, extra["numerator"])),
+            "op": lambda field, dbtype, extra:  func.avg(onehot_processing(field, extra["numerator"])),
         },
         "pandasFunc": {
             "op": pandasPercentage,
@@ -305,7 +305,7 @@ OPERATION_SPACE = {
         # "nicename": "Percentage of",
         "queryPrep": base_query_prep,
         "funcDict": {
-            "op": lambda field, extra:  onehot_processing(field, extra["numerator"]),
+            "op": lambda field, dbtype, extra:  onehot_processing(field, extra["numerator"]),
             # "processing": percentage_processing
         },
         "pandasFunc": {
@@ -321,7 +321,7 @@ OPERATION_SPACE = {
         },
         "queryPrep": base_query_prep,
         "funcDict": {
-            "op": lambda field, extra: field,
+            "op": lambda field, dbtype, extra: field,
         },
         "units": "unchanged",
         "type": "simple"
