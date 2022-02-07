@@ -1,6 +1,7 @@
 import json
 
-from flask import current_app, Blueprint, request, send_from_directory
+from flask import Blueprint, current_app, jsonify, request, send_from_directory
+from flask_cors import cross_origin
 from flask_security import login_required
 
 # from .analysisSpace import ANALYSIS_MODEL_SPACE as ANALYSIS_SPACE
@@ -61,6 +62,9 @@ def getRingInfo(ringId):
     # IS MANAGING WHETHER THE USER HAS THE RIGHT TO DO THIS OR NOT
     # Also, if no version set, "latest" is implied (see next endpoint for explicitly set version)
     ring, ringExtractor = getOrCreateRing(ringId)
+    if ringExtractor is None:
+        # ring will now be an error message
+        return json.dumps(ring)
     ringInfo = ringExtractor.generateInfo()
     ringInfo["operations"] = CLEAN_OPS
     return json.dumps(ringInfo)
@@ -71,6 +75,9 @@ def getRingInfoWithVersion(ringId, version):
     # THIS IS GOING TO ASSUME THE REQUESTING PROXY
     # IS MANAGING WHETHER THE USER HAS THE RIGHT TO DO THIS OR NOT
     ring, ringExtractor = getOrCreateRing(ringId, version=version)
+    if ringExtractor is None:
+        # ring will now be an error message
+        return json.dumps(ring)
     ringInfo = ringExtractor.generateInfo()
     ringInfo["operations"] = CLEAN_OPS
     return json.dumps(ringInfo)
@@ -79,6 +86,9 @@ def getRingInfoWithVersion(ringId, version):
 @apiKeyCheck
 def getEntityInfo(ringId, version, targetEntity):
     ring, ringExtractor = getOrCreateRing(ringId, version)
+    if ringExtractor is None:
+        # ring will now be an error message
+        return json.dumps(ring)
     ringInfo = ringExtractor.generateInfo(targetEntity)
     ringInfo["operations"] = CLEAN_OPS
     return json.dumps(ringInfo)
@@ -87,6 +97,9 @@ def getEntityInfo(ringId, version, targetEntity):
 @apiKeyCheck
 def getAutocompletes(ringId, version, targetEntity, theType):
     ring, ringExtractor = getOrCreateRing(ringId, version)
+    if ringExtractor is None:
+        # ring will now be an error message
+        return json.dumps(ring)
     limit = request.args.get("limit", 1000)
     opts = {"query": request.args.get("query", None), "limit": limit}
     searchSpace = ringExtractor.getSearchSpace(targetEntity)
@@ -100,6 +113,9 @@ def getAutocompletes(ringId, version, targetEntity, theType):
 @apiKeyCheck
 def searchDB(ringId, version, targetEntity):
     ring, ringExtractor = getOrCreateRing(ringId, version)
+    if ringExtractor is None:
+        # ring will now be an error message
+        return json.dumps(ring)
     # takes a list of args that match to top-level keys in SEARCH_SPACE
     # or None and it'll return the full set (in batches of limit)
     # set up some args
@@ -131,9 +147,13 @@ def searchDB(ringId, version, targetEntity):
 # PENDING: Add some check here that analysis opts are valid
 # PENDING: Use fieldTypes?
 @api.route("/analysis/<ringId>/<version>/<targetEntity>/", methods=["GET","POST"])
+@cross_origin(supports_credentials=True)
 @apiKeyCheck
 def runAnalysis(ringId, version, targetEntity):
     ring, ringExtractor = getOrCreateRing(ringId, version)
+    if ringExtractor is None:
+        # ring will now be an error message
+        return json.dumps(ring)
     # takes a list of args that match to top-level keys in SEARCH_SPACE (or None)
     # and keys related to analysis with analysisType defining the "frame" (matching a key in analysisSpace.py)
     # The analysis parameters come in via a JSON body thingy
@@ -159,7 +179,12 @@ def runAnalysis(ringId, version, targetEntity):
     }
     if "score" in raw_results:
         results["score"] = raw_results["score"]
-    return json.dumps(results, default=str)
+    # this next line is a bit of a hack to deal with un-jsonable things by coercing them
+    # to strings without having to write quick managers for every possible type (date, datetime, int64, etc)
+    results = json.loads(json.dumps(results, default=str))
+    # doing jsonify here manages the mimetype
+    return jsonify(results)
+
 
 @api.route("/result/<id>/")
 @apiKeyCheck
