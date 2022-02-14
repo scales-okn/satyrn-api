@@ -165,6 +165,12 @@ class Ring_Attribute(Ring_Object):
         self.nullValue = None
         self.dateMinGranularity = None
         self.dateMaxGranularity = None
+        ## addition of rounding
+        '''
+            exp of syntax: "rounding":["True", 0]  means 0 decimal rounding--> round to the nearest int 
+        '''
+        self.rounding = None
+        self.sig_figs = None
 
         ## Donna's trying to do some error handling 
         self.errorSet = set()
@@ -198,8 +204,10 @@ class Ring_Attribute(Ring_Object):
             self.analyzable = md.get('analyzable', False)
             self.autocomplete = md.get('autocomplete', True if self.searchable else False)
             self.description = md.get('description')
-
+        
+        
         # Andong started adding things here
+        '''
         null_defaults = {
             "string": ("cast", "No value"),
             "float": ("ignore", 0.0),
@@ -211,7 +219,7 @@ class Ring_Attribute(Ring_Object):
         }
         self.nullHandling = info.get("nullHandling", null_defaults[self.baseIsa][0])
         self.nullValue = info.get("nullValue", null_defaults[self.baseIsa][1])
-
+        
         date_defaults = {
             "date": ("day","year"),
             "datetime": ("second", "year"),
@@ -221,7 +229,22 @@ class Ring_Attribute(Ring_Object):
             granularity = info.get("dateGranularity", date_defaults[self.baseIsa])
             self.dateMaxGranularity = granularity[1]
             self.dateMinGranularity = granularity[0]
+        '''
 
+        default_path = os.environ.get("SATYRN_ROOT_DIR") + "/" +"core" + "/" + "defaults.json"
+        with open(default_path, 'r') as file:
+            defaults = json.load(file)
+            self.nullHandling = defaults.get("null_defaults")[self.baseIsa][0]
+            self.nullValue = defaults.get("null_defaults")[self.baseIsa][1]   
+            ## rounding 
+            self.rounding = defaults.get("result_formatting")["rounding"][0]
+            self.sig_figs = defaults.get("result_formatting")["rounding"][1]
+            if self.baseIsa and self.baseIsa in ["date", "datetime", "date"]:
+                granularity = defaults.get("date_defaults")[self.baseIsa]
+                self.dateMaxGranularity = granularity [1]
+                self.dateMinGranularity = granularity [0]
+        
+    
 
     def construct(self):
 
