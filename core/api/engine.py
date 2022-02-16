@@ -19,6 +19,8 @@ cache = current_app.cache
 CACHE_TIMEOUT=3000
 
 
+# TODO: ponder on the stuff about the format in which we should expect values (e.g. list of one, wrapped single values, double nested lists)
+
 def run_analysis(s_opts, a_opts, targetEntity, ring, extractor):
     '''
     Callable function for the views API
@@ -50,55 +52,13 @@ def run_analysis(s_opts, a_opts, targetEntity, ring, extractor):
         return db, sess
 
     # If across two rings, do a different path
-    if len(a_opts["rings"]) > 1:
-        # analysis_across_two_rings(s_opts, a_opts)
-        pass
-    else:
+    # if len(a_opts["rings"]) > 1:
+    #     # analysis_across_two_rings(s_opts, a_opts)
+    #     pass
+    # else:
 
-        db, sess  = _get_db_sess(ring)
-        return single_ring_analysis(s_opts, a_opts, ring, extractor, targetEntity, sess, db)
-
-
-
-
-# TODO:
-# I think here is where we expand to include
-# mirrors: groupby0 => groupby0_ref
-# over => over_ref
-# special case: ignore the "per" case and that should be it i think
-# everything should stem fine from this
-
-'''
-{
-    groupby: [contrib.instate, contrib.id]
-}
-
-{
-    groupby: [contrib.instate, contrib.id]
-    groupby1ref: contrib.id
-}
-
-{
-    groupby: [contrib.instate, contrib.id]
-    over: party.id
-}
-
-{
-    groupby: [contrib.instate, contrib.id]
-    groupby1ref: contrib.ref
-    overref: party.ref
-}
-
-{
-    groupby: [contrib.id]
-    per: contributor.id
-}
-{
-    groupby: [contrib.id]
-    groupby0ref: contrib.ref
-}
-
-'''
+    db, sess  = _get_db_sess(ring)
+    return single_ring_analysis(s_opts, a_opts, ring, extractor, targetEntity, sess, db)
 
 
 def _add_group_ref(a_opts, field_name, pos=None):
@@ -110,6 +70,8 @@ def _add_group_ref(a_opts, field_name, pos=None):
     else:
         name = field_name + "_ref"
         orig_dct = a_opts[field_name]
+
+    print(orig_dct)
 
     if orig_dct["field"] == "id":
         new_dct = deepcopy(orig_dct)
@@ -193,7 +155,11 @@ def single_ring_analysis(s_opts, a_opts, ring, extractor, targetEntity, sess, db
             print("unclear waht op")
             exit()
         units = get_units(a_opts, extractor, field_types, field_names, col_names)
-        results = {"results": query.all(), "field_names": field_names, "field_types": col_names, "units": {"results": units}}
+        print(a_opts)
+        print(field_names)
+        print(col_names)
+        print(query)
+        results = {"results": [list(q) for q in query.all()], "field_names": field_names, "field_types": col_names, "units": {"results": units}}
         
     results.update({
         "entity_counts": row_count_query(s_opts, a_opts, ring, extractor, targetEntity, sess, db, field_types),
@@ -218,14 +184,15 @@ def complex_operation(s_opts, a_opts, ring, extractor, targetEntity, session, db
 
     query, group_args, field_names, col_names = simple_query(s_opts, new_a_opts, ring, extractor, targetEntity, session, db, field_types)
     query = query.group_by(*group_args)
-    results = query.all()
+    results = [list(q) for q in query.all()]
 
     # What to do with the queries results and formatting
     results, new_field_names, new_col_names = OPS[op_name]["pandasFunc"]["op"](new_a_opts, results, group_args, field_names, col_names)
 
     # Do units
-    init_units = get_units(new_a_opts, extractor, field_types, field_names, col_names)
-    units = OPS[op_name]["unitsPrep"](a_opts, field_names, col_names, init_units)
+    units = get_units(new_a_opts, extractor, field_types, field_names, col_names)
+    if "unitsPrep" in OPS[op_name]:
+        units = OPS[op_name]["unitsPrep"](a_opts, field_names, col_names, init_units)
 
     return results, new_a_opts, new_field_names, new_col_names, units
 
@@ -432,7 +399,7 @@ def _prep_query(a_opts, extractor, db, field_types, counts=False):
             col_names.append(targ)
 
     for target in target_fields:
-        the_field, field_name = _get(extractor, target["entity"], target["field"], db, op=target["op"],
+        the_field, field_name = _get(extractor, target["entity"], target["field"], db, op=target.get("op", "None"),
                                         transform=target.get("transform", None))
         q_args.append(OPS[target["op"]]["funcDict"]["op"](the_field, extractor.getDBType(), target["extra"]).label(field_name))
         field_names.append(field_name)
@@ -479,6 +446,8 @@ def _do_filters(query, s_opts, ring, extractor, targetEntity, col_names, session
         else:
             attr_obj = None
         if attr_obj:
+            print(name)
+            print("fon filter i think")
             if attr_obj.nullHandling and attr_obj.nullHandling == "ignore":
                 
                 # NOTE: we might need to do something fancy here in case 
@@ -488,6 +457,7 @@ def _do_filters(query, s_opts, ring, extractor, targetEntity, col_names, session
                 # PENDING: might have issues since there could be multiple fields with same name
                 field, name = _get(extractor, param_dct["entity"], param_dct["attribute"], db)
                 query = query.filter(field != None)
+                print("filtereddd")
 
     return query
 
@@ -496,6 +466,7 @@ def _do_filters(query, s_opts, ring, extractor, targetEntity, col_names, session
 # PENDING: Should try to share this with seekers as much as possible
 # PENDING: have yet to test the case where single entity across multiple tables
 # PENDING: have yet to test teh case where multiple entities in one table (tho it should be fine)
+# PENDING: test the case with derived person entity
 def _do_joins(query, tables, relationships, extractor, targetEntity, db):
     '''
     Do joins, if needed
@@ -503,12 +474,12 @@ def _do_joins(query, tables, relationships, extractor, targetEntity, db):
     to conduct those joins.
     '''
 
-    joined_tables = []
+    joined_tables = set()
     p_table = _get_table_name(extractor, targetEntity, "id")
     primary_bool = any(table == p_table for table in tables)
 
 
-    def do_join(query, path, added_tables=[]):
+    def do_join(query, path, added_tables=set()):
         # Given a query, a path, and a 
         # For now we are assuming one and only one of the tables in the path is not in added_tables
         if path[0].split(".")[0] not in added_tables :
@@ -543,32 +514,37 @@ def _do_joins(query, tables, relationships, extractor, targetEntity, db):
         # Go over the relationships, find the one(s) that link back to the target table
         rels = [rel for rel in rel_items if rel_contains_entity_table(rel, targetEntity, p_table)]
 
+        # TODO: change this in case there are multiple joins
         # Iterate thru these and join them
         for rel_item in rels:
-            join = extractor.resolveJoin(rel_item.join[0])[1]
-            if join.from_ in tables:
-                joined_tables.append(join.from_)
-            else:
-                joined_tables.append(join.to)
-            for path in join.path:
-                query, add_table = do_join(query, path, joined_tables)
-                joined_tables.append(add_table)
+            for join_item in rel_item.join:
+                join = extractor.resolveJoin(join_item)[1]
+
+                if join.from_ in tables:
+                    joined_tables.add(join.from_)
+                elif join.to in tables:
+                    joined_tables.add(join.to)
+                else:
+                    print("uhhhh hey bruh, something happened")
+                for path in join.path:
+                    query, add_table = do_join(query, path, joined_tables)
+                    joined_tables.add(add_table)
 
         # update the list of relations to join to to remove the ones we already joined to
         rel_items = [rel for rel in rel_items if not rel_contains_entity_table(rel, targetEntity, p_table)]
 
     else:
-        joined_tables.append(_get_table_name(extractor, targetEntity, "id"))
+        joined_tables.add(_get_table_name(extractor, targetEntity, "id"))
 
 
     # for the pending relationships, join them
     for rel_item in rel_items:
-        if len(rel_item.join):
-            join = extractor.resolveJoin(rel_item.join[0])[1]
+        for join_item in rel_item.join:
+            join = extractor.resolveJoin(join_item)[1]
             for path in join.path:
                 print(path)
                 query, add_table = do_join(query, path, joined_tables)
-                joined_tables.append(add_table)
+                joined_tables.add(add_table)
 
     return query
 

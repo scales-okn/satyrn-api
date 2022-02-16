@@ -33,7 +33,7 @@ def sql_median(field, db_type):
     if db_type == "sqlite":
         return func.median(field)
     elif db_type == "postgres":
-        return func.percentile_disc(0.5).within_group(field.asc()),
+        return func.percentile_disc(0.5).within_group(field.asc())
 
 
 

@@ -915,10 +915,11 @@ class Ring_Compiler(object):
 
                 if from_key not in model_map[join.from_]:
                     model_map[join.from_][from_key] = self.column_with_type(key_type, foreign_key=to)
-                    model_map[join.from_][to_table] = relationship(to_table, back_populates=from_table, uselist=True)
+                    # model_map[join.from_][to_table] = relationship(to_table, back_populates=from_table, uselist=True)
 
                 if from_table not in model_map[join.to] and join.bidirectional:
-                    model_map[join.to][from_table] = relationship(from_table, back_populates=to_table, uselist=True)
+                    # model_map[join.to][from_table] = relationship(from_table, back_populates=to_table, uselist=True)
+                    pass
 
         return model_map
 
