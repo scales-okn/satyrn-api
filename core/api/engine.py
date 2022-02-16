@@ -71,8 +71,6 @@ def _add_group_ref(a_opts, field_name, pos=None):
         name = field_name + "_ref"
         orig_dct = a_opts[field_name]
 
-    print(orig_dct)
-
     if orig_dct["field"] == "id":
         new_dct = deepcopy(orig_dct)
         new_dct["field"] = "reference"
@@ -155,10 +153,6 @@ def single_ring_analysis(s_opts, a_opts, ring, extractor, targetEntity, sess, db
             print("unclear waht op")
             exit()
         units = get_units(a_opts, extractor, field_types, field_names, col_names)
-        print(a_opts)
-        print(field_names)
-        print(col_names)
-        print(query)
         results = {"results": [list(q) for q in query.all()], "field_names": field_names, "field_types": col_names, "units": {"results": units}}
         
     results.update({
@@ -281,9 +275,7 @@ def row_count_query(s_opts, a_opts, ring, extractor, targetEntity, session, db, 
             a_opts[key]["op"] = "None"
             if "extra" not in a_opts[key]:
                 a_opts[key]["extra"] = {}
-    # for key in ["numerator", "numerator2"]:
-    #     a_opts.pop(key, None)
-    # Above should be deprecated, numerator no longer shows up as key in main dct
+
     a_opts, _ = _remove_duplicate_vals(a_opts)
 
     q_args, tables, entity_ids, entity_names, field_names, col_names = _prep_query(a_opts, extractor, db, field_types=field_types, counts=True)
@@ -399,9 +391,10 @@ def _prep_query(a_opts, extractor, db, field_types, counts=False):
             col_names.append(targ)
 
     for target in target_fields:
+
         the_field, field_name = _get(extractor, target["entity"], target["field"], db, op=target.get("op", "None"),
-                                        transform=target.get("transform", None))
-        q_args.append(OPS[target["op"]]["funcDict"]["op"](the_field, extractor.getDBType(), target["extra"]).label(field_name))
+                                        transform=target.get("transform", None), extra=target["extra"])
+        q_args.append(the_field.label(field_name))
         field_names.append(field_name)
         table = _get_table_name(extractor, target["entity"], target["field"])
         if table not in tables:
@@ -446,8 +439,6 @@ def _do_filters(query, s_opts, ring, extractor, targetEntity, col_names, session
         else:
             attr_obj = None
         if attr_obj:
-            print(name)
-            print("fon filter i think")
             if attr_obj.nullHandling and attr_obj.nullHandling == "ignore":
                 
                 # NOTE: we might need to do something fancy here in case 
@@ -457,7 +448,6 @@ def _do_filters(query, s_opts, ring, extractor, targetEntity, col_names, session
                 # PENDING: might have issues since there could be multiple fields with same name
                 field, name = _get(extractor, param_dct["entity"], param_dct["attribute"], db)
                 query = query.filter(field != None)
-                print("filtereddd")
 
     return query
 
@@ -556,8 +546,6 @@ def _format_results():
     '''
     Do the dictionary mapping if needed (no longer need to query stuff from original db hopefully)
 
-    Do rounding stuff if needed
-
     # TODO PATCH: This is a non sustainable solution for percentage operation
     # if analysisOpts["operation"] == "percentage":
         # for idx, x in enumerate(results["results"]):
@@ -570,7 +558,6 @@ def _format_results():
 
     # ordering (if any)
     pass
-
 
 
 
@@ -639,19 +626,36 @@ def _parse_reference(extractor, entity, db):
 
 
 # PENDING: handling multiple columns in the columns of source
-# PENDING: add rounding here, if applicable
 # PENDING: Add "Conversion" to pretty name here (e.g. True/False to other stuff)
-def _get(extractor, entity, attribute, db, transform=None, date_transform=None, op=None):
+def _get(extractor, entity, attribute, db, transform=None, date_transform=None, op=None, extra=None):
     '''
     Returns the field from entity in ring, and the label of the field
     '''
     if attribute == "reference":
         return _parse_reference(extractor, entity, db)
     else:
-        return _get_helper(extractor, entity, attribute, db ,transform, date_transform, op)
+        return _get_helper(extractor, entity, attribute, db ,transform, date_transform, op, extra)
 
+# def _get_and_query_append(flag, q_args, field_names, extractor, entity, attribute, db, transform=None, date_transform=None, op=None):
+#     ## flag will either be "group, or the target that is passed"
+#     the_field, field_name = _get_helper(extractor, entity, attribute, db ,transform, date_transform, op)
+#     if flag == "group": 
+#         q_args.append(the_field)
+#         field_names.append(name)
+#     else: 
+#         target = flag
+#         entity_dict = extractor.resolveEntity(entity)[1]
+#         attr_obj = [attr for attr in entity_dict.attributes if attr.name == attribute][0]
+        
+#         if attr_obj.rounding == "True":
+#             q_args.append(func.round(OPS[target["op"]]["funcDict"]["op"](the_field, extractor.getDBType(), target["extra"]).label(field_name), attr_obj.sig_figs))
+#         else:
+#             q_args.append(OPS[target["op"]]["funcDict"]["op"](the_field, extractor.getDBType(), target["extra"]).label(field_name))
+        
+#         field_names.append(field_name)
+#     return q_args, field_names
 
-def _get_helper(extractor, entity, attribute, db, transform, date_transform, op):
+def _get_helper(extractor, entity, attribute, db, transform, date_transform, op, extra):
     '''
     Returns the field from entity in ring, and the label of the field
     '''
@@ -675,6 +679,15 @@ def _get_helper(extractor, entity, attribute, db, transform, date_transform, op)
     if attr_obj:
         if attr_obj.nullHandling and attr_obj.nullHandling == "cast":
             field = _nan_cast(field, attr_obj.nullValue)
+
+        # Do operation if it is available
+        if op:
+            field = OPS[op]["funcDict"]["op"](field, extractor.getDBType(), extra)
+
+        # Round if object has rounding
+        if attr_obj.rounding == "True":
+            field = func.round(field, attr_obj.sig_figs)
+
 
     if transform:
         field = TRS[transform]["processor"](field)
