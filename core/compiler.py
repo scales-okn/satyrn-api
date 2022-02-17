@@ -234,14 +234,31 @@ class Ring_Attribute(Ring_Object):
         default_path = os.environ.get("SATYRN_ROOT_DIR") + "/" +"core" + "/" + "defaults.json"
         with open(default_path, 'r') as file:
             defaults = json.load(file)
-            self.nullHandling = defaults.get("null_defaults")[self.baseIsa][0]
-            self.nullValue = defaults.get("null_defaults")[self.baseIsa][1]   
+            ##check if the value is set in the ring
+            if info.get("nullHandling"):
+                self.nullHandling = info.get("nullHandling")
+            else: 
+                self.nullHandling = defaults.get("null_defaults")[self.baseIsa][0]
+            if info.get("nullValue"):
+                self.nullValue = info.get("nullValue")
+            else: 
+                self.nullValue = defaults.get("null_defaults")[self.baseIsa][1] 
+
             ## rounding 
             if self.baseIsa in ["float", "integer"]:
-                self.rounding = defaults.get("result_formatting")["rounding"][0]
-                self.sig_figs = defaults.get("result_formatting")["rounding"][1]
+                ##chek if the value is set in the ring
+                if info.get("rounding"):
+                    self.rounding = info.get("rounding")[0]
+                    self.sig_figs = info.get("rounding")[1]
+                else:
+                    self.rounding = defaults.get("result_formatting")["rounding"][0]
+                    self.sig_figs = defaults.get("result_formatting")["rounding"][1]
+
             if self.baseIsa and self.baseIsa in ["date", "datetime", "date"]:
-                granularity = defaults.get("date_defaults")[self.baseIsa]
+                if info.get("dateGranularity"):
+                    granularity = info.get("dateGranularity")
+                else:
+                    granularity = defaults.get("date_defaults")[self.baseIsa]
                 self.dateMaxGranularity = granularity [1]
                 self.dateMinGranularity = granularity [0]
         
