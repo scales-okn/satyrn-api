@@ -237,8 +237,9 @@ class Ring_Attribute(Ring_Object):
             self.nullHandling = defaults.get("null_defaults")[self.baseIsa][0]
             self.nullValue = defaults.get("null_defaults")[self.baseIsa][1]   
             ## rounding 
-            self.rounding = defaults.get("result_formatting")["rounding"][0]
-            self.sig_figs = defaults.get("result_formatting")["rounding"][1]
+            if self.baseIsa in ["float", "integer"]:
+                self.rounding = defaults.get("result_formatting")["rounding"][0]
+                self.sig_figs = defaults.get("result_formatting")["rounding"][1]
             if self.baseIsa and self.baseIsa in ["date", "datetime", "date"]:
                 granularity = defaults.get("date_defaults")[self.baseIsa]
                 self.dateMaxGranularity = granularity [1]
