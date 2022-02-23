@@ -126,6 +126,10 @@ def searchDB(ringId, version, targetEntity):
     # [2018-01-01, 2018-06-15] for everything between two dates
     # [null, 2018-01-01] for everything up to a date (and inverse for after)
 
+
+    # TODO: the format of this will change and now will have a key "query" for the query itself
+    # Also that information will come from the json body
+
     batchSize = int(request.args.get("batchSize", 10))
     page = int(request.args.get("page", 0))
     # bundle search terms

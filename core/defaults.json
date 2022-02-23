@@ -16,6 +16,6 @@
     },
     
    	"result_formatting":{
-   		"rounding":["True", 0] 
+   		"rounding":["True", 2] 
    	}
 }

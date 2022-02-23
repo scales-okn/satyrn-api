@@ -12,6 +12,7 @@ from .operations import OPERATION_SPACE as OPS
 from .seekers import rawGetResultSet
 from .transforms import TRANSFORMS_SPACE as TRS
 from .utils import _get_join_field, _name, _outerjoin_name, _entity_from_name, _remove_duplicate_vals, count_entities, sql_concat
+from .utils import _make_recursive_name, _entity_from_recursive_name
 
 # PREFILTERS = current_app.satConf.preFilters
 
@@ -158,6 +159,7 @@ def single_ring_analysis(s_opts, a_opts, ring, extractor, targetEntity, sess, db
     results.update({
         "entity_counts": row_count_query(s_opts, a_opts, ring, extractor, targetEntity, sess, db, field_types),
     })
+    results["field_names"] = [_entity_from_name(col_name) for col_name in results["field_names"]]
 
     return results
 
@@ -186,7 +188,7 @@ def complex_operation(s_opts, a_opts, ring, extractor, targetEntity, session, db
     # Do units
     units = get_units(new_a_opts, extractor, field_types, field_names, col_names)
     if "unitsPrep" in OPS[op_name]:
-        units = OPS[op_name]["unitsPrep"](a_opts, field_names, col_names, init_units)
+        units = OPS[op_name]["unitsPrep"](a_opts, field_names, col_names, units)
 
     return results, new_a_opts, new_field_names, new_col_names, units
 
@@ -213,14 +215,20 @@ def recursive_query(s_opts, a_opts, ring, extractor, targetEntity, session, db, 
     idx = col_names.index("target")
     per_idx = col_names.index("per")
     col_names[idx] = "target/per"
-    field_names[idx] = field_names[idx] + "/" + field_names[per_idx]
+    field_names[idx] = _make_recursive_name(field_names[idx], field_names[per_idx], "average")
+    print(field_names)
+    # field_names[idx] + "/" + field_names[per_idx]
 
     # Removes the per field from the query and col/field list
     for lst in [query_args, col_names, field_names]:
         del lst[per_idx]
 
     # Run query
-    query_args.append(func.avg(s_query.c[_name(a_opts["target"]["entity"], a_opts["target"]["field"], copy_opts["op"])]))
+    avg = func.avg(s_query.c[_name(a_opts["target"]["entity"], a_opts["target"]["field"], copy_opts["op"])])
+    if a_opts.get("extra",{}).get("rounding", extractor.getRounding()) != "False":
+        field = func.round(avg, a_opts.get("extra",{}).get("sigfigs", extractor.getSigFigs()))
+
+    query_args.append(field)
     query = session.query(*query_args)
 
     # Build new group args by removing the new target field
@@ -254,7 +262,7 @@ def simple_query(s_opts, a_opts, ring, extractor, targetEntity, session, db, fie
     group_args = [_name(d["entity"], d["field"], transform=d.get("transform")) for d in a_opts["groupBy"]] if "groupBy" in a_opts else []
     for field in field_types["group"]:
         if field in a_opts:
-             group_args.append(_name(a_opts[field]["entity"], a_opts[field]["field"], transform=a_opts[field].get("transform")))
+             group_args.append(_name(a_opts[field]["entity"], a_opts[field]["field"], transform=a_opts[field].get("transform"), date_transform=a_opts[field].get("dateTransform")))
 
      # Modify field_names so that it also return type of field
     return query, group_args, field_names, col_names
@@ -352,6 +360,7 @@ def get_units(a_opts, extractor, field_types, field_names, col_names):
 
 def _prep_query(a_opts, extractor, db, field_types, counts=False):
     # Called to query across a (or multiple) computed values
+    print(a_opts)
 
     q_args = []
     tables = []
@@ -390,7 +399,10 @@ def _prep_query(a_opts, extractor, db, field_types, counts=False):
             target_fields.append(target)
             col_names.append(targ)
 
+    print(a_opts)
+    print(target_fields)
     for target in target_fields:
+        print(target.get("op", "None"))
 
         the_field, field_name = _get(extractor, target["entity"], target["field"], db, op=target.get("op", "None"),
                                         transform=target.get("transform", None), extra=target["extra"])
@@ -434,8 +446,8 @@ def _do_filters(query, s_opts, ring, extractor, targetEntity, col_names, session
     for name in col_names:
         param_dct = _entity_from_name(name)
         entity_dict = extractor.resolveEntity(param_dct["entity"])[1]
-        if param_dct["attribute"] not in  ["id", "reference"]:
-            attr_obj = [attr for attr in entity_dict.attributes if attr.name == param_dct["attribute"]][0]
+        if param_dct["field"] not in  ["id", "reference"]:
+            attr_obj = [attr for attr in entity_dict.attributes if attr.name == param_dct["field"]][0]
         else:
             attr_obj = None
         if attr_obj:
@@ -446,7 +458,7 @@ def _do_filters(query, s_opts, ring, extractor, targetEntity, col_names, session
                 # meaning we cant directly use the name of the object, so we have to
                 # again get the "real" field and filter off of that
                 # PENDING: might have issues since there could be multiple fields with same name
-                field, name = _get(extractor, param_dct["entity"], param_dct["attribute"], db)
+                field, name = _get(extractor, param_dct["entity"], param_dct["field"], db)
                 query = query.filter(field != None)
 
     return query
@@ -613,7 +625,7 @@ def _parse_reference(extractor, entity, db):
     concatenable = []
     for val, tpe in zip(val_lst, type_lst):
         if tpe:
-            field, _ = _get_helper(extractor, entity, val[2:-1], db, None, None, None)
+            field, _ = _get_helper(extractor, entity, val[2:-1], db, None, None, None, None)
             concatenable.append(field)
         else:
             concatenable.append(val)
@@ -673,20 +685,25 @@ def _get_helper(extractor, entity, attribute, db, transform, date_transform, op,
 
     model = getattr(db, model_name)
     field = getattr(model, field_name)
-    name = _name(entity, attribute, op, transform)
+    name = _name(entity, attribute, op, transform, date_transform)
 
     # Get null handling
+    if attr_obj and attr_obj.nullHandling and attr_obj.nullHandling == "cast":
+        field = _nan_cast(field, attr_obj.nullValue)
+
+    # Do operation if it is available
+    if op:
+        print("op true")
+        field = OPS[op]["funcDict"]["op"](field, extractor.getDBType(), extra)
+
     if attr_obj:
-        if attr_obj.nullHandling and attr_obj.nullHandling == "cast":
-            field = _nan_cast(field, attr_obj.nullValue)
-
-        # Do operation if it is available
-        if op:
-            field = OPS[op]["funcDict"]["op"](field, extractor.getDBType(), extra)
-
         # Round if object has rounding
         if attr_obj.rounding == "True":
+            print("rounding true")
             field = func.round(field, attr_obj.sig_figs)
+
+        if op == "percentage" and extra.get("rounding", extractor.getRounding()) != "False":
+            field = func.round(field, extra.get("sigfigs", extractor.getSigFigs()))
 
 
     if transform:

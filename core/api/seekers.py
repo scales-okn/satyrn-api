@@ -56,6 +56,72 @@ def rawGetResultSet(opts, ring, ringExtractor, targetEntity, targetRange=None, s
     if not sess:
         sess = db.Session()
         query = sess.query(targetModel)
+
+    '''
+    TODO: This would need to be modified,
+    example query
+    {
+        Query: {
+            And: [
+                {
+                    Or: [
+                        [{Judge, name}, Donna, contains] 
+                        [{Judge, name}, Andong, contains] 
+                    ]
+                },
+                [{Case, date, month}, October, equals] 
+            ]
+        }
+        Relationships: [CaseToJudge]
+    }
+
+    {
+        Query: {
+            And: [
+                {
+                    Not: [{Judge, name}, Andrew, contains] 
+                },
+                {
+                    Not: [{Judge, name}, Andong, contains] 
+                }
+                ]
+        }
+        Relationships: [CaseToJudge]
+    }
+
+
+    before it wouldve been something like
+    {judgename: [andong, donna]}
+    {judgenam: andong, year:1020}
+
+    the general breakdwon of the code:
+        - Will have to be some kind of recursive function
+
+
+    makequery(the_d):
+
+        if the_d has operation (not, and ,or) (i.e. if it a dict):
+            if and or or:
+                return and/or(makequery for each thing  in the ands list)
+            if not:
+                return not of the makequery of thing that the_d has
+        else (it a list, really a len 3 tuple):
+            return a formed filter with the stuff in the_d
+
+
+
+    outline of code from here onward
+
+    1. do the makequery code
+    2. do joins
+    3. do sorting
+    4. return results, or not, i aint your mom
+
+
+    # PENDING: do we add reference to the query (line 58)
+
+    '''
+
     for needleType, needle in opts.items():
         if needleType in ["sortBy", "sortDir"]:
             continue
@@ -81,6 +147,15 @@ def rawGetResultSet(opts, ring, ringExtractor, targetEntity, targetRange=None, s
         return query
     return bundleQueryResults(query, targetRange, targetEntity, formatResult, simpleResults)
 
+
+
+# TODO: repurpose bindQuery so that it does the "unit" thingy for one formed filter
+# might be able to reuse the join functions from engine and just bring it here
+# might be able to reuse the _get functions and whatnot from engine
+# should account for different datatypes and types of searches
+# so far: range, exact, contains
+# range will have the second value of the tuple be a list
+# joins taken out of here, not needed in details i believe
 def bindQuery(sess, targetModel, query, needleType, needle, details):
     # breakpoint()
     if details["model"] == targetModel:

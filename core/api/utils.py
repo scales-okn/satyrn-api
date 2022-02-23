@@ -44,7 +44,7 @@ def count_entities(query, entity_ids, field_names, db_type):
     if db_type == "sqlite":
         df = DataFrame(query.all(), columns=field_names).nunique()
         for entity in entity_ids:
-            entity_counts[entity] = df[entity]
+            entity_counts[entity] = int(df[entity])
     elif db_type == "postgres":
         for entity in entity_ids:
             entity_counts[entity] = query.distinct(entity).count()
@@ -62,32 +62,56 @@ def _get_join_field(path_bit, db):
     field = getattr(model, field_name)
     return field
 
-def _name(entity, attribute, op=None, transform=None):
+def _name(entity, attribute, op=None, transform=None, date_transform=None):
 
     lst = [entity, attribute]
     if transform:
-        lst.append(transform)
+        lst.append(transform + "__transform")
     if op:
         lst.append(op + "__op")
+    if date_transform:
+        lst.append(date_transform + "__dateTransform")
 
     return "//".join(lst)
 
-def _outerjoin_name(ringId, join_field):
-    return ".".join([ringId, join_field])
 
 
 def _entity_from_name(col_name):
+
+    if "./." in col_name:
+        return _entity_from_recursive_name(col_name)
+
     attrs = col_name.split("//")
+    print("entityfrom name")
     print(attrs)
-    dct = {"entity": attrs[0], "attribute": attrs[1]}
+    dct = {"entity": attrs[0], "field": attrs[1]}
     if len(attrs) > 2:
-        if len(attrs[2]) > 4 and attrs[2][-4:] == "__op":
-            dct["op"] = attrs[2]
-        else:
-            dct["transform"] = attrs[2]
-            if len(attrs) > 3:
-                dct["op"] = attrs[3]
+        for attr in attrs[2:]:
+            val, key = attr.split("__")
+            dct[key] = val
+        # if len(attrs[2]) > 4 and attrs[2][-4:] == "__op":
+        #     dct["op"] = attrs[2][:-4]
+        # else:
+        #     dct["transform"] = attrs[2]
+        #     if len(attrs) > 3:
+        #         dct["op"] = attrs[3]
     return dct
+
+
+
+def _make_recursive_name(numer_name, denom_name, op):
+
+    return "./.".join([numer_name, denom_name, op])
+
+
+def _entity_from_recursive_name(recurse_name):
+    numer_name, denom_name, op = recurse_name.split("./.")
+    dct_1 = _entity_from_name(numer_name)
+    dct_2 = _entity_from_name(denom_name)
+
+    dct_1["op"] = op + dct_1["op"].title()
+    dct_1["per"] = dct_2
+    return dct_1    
 
 
 def _remove_duplicate_vals(a_opts):
@@ -114,16 +138,7 @@ def _remove_duplicate_vals(a_opts):
     return a_opts, del_keys
 
 
-'''
-Needed bifurcation based on sqlite v postgres
 
+def _outerjoin_name(ringId, join_field):
+    return ".".join([ringId, join_field])
 
-- substr: works on sqlite, not on postgres
-    - right: works on postgres
-- + for concatenating: works on sqlite and postgres
-    - concat: only works on postgres
-- mode, median: works on postgres, not on sqlite
-- distinct.count: works on postgres, not on sqlite
-    GOTTA INVESTIGATE THIS MORE
-
-'''

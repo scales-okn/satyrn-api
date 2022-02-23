@@ -37,36 +37,39 @@ def correlationQuery(s_opts, orig_a_opts, targetEntity):
 
 def pandasCorrelation(a_opts, results, group_args, field_names, col_names):
 
-    print(a_opts)
-    print(results)
-    print(group_args)
-    print(field_names)
-    print(col_names)
+    # print(a_opts)
+    # print(results)
+    # print(group_args)
+    # print(field_names)
+    # print(col_names)
 
     df = pd.DataFrame(results, columns=field_names)
     corr_matrix = df.corr("pearson")
-    ring = a_opts["rings"][0]
 
     df_unique = df.nunique()
 
     col_1 = _name(a_opts["target"]["entity"], a_opts["target"]["field"], a_opts["target"]["op"])
     col_2 = _name(a_opts["target2"]["entity"], a_opts["target2"]["field"], a_opts["target2"]["op"])
 
-    corr_val = corr_matrix[col_1][col_2]
 
-    print({"results": results, "score": corr_val})
-    print(field_names)
-    print(col_names)
+    if len(results):
+        corr_val = corr_matrix[col_1][col_2]
+    else:
+        corr_val = 0
+
+    # print({"results": results, "score": corr_val})
+    # print(field_names)
+    # print(col_names)
 
     return {"results": results, "score": corr_val}, field_names, col_names
 
 
 def corrUnits(a_opts, field_names, col_names, init_units):
-    print(a_opts)
-    print(field_names)
-    print(col_names)
-    print(init_units)
-    print({"results": init_units, "score": "no units"})
+    # print(a_opts)
+    # print(field_names)
+    # print(col_names)
+    # print(init_units)
+    # print({"results": init_units, "score": "no units"})
     return {"results": init_units, "score": "no units"}
 
 dct = {    

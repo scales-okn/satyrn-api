@@ -5,12 +5,14 @@ try:
 except:
     from .api.operations import OPERATION_SPACE
 
+
 class RingConfigExtractor(object):
     ''' A helper class to extract/prepare the compiled rings to JSON for the API/FE '''
     def __init__(self, config):
         self.defaultEntity = config.default_target_entity
         self.config = config
         self.cache = {ent.name: {} for ent in config.entities}
+
 
     def resolveEntity(self, target=None):
         targetName = target if target else self.defaultEntity
@@ -28,6 +30,13 @@ class RingConfigExtractor(object):
 
     def getDBType(self):
         return self.config.source.type
+
+    def getRounding(self):
+        return self.config.rounding
+
+    def getSigFigs(self):
+        return self.config.sig_figs
+
 
     def getSearchSpace(self, target=None):
         target, targetEnt = self.resolveEntity(target)

@@ -691,6 +691,8 @@ class Ring_Configuration(Ring_Object):
         ## Donna's trying to do some error handling 
         self.errorSet = set()
         self.entity_name = []
+        self.rounding = None
+        self.sigfigs = None
 
     def parse(self, configuration):
         self.name = configuration.get('name')
@@ -706,6 +708,18 @@ class Ring_Configuration(Ring_Object):
         self.parse_source(configuration)
         self.parse_entities(configuration)
         self.parse_relationships(configuration)
+        self.parse_config_defaults(configuration)
+
+    def parse_config_defaults(self, configuration):
+
+        # TODO: Decide how to wrie the rounding defaults
+        # i.e. where to put the attributes in the ring json
+        default_path = os.environ.get("SATYRN_ROOT_DIR") + "/" +"core" + "/" + "defaults.json"
+        with open(default_path, 'r') as file:
+            defaults = json.load(file)
+            print(defaults)
+            self.sig_figs = defaults.get("result_formatting")["rounding"][1]
+            self.rounding = True
 
     def parse_source(self, configuration):
         if 'dataSource' in configuration:
