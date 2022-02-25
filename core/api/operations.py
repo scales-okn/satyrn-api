@@ -5,8 +5,7 @@ from sqlalchemy.sql.expression import case
 
 import pandas as pd
 from copy import deepcopy
-from .utils import _name, sql_median
-
+from .sql_func import sql_median
 
 import numpy as np
 

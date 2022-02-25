@@ -148,6 +148,54 @@ def searchDB(ringId, version, targetEntity):
     return json.dumps(results, default=str)
 
 
+# @api.route("/results/<ringId>/<version>/<targetEntity>/", methods=["GET","POST"])
+# @cross_origin(supports_credentials=True)
+# @apiKeyCheck
+# def searchDB(ringId, version, targetEntity):
+#     ring, ringExtractor = getOrCreateRing(ringId, version)
+#     if ringExtractor is None:
+#         # ring will now be an error message
+#         return json.dumps(ring)
+#     # takes a list of args that match to top-level keys in SEARCH_SPACE
+#     # or None and it'll return the full set (in batches of limit)
+#     # set up some args
+
+#     # NOTE ON DATES
+#     # dates always expect a range, either:
+#     # [2018-01-01, 2018-01-01] for single day
+#     # [2018-01-01, 2018-06-15] for everything between two dates
+#     # [null, 2018-01-01] for everything up to a date (and inverse for after)
+
+
+#     # TODO: the format of this will change and now will have a key "query" for the query itself
+#     # Also that information will come from the json body
+
+#     batchSize = int(request.args.get("batchSize", 10))
+#     page = int(request.args.get("page", 0))
+#     # bundle search terms
+#     searchSpace = ringExtractor.getSearchSpace(targetEntity)
+#     sortables = ringExtractor.getSortables(targetEntity)
+
+#     # TODO: Change organize filters, maybe just deprecxate it?
+#     # TODO: rview getseachspace and organize filters to make sure weget the crucial parts of it
+#     opts = request.json
+
+#     # opts = organizeFilters(request, searchSpace)
+#     # and manage sorting
+#     # TODO: move this next line to config
+#     # TODO2: add judges and other stuff?
+#     sortBy = request.args.get("sortBy", None)
+#     sortDir = request.args.get("sortDirection", "desc")
+#     opts["sortBy"] = sortBy if sortBy in sortables else None
+#     opts["sortDir"] = sortDir if sortDir in ["asc", "desc"] else "desc"
+
+
+
+
+#     # now go hunting
+#     results = getResults(opts, ring, ringExtractor, targetEntity, page=page, batchSize=batchSize)
+#     return json.dumps(results, default=str)
+
 # PENDING: Add some check here that analysis opts are valid
 # PENDING: Use fieldTypes?
 @api.route("/analysis/<ringId>/<version>/<targetEntity>/", methods=["GET","POST"])
@@ -163,13 +211,15 @@ def runAnalysis(ringId, version, targetEntity):
     # The analysis parameters come in via a JSON body thingy
 
     # then get the analysis stuff:
-    operation = request.args.get("op", None)
+    # operation = request.args.get("op", None)
     analysisOpts = request.json
 
     # first, get the search/filter stuff:
 
     searchSpace = ringExtractor.getSearchSpace(targetEntity)
     searchOpts = organizeFilters(request, searchSpace)
+    # TODO: write bit of code to obtain from the json the filters and whatnot
+    # TODO: rview getseachspace and organize filters to make sure weget the crucial parts of it
     raw_results = run_analysis(s_opts=searchOpts, a_opts=analysisOpts, targetEntity=targetEntity, ring=ring, extractor=ringExtractor)
 
     print(raw_results)

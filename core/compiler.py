@@ -23,9 +23,9 @@ except:
     from .extractors import RingConfigExtractor
 
 try:
-    from api import utils
+    from api import sql_func
 except:
-    from .api import utils
+    from .api import sql_func
 
 
 # STuff for sqlite extension
@@ -912,7 +912,7 @@ class Ring_Compiler(object):
             if field != "year" and field != "microsecond":
                 # extr = func.substr("00" + cast(extr, String), -2, 2)
                 # extr = func.substr(concat("00", cast(extr, String)), -2, 2)
-                extr = utils.sql_right("00" + cast(extr, String), db_type, 2)
+                extr = sql_func.sql_right("00" + cast(extr, String), db_type, 2)
                 # extr = cast(extr, String)
             else:
                 extr = cast(extr, String)
@@ -923,7 +923,7 @@ class Ring_Compiler(object):
         if minID > 1 and maxID == 0:
             # do year month day
             # model_map[table][col_name + "_date"] = column_property(concat(extr_dct["year"], "/", extr_dct["month"], "/", extr_dct["day"]))
-            model_map[table][col_name + "_date"] = column_property(concat(extr_dct["year"], extr_dct["month"],  extr_dct["day"]))
+            # model_map[table][col_name + "_date"] = column_property(concat(extr_dct["year"], extr_dct["month"],  extr_dct["day"]))
             model_map[table][col_name + "_date"] = column_property(extr_dct["year"] + "/" + extr_dct["month"] +  "/" + extr_dct["day"])
             # do day of week
             model_map[table][col_name + "_dayofweek"] = column_property(cast(extract("dow", model_map[attribute.source_table][col_name]), String))

@@ -107,8 +107,10 @@ def rawGetResultSet(opts, ring, ringExtractor, targetEntity, targetRange=None, s
                 return not of the makequery of thing that the_d has
         else (it a list, really a len 3 tuple):
             return a formed filter with the stuff in the_d
-
-
+            the steps for this are
+                use the get function to get the field
+                use a defined "MEETS FILTER" funcition that takes a field and a value
+                    e.g. makefilter(field, val, filter_type="exact")
 
     outline of code from here onward
 
@@ -122,6 +124,18 @@ def rawGetResultSet(opts, ring, ringExtractor, targetEntity, targetRange=None, s
 
     '''
 
+
+    # Make query function
+    # query, tables = make_query(query_dct, tables=[])
+    # NOTE: we mighta ctually not need to get all tables here
+    # bc tables were used in the case that we didnt have access to
+    # the main filtereable table in analytics. i dont think
+    # this would be the case? since we will always be
+    # querying the main table, thereby it should always
+    # be possible to join to it
+
+
+
     for needleType, needle in opts.items():
         if needleType in ["sortBy", "sortDir"]:
             continue
@@ -133,6 +147,12 @@ def rawGetResultSet(opts, ring, ringExtractor, targetEntity, targetRange=None, s
                 query = bindQuery(sess, targetModel, query, needleType, subneedle, details)
         else:
             query = bindQuery(sess, targetModel, query, needleType, needle, details)
+
+
+
+    # DO joins
+    # NOTE: move analytics join to utils.py. then resuse
+    # NOTE: also move _get to utils.py (and similar functions)
 
     # Do prefilters
     # TODO: bring this back?
