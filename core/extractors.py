@@ -50,7 +50,8 @@ class RingConfigExtractor(object):
             "fields": att.source_columns,
             "allowMultiple": att.allow_multiple,
             "nicename": att.nicename[0], # TODO: leverage the list for singular+plural
-            "description": att.description
+            "description": att.description,
+            "resultFormat": att.resultFormat
         } for att in targetEnt.attributes if att.searchable}
 
         self.cache[target]["searchSpace"] = searchSpace
@@ -119,16 +120,20 @@ class RingConfigExtractor(object):
         renderMap = {
             col["key"]: self.getSearchSpace(target)[col["key"]]["fields"] for col in cols
         }
+        
         results = {
-            attr: self.coerceValsToString([getattr(result, field) for field in fields])
+            attr: self.coerceValsToString([getattr(result, field) for field in fields], searchSpace[attr]["resultFormat"])
             for attr, fields in renderMap.items()
         }
         return results
 
-    def coerceValsToString(self, vals):
+    def coerceValsToString(self, vals, formatting):
         # TODO: make this both a) type (leveraging ontology + styling) aware and b) template-compatible
-        tmpl = ("{} " * len(vals)).strip()
-        return tmpl.format(*vals)
+        if formatting[0] and formatting[1]:
+            return  ("{}, {}".format(*vals))
+        else: 
+            tmpl = ("{} " * len(vals)).strip()
+            return tmpl.format(*vals)
 
     # a few helper functions
     def getCleanAnalysisSpace(self, target=None):

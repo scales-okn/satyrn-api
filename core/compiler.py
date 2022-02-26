@@ -145,6 +145,7 @@ class Ring_Attribute(Ring_Object):
         self.searchable = False
         self.allow_multiple = False
         self.analyzable = True
+        self.resultFormat = [False,False]
 
         # Initialize other properties
         self.search_style = None
@@ -204,32 +205,7 @@ class Ring_Attribute(Ring_Object):
             self.analyzable = md.get('analyzable', False)
             self.autocomplete = md.get('autocomplete', True if self.searchable else False)
             self.description = md.get('description')
-        
-        
-        # Andong started adding things here
-        '''
-        null_defaults = {
-            "string": ("cast", "No value"),
-            "float": ("ignore", 0.0),
-            "int": ("ignore", 0),
-            "integer": ("ignore", 0),
-            "boolean": ("ignore", False),
-            "date": ("ignore", None),
-            "datetime": ("ignore", None),
-        }
-        self.nullHandling = info.get("nullHandling", null_defaults[self.baseIsa][0])
-        self.nullValue = info.get("nullValue", null_defaults[self.baseIsa][1])
-        
-        date_defaults = {
-            "date": ("day","year"),
-            "datetime": ("second", "year"),
-            "time": ("second", "hour")
-        }
-        if self.baseIsa and self.baseIsa in ["date", "datetime", "date"]:
-            granularity = info.get("dateGranularity", date_defaults[self.baseIsa])
-            self.dateMaxGranularity = granularity[1]
-            self.dateMinGranularity = granularity[0]
-        '''
+            self.resultFormat = md.get('resultFormat', [False,False])
 
         default_path = os.environ.get("SATYRN_ROOT_DIR") + "/" +"core" + "/" + "defaults.json"
         with open(default_path, 'r') as file:
