@@ -1,5 +1,5 @@
 
-from .sql_func import _nan_cast
+from .sql_func import _nan_cast, sql_concat
 from .operations import OPERATION_SPACE as OPS
 from .transforms import TRANSFORMS_SPACE as TRS
 from sqlalchemy import func
@@ -42,6 +42,56 @@ def _parse_ref_string(ref_str):
     return val_lst, type_lst
 
 
+
+def _mirrorRel(rel_type):
+    dct = {
+        "o2o": "o2o",
+        "m2m": "m2m",
+        "o2m": "m2o",
+        "m2o": "o2m"
+    }
+    return dct[rel_type]
+
+def _rel_math(init_type, new_type):
+    if init_type == "o2o":
+        return new_type
+    if new_type == "o2o":
+        return init_type
+    if init_type == "m2m" or new_type == "m2m":
+        return "m2m"
+    if init_type == "o2m":
+        if new_type == "m2o":
+            return "m2m"
+        elif new_type == "o2m":
+            return "o2m"
+    elif init_type == "m2o":
+        if new_type == "m2o":
+            return "m2o"
+        elif new_type == "o2m":
+            return "NA"
+
+def _walk_rel_path(fro, to, rels):
+    init_rel = "o2o"
+    curr_ent = fro
+    for rel in rels:
+        if rel.fro == curr_ent:
+            curr_rel = rel.relation
+            curr_ent = rel.to
+        elif rel.to == curr_ent and rel.bidirectional:
+            curr_rel = _mirrorRel(rel.relation)
+            curr_ent = rel.fro
+        else:
+            print("Error, not properly formed relationship path")
+            print("fdsjkfjlssldkjskdlfjlkj")
+            return "NA"
+
+        init_rel = _rel_math(init_rel, curr_rel)
+    
+    if curr_ent != to:
+        print("error, not properly formed rleaitonship path")
+        return "NA"
+    return init_rel
+
 # NOTE: we are assuming here that ALL fields in that reference
 # will belong to the entity
 def _parse_reference(extractor, entity, db):
@@ -50,8 +100,6 @@ def _parse_reference(extractor, entity, db):
     ref = entity_dict.reference
     val_lst, type_lst = _parse_ref_string(ref)
 
-    print(val_lst)
-    print(type_lst)
 
     concatenable = []
     for val, tpe in zip(val_lst, type_lst):
@@ -62,7 +110,7 @@ def _parse_reference(extractor, entity, db):
             concatenable.append(val)
 
     name = _name(entity, "reference", None, None)
-    return sql_func.sql_concat(concatenable, extractor.getDBType()).label(name), name
+    return sql_concat(concatenable, extractor.getDBType()).label(name), name
 
 
 
@@ -104,14 +152,14 @@ def _get_helper(extractor, entity, attribute, db, transform, date_transform, op,
 
     # Do operation if it is available
     if op:
-        print("op true")
         field = OPS[op]["funcDict"]["op"](field, extractor.getDBType(), extra)
 
     if attr_obj:
         # Round if object has rounding
         if attr_obj.rounding == "True":
-            print("rounding true")
             field = func.round(field, attr_obj.sig_figs)
+            # field = func.round(field)
+            # print(attr_obj.sig_figs)
 
         if op == "percentage" and extra.get("rounding", extractor.getRounding()) != "False":
             field = func.round(field, extra.get("sigfigs", extractor.getSigFigs()))
@@ -153,7 +201,8 @@ def _do_joins(query, tables, relationships, extractor, targetEntity, db):
 
     joined_tables = set()
     p_table = _get_table_name(extractor, targetEntity, "id")
-    primary_bool = any(table == p_table for table in tables)
+    primary_bool = any(table == p_table for table in tables) or any(table == p_table for table in joined_tables)
+    # seond conditino should be true always for filterin join
 
 
     def do_join(query, path, added_tables=set()):
@@ -162,9 +211,12 @@ def _do_joins(query, tables, relationships, extractor, targetEntity, db):
         if path[0].split(".")[0] not in added_tables :
             the_table = path[0].split(".")[0]
             indices = [0,1]
-        else:
+        elif path[1].split(".")[0] not in added_tables :
             the_table = path[1].split(".")[0]
             indices = [1,0]
+        else:
+            print(f"path {path} already joined")
+            return query, None
         return query.join(getattr(db, the_table),
                             _get_join_field(path[indices[0]], db) == _get_join_field(path[indices[1]], db),
                             isouter=True
@@ -173,7 +225,7 @@ def _do_joins(query, tables, relationships, extractor, targetEntity, db):
     rel_items = [extractor.resolveRelationship(rel)[1] for rel in relationships]
 
     if not primary_bool:
-        # If the primary table is not in the queried fields,
+        # If the primary table is not in the queried fields AND not joined yet to query,
         # Then we will execute the joins that are connected from a queried table to the primary table
         
         def rel_contains_entity_table(rel_item, entity, table):
@@ -205,7 +257,8 @@ def _do_joins(query, tables, relationships, extractor, targetEntity, db):
                     print("uhhhh hey bruh, something happened")
                 for path in join.path:
                     query, add_table = do_join(query, path, joined_tables)
-                    joined_tables.add(add_table)
+                    if add_table:
+                        joined_tables.add(add_table)
 
         # update the list of relations to join to to remove the ones we already joined to
         rel_items = [rel for rel in rel_items if not rel_contains_entity_table(rel, targetEntity, p_table)]
@@ -219,9 +272,9 @@ def _do_joins(query, tables, relationships, extractor, targetEntity, db):
         for join_item in rel_item.join:
             join = extractor.resolveJoin(join_item)[1]
             for path in join.path:
-                print(path)
                 query, add_table = do_join(query, path, joined_tables)
-                joined_tables.add(add_table)
+                if add_table:
+                    joined_tables.add(add_table)
 
     return query
 

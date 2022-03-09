@@ -9,7 +9,7 @@ from .engine import run_analysis
 from .seekers import getResults
 from .autocomplete import runAutocomplete
 
-from .viewHelpers import CLEAN_OPS, apiKeyCheck, errorGen, organizeFilters, cleanDate, getOrCreateRing, getRing, getRingFromService
+from .viewHelpers import CLEAN_OPS, apiKeyCheck, errorGen, organizeFilters, cleanDate, getOrCreateRing, getRing, getRingFromService, convertFilters, organizeFilters2
 
 # # some "local globals"
 app = current_app # this is now the same app instance as defined in appBundler.py
@@ -109,7 +109,9 @@ def getAutocompletes(ringId, version, targetEntity, theType):
         return cachedAutocomplete(ring.db, theType, searchSpace[theType], opts)
     return json.dumps({"success": False, "message": "Unknown autocomplete type"})
 
-@api.route("/results/<ringId>/<version>/<targetEntity>/")
+
+@api.route("/results/<ringId>/<version>/<targetEntity>/", methods=["GET","POST"])
+@cross_origin(supports_credentials=True)
 @apiKeyCheck
 def searchDB(ringId, version, targetEntity):
     ring, ringExtractor = getOrCreateRing(ringId, version)
@@ -126,16 +128,27 @@ def searchDB(ringId, version, targetEntity):
     # [2018-01-01, 2018-06-15] for everything between two dates
     # [null, 2018-01-01] for everything up to a date (and inverse for after)
 
-
-    # TODO: the format of this will change and now will have a key "query" for the query itself
-    # Also that information will come from the json body
-
     batchSize = int(request.args.get("batchSize", 10))
     page = int(request.args.get("page", 0))
     # bundle search terms
     searchSpace = ringExtractor.getSearchSpace(targetEntity)
     sortables = ringExtractor.getSortables(targetEntity)
-    opts = organizeFilters(request, searchSpace)
+
+    # left in case there is stuff in the request
+    opts = organizeFilters(request, searchSpace, targetEntity)
+    if not opts:
+        opts = request.json if request.json else opts
+        if "page" in opts:
+            page = int(opts["page"])
+        if "batchSize" in opts:
+            batchSize = int(opts["batchSize"])
+    else:
+        # we will use the filters in the url/get rather than in the json
+        query = convertFilters(targetEntity, searchSpace, opts)
+        opts = {"query": query, "relationships": []}
+
+    opts = organizeFilters2(opts, searchSpace)
+
     # and manage sorting
     # TODO: move this next line to config
     # TODO2: add judges and other stuff?
@@ -143,58 +156,11 @@ def searchDB(ringId, version, targetEntity):
     sortDir = request.args.get("sortDirection", "desc")
     opts["sortBy"] = sortBy if sortBy in sortables else None
     opts["sortDir"] = sortDir if sortDir in ["asc", "desc"] else "desc"
+
     # now go hunting
     results = getResults(opts, ring, ringExtractor, targetEntity, page=page, batchSize=batchSize)
     return json.dumps(results, default=str)
 
-
-# @api.route("/results/<ringId>/<version>/<targetEntity>/", methods=["GET","POST"])
-# @cross_origin(supports_credentials=True)
-# @apiKeyCheck
-# def searchDB(ringId, version, targetEntity):
-#     ring, ringExtractor = getOrCreateRing(ringId, version)
-#     if ringExtractor is None:
-#         # ring will now be an error message
-#         return json.dumps(ring)
-#     # takes a list of args that match to top-level keys in SEARCH_SPACE
-#     # or None and it'll return the full set (in batches of limit)
-#     # set up some args
-
-#     # NOTE ON DATES
-#     # dates always expect a range, either:
-#     # [2018-01-01, 2018-01-01] for single day
-#     # [2018-01-01, 2018-06-15] for everything between two dates
-#     # [null, 2018-01-01] for everything up to a date (and inverse for after)
-
-
-#     # TODO: the format of this will change and now will have a key "query" for the query itself
-#     # Also that information will come from the json body
-
-#     batchSize = int(request.args.get("batchSize", 10))
-#     page = int(request.args.get("page", 0))
-#     # bundle search terms
-#     searchSpace = ringExtractor.getSearchSpace(targetEntity)
-#     sortables = ringExtractor.getSortables(targetEntity)
-
-#     # TODO: Change organize filters, maybe just deprecxate it?
-#     # TODO: rview getseachspace and organize filters to make sure weget the crucial parts of it
-#     opts = request.json
-
-#     # opts = organizeFilters(request, searchSpace)
-#     # and manage sorting
-#     # TODO: move this next line to config
-#     # TODO2: add judges and other stuff?
-#     sortBy = request.args.get("sortBy", None)
-#     sortDir = request.args.get("sortDirection", "desc")
-#     opts["sortBy"] = sortBy if sortBy in sortables else None
-#     opts["sortDir"] = sortDir if sortDir in ["asc", "desc"] else "desc"
-
-
-
-
-#     # now go hunting
-#     results = getResults(opts, ring, ringExtractor, targetEntity, page=page, batchSize=batchSize)
-#     return json.dumps(results, default=str)
 
 # PENDING: Add some check here that analysis opts are valid
 # PENDING: Use fieldTypes?
@@ -215,14 +181,22 @@ def runAnalysis(ringId, version, targetEntity):
     analysisOpts = request.json
 
     # first, get the search/filter stuff:
-
     searchSpace = ringExtractor.getSearchSpace(targetEntity)
-    searchOpts = organizeFilters(request, searchSpace)
+    searchOpts = organizeFilters(request, searchSpace, targetEntity)
+    if searchOpts:
+        query = convertFilters(targetEntity, searchSpace, searchOpts)
+        analysisOpts["query"] = query
+    if "query" not in analysisOpts:
+        analysisOpts["query"] = {}
+
+    searchOpts = analysisOpts
+
+    searchOpts = organizeFilters2(searchOpts, searchSpace)
+
+    # searchOpts = organizeFilters(request, searchSpace)
     # TODO: write bit of code to obtain from the json the filters and whatnot
     # TODO: rview getseachspace and organize filters to make sure weget the crucial parts of it
     raw_results = run_analysis(s_opts=searchOpts, a_opts=analysisOpts, targetEntity=targetEntity, ring=ring, extractor=ringExtractor)
-
-    print(raw_results)
 
     results = {
         "length": len(raw_results["results"]),

@@ -38,6 +38,12 @@ import platform
 from sqlalchemy.event import listen
 
 
+try:
+    from api.utils import _rel_math, _mirrorRel, _walk_rel_path
+except:
+    from .api.utils import _rel_math, _mirrorRel, _walk_rel_path
+
+
 
 
 def connect_to_extensions(engine, packages=["stats"]):
@@ -72,29 +78,11 @@ def connect_to_extensions(engine, packages=["stats"]):
         mypath = os.environ.get("SATYRN_ROOT_DIR") + "/" +"core" + "/" +"sqlite_extensions" + "/"
         onlyfiles = [f for f in os.listdir(mypath) if os.path.isfile(os.path.join(mypath, f)) and f.endswith(os_type_dct[os_type])]
         for thefile in onlyfiles:
-            # file_name = , package + os_type_dct[os_type])
             file_name = os.path.join(mypath, thefile)
-            # file_name = os.path.join(mypath, "stats.dll")
             dbapi_conn.enable_load_extension(True)
-            print(file_name)
-            # dbapi_conn.load_extension('C:/Users/aluis/Downloads/stats.dll')
-            # dbapi_conn.load_extension('C:/Users/aluis/Documents/NOACRI/satyrn/satyrn-api/core/sqlite_extensions/stats.dll')
             dbapi_conn.load_extension(file_name)
-            # print(os.environ.get("TESTING_STUFF", "development"))
-            # dbapi_conn.load_extension(os.environ.get("TESTING_STUFF", "development"))
             dbapi_conn.enable_load_extension(False)
 
-        # file_name = 'C:/Users/aluis/Documents/NOACRI/satyrn/satyrn-api/core/sqlite_extensions/stats.dll'
-        # print(file_name)
-
-        # file_name = os.path.join("C:/Users/aluis/Documents/NOACRI/satyrn/satyrn-api/core/sqlite_extensions/", "stats.dll")
-        # print(file_name)
-        # file_name = os.path.join(os.environ.get("SATYRN_ROOT_DIR"), "core", "sqlite_extensions", "stats.dll")
-        # file_name = os.environ.get("SATYRN_ROOT_DIR") + "/" + "core" + "/" +"sqlite_extensions" + "/" +"stats.dll"
-        # dbapi_conn.enable_load_extension(True)
-        # print(file_name)
-        # dbapi_conn.load_extension(file_name)
-        # dbapi_conn.enable_load_extension(False)
 
     with app.app_context():
         listen(engine, 'connect', load_extension)
@@ -401,13 +389,31 @@ class Ring_Relationship(Ring_Object):
         ## Donna's trying to do some error handling 
         self.errorSet = set()
 
+        # ANDONg added new stuff for derived relationships
+        self.rel_list = []
+        self.fro_name = None
+        self.to_name = None
+
     def parse(self, rel):
         self.name = rel.get("name")
         self.fro = rel.get("from")
         self.to = rel.get("to")
-        self.join = self.safe_extract_list("join", rel)
-        self.relation = rel.get("relation", "m2m")
-        self.bidirectional = rel.get("bidirectional", True)
+        self.fro_name = rel.get("fromName")
+        self.to_name = rel.get("toName")
+        if rel.get("derived"):
+
+            # grab all the other relationships and derived relation and bidirectional
+            self.rel_list = rel.get("relationshipList")
+            self.join = None # empty for now, ideally would grab all joins from the other relationships
+
+            # NOTE: the relation and the bidirectional
+            # will be updated in the ring_configuration object
+            # bc we need access to the otehr relationship objects
+
+        else:
+            self.join = self.safe_extract_list("join", rel)
+            self.relation = rel.get("relation", "m2m")
+            self.bidirectional = rel.get("bidirectional", True)
 
         # construct an id handle from the inputs
         # form is: from + name + to + join = "ContributorMakesContribution"
@@ -717,7 +723,6 @@ class Ring_Configuration(Ring_Object):
         default_path = os.environ.get("SATYRN_ROOT_DIR") + "/" +"core" + "/" + "defaults.json"
         with open(default_path, 'r') as file:
             defaults = json.load(file)
-            print(defaults)
             self.sig_figs = defaults.get("result_formatting")["rounding"][1]
             self.rounding = True
 
@@ -747,6 +752,21 @@ class Ring_Configuration(Ring_Object):
             relationship_object = Ring_Relationship()
             relationship_object.parse(rel)
             self.relationships.append(relationship_object)
+
+
+        for idx, rel in enumerate(self.relationships):
+            if rel.rel_list:
+                # do the derived work
+                # get the list of joins?
+                rels = {r.name: r for r in self.relationships if r.name in rel.rel_list}
+
+                self.relationships[idx].join = [rels[r].join for r in rel.rel_list if rels[r].join]
+
+                # get the type of relation (o2o, m2o, m2m, o2m)
+                self.relationships[idx].relation = _walk_rel_path(rel.fro, rel.to, [rels[r] for r in rel.rel_list])
+
+                # get whether it bidirectional or not
+                self.relationships[idx].bidirectional = all(rels[r].bidirectional for r in rel.rel_list)
 
     def parse_file_with_path(self, path):
         with open(path, 'r') as file:

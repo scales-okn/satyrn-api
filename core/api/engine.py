@@ -218,7 +218,6 @@ def recursive_query(s_opts, a_opts, ring, extractor, targetEntity, session, db, 
     per_idx = col_names.index("per")
     col_names[idx] = "target/per"
     field_names[idx] = utils._make_recursive_name(field_names[idx], field_names[per_idx], "average")
-    print(field_names)
     # field_names[idx] + "/" + field_names[per_idx]
 
     # Removes the per field from the query and col/field list
@@ -362,7 +361,6 @@ def get_units(a_opts, extractor, field_types, field_names, col_names):
 
 def _prep_query(a_opts, extractor, db, field_types, counts=False):
     # Called to query across a (or multiple) computed values
-    print(a_opts)
 
     q_args = []
     tables = []
@@ -401,10 +399,7 @@ def _prep_query(a_opts, extractor, db, field_types, counts=False):
             target_fields.append(target)
             col_names.append(targ)
 
-    print(a_opts)
-    print(target_fields)
     for target in target_fields:
-        print(target.get("op", "None"))
 
         the_field, field_name = utils._get(extractor, target["entity"], target["field"], db, op=target.get("op", "None"),
                                         transform=target.get("transform", None), extra=target["extra"])
@@ -441,8 +436,8 @@ def _do_filters(query, s_opts, ring, extractor, targetEntity, col_names, session
     # query = query.filter(utils._get(extractor, targetEntity, "id", db) != None)
 
     # do normal filters
-    if s_opts:
-        query = rawGetResultSet(s_opts, ring, extractor, targetEntity, targetRange=None, simpleResults=True, just_query=True, sess=session, query=query)
+    if s_opts and "query" in s_opts and s_opts["query"]:
+        query = rawGetResultSet(s_opts, ring, extractor, targetEntity, targetRange=None, simpleResults=True, just_query=True, sess=session, query=query, make_joins=False)
 
     # do nan filtering
     for name in col_names:
