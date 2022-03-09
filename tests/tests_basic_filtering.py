@@ -34,26 +34,85 @@ class TestFilter(unittest.TestCase):
 
     def test_filter_contributor(self):
         # ground truth verified
-        opts = {"contributor": "INTERNATIONAL BROTHERHOOD OF ELECTRICAL WORKERS / IBEW"}
+        opts = {}
+        json_opts = {
+            "query": {
+                "AND": [
+                    [
+                        {"entity": "Contributor",
+                        "field": "name"},
+                        "INTERNATIONAL BROTHERHOOD OF ELECTRICAL WORKERS / IBEW",
+                        "exact"
+                    ]
+                ]
+            },
+            "relationships": ["ContribToContributor"]
+        }
         urllink = make_results_url(self.url, self.ringid, self.versionid, "Contribution", "results", opts)
 
-        resp = requests.get(urllink, headers=self.headers)
+        resp = requests.get(urllink, headers=self.headers, json=json_opts)
+
+        # resp = requests.get(urllink, headers=self.headers)
         results = json.loads(resp.content.decode('utf-8'))
-        expected_results = {'totalCount': 10, 'page': 0, 'batchSize': 10, 'activeCacheRange': [0, 100], 'results': [{'contributorName': 'INTERNATIONAL BROTHERHOOD OF ELECTRICAL WORKERS / IBEW', 'contributorArea': 'Electrical workers/IBEW', 'electionYear': 2010, 'recipient': 'HYNES, DANIEL W', 'amount': 10000.0}, {'contributorName': 'INTERNATIONAL BROTHERHOOD OF ELECTRICAL WORKERS / IBEW', 'contributorArea': 'Electrical workers/IBEW', 'electionYear': 2014, 'recipient': 'QUINN III, PATRICK JOSEPH (PAT) & VALLAS, PAUL GUST', 'amount': 3000.0}, {'contributorName': 'INTERNATIONAL BROTHERHOOD OF ELECTRICAL WORKERS / IBEW', 'contributorArea': 'Electrical workers/IBEW', 'electionYear': 2010, 'recipient': 'HYNES, DANIEL W', 'amount': 250.0}, {'contributorName': 'INTERNATIONAL BROTHERHOOD OF ELECTRICAL WORKERS / IBEW', 'contributorArea': 'Electrical workers/IBEW', 'electionYear': 2014, 'recipient': 'QUINN III, PATRICK JOSEPH (PAT) & VALLAS, PAUL GUST', 'amount': 5000.0}, {'contributorName': 'INTERNATIONAL BROTHERHOOD OF ELECTRICAL WORKERS / IBEW', 'contributorArea': 'Electrical workers/IBEW', 'electionYear': 2014, 'recipient': 'QUINN III, PATRICK JOSEPH (PAT) & VALLAS, PAUL GUST', 'amount': 5000.0}, {'contributorName': 'INTERNATIONAL BROTHERHOOD OF ELECTRICAL WORKERS / IBEW', 'contributorArea': 'Electrical workers/IBEW', 'electionYear': 2014, 'recipient': 'QUINN III, PATRICK JOSEPH (PAT) & VALLAS, PAUL GUST', 'amount': 10000.0}, {'contributorName': 'INTERNATIONAL BROTHERHOOD OF ELECTRICAL WORKERS / IBEW', 'contributorArea': 'Electrical workers/IBEW', 'electionYear': 2010, 'recipient': 'HYNES, DANIEL W', 'amount': 1500.0}, {'contributorName': 'INTERNATIONAL BROTHERHOOD OF ELECTRICAL WORKERS / IBEW', 'contributorArea': 'Electrical workers/IBEW', 'electionYear': 2014, 'recipient': 'QUINN III, PATRICK JOSEPH (PAT) & VALLAS, PAUL GUST', 'amount': 5000.0}, {'contributorName': 'INTERNATIONAL BROTHERHOOD OF ELECTRICAL WORKERS / IBEW', 'contributorArea': 'Electrical workers/IBEW', 'electionYear': 2014, 'recipient': 'QUINN III, PATRICK JOSEPH (PAT) & VALLAS, PAUL GUST', 'amount': 7602.3}, {'contributorName': 'INTERNATIONAL BROTHERHOOD OF ELECTRICAL WORKERS / IBEW', 'contributorArea': 'Electrical workers/IBEW', 'electionYear': 2014, 'recipient': 'QUINN III, PATRICK JOSEPH (PAT) & VALLAS, PAUL GUST', 'amount': 1000.0}]}
-        print(results)
+        expected_results = {'totalCount': 10, 'page': 0, 'batchSize': 10, 'activeCacheRange': [0, 100], 'results': [{'amount': '10000.0', 'inState': 'False', 'electionYear': '2010', 'contributionRecipient': 'HYNES, DANIEL W', 'contributionDate': '2020-04-02 14:30:21'}, {'amount': '3000.0', 'inState': 'False', 'electionYear': '2014', 'contributionRecipient': 'QUINN III, PATRICK JOSEPH (PAT) & VALLAS, PAUL GUST', 'contributionDate': 'None'}, {'amount': '250.0', 'inState': 'False', 'electionYear': '2010', 'contributionRecipient': 'HYNES, DANIEL W', 'contributionDate': 'None'}, {'amount': '5000.0', 'inState': 'False', 'electionYear': '2014', 'contributionRecipient': 'QUINN III, PATRICK JOSEPH (PAT) & VALLAS, PAUL GUST', 'contributionDate': 'None'}, {'amount': '5000.0', 'inState': 'False', 'electionYear': '2014', 'contributionRecipient': 'QUINN III, PATRICK JOSEPH (PAT) & VALLAS, PAUL GUST', 'contributionDate': 'None'}, {'amount': '10000.0', 'inState': 'False', 'electionYear': '2014', 'contributionRecipient': 'QUINN III, PATRICK JOSEPH (PAT) & VALLAS, PAUL GUST', 'contributionDate': 'None'}, {'amount': '1500.0', 'inState': 'False', 'electionYear': '2010', 'contributionRecipient': 'HYNES, DANIEL W', 'contributionDate': 'None'}, {'amount': '5000.0', 'inState': 'False', 'electionYear': '2014', 'contributionRecipient': 'QUINN III, PATRICK JOSEPH (PAT) & VALLAS, PAUL GUST', 'contributionDate': 'None'}, {'amount': '7602.3', 'inState': 'False', 'electionYear': '2014', 'contributionRecipient': 'QUINN III, PATRICK JOSEPH (PAT) & VALLAS, PAUL GUST', 'contributionDate': 'None'}, {'amount': '1000.0', 'inState': 'False', 'electionYear': '2014', 'contributionRecipient': 'QUINN III, PATRICK JOSEPH (PAT) & VALLAS, PAUL GUST', 'contributionDate': 'None'}]}
         self.assertEqual(expected_results, results)
+
+    def test_filter_contributor_targetentity(self):
+        # ground truth verified
+        opts = {}
+        json_opts = {
+            "query": {
+                "AND": [
+                    [
+                        {"entity": "Contributor",
+                        "field": "name"},
+                        "INTERNATIONAL BROTHERHOOD OF ELECTRICAL WORKERS / IBEW",
+                        "exact"
+                    ]
+                ]
+            },
+            "relationships": []
+        }
+        urllink = make_results_url(self.url, self.ringid, self.versionid, "Contributor", "results", opts)
+
+        resp = requests.get(urllink, headers=self.headers, json=json_opts)
+
+        results = json.loads(resp.content.decode('utf-8'))
+        expected_results = {'totalCount': 1, 'page': 0, 'batchSize': 10, 'activeCacheRange': [0, 100], 'results': [{'name': 'INTERNATIONAL BROTHERHOOD OF ELECTRICAL WORKERS / IBEW', 'parentOrg': 'NATIONAL AFL-CIO', 'area': 'Electrical workers/IBEW'}]}
+
+        self.assertEqual(expected_results, results)
+
+
 
     def test_filter_area_year(self):
         # ground truth verified
-        opts = {"electionYear": "2014", "contributorArea": "Labor unions"}
+        opts = {}
+        json_opts = {
+            "query": {
+                "AND": [
+                    [
+                        {"entity": "Contributor",
+                        "field": "area"},
+                        "Labor unions",
+                        "exact"
+                    ],
+                    [
+                        {"entity": "Contribution",
+                        "field": "electionYear"},
+                        2014,
+                        "exact"
+                    ]
+                ]
+            },
+            "relationships": ["ContribToContributor"]
+        }
         urllink = make_results_url(self.url, self.ringid, self.versionid, "Contribution", "results", opts)
 
-        resp = requests.get(urllink, headers=self.headers)
-        results = json.loads(resp.content.decode('utf-8'))
-        expected_results = {'totalCount': 3, 'page': 0, 'batchSize': 10, 'activeCacheRange': [0, 100], 'results': [{'contributorName': '12TH CONGRESSIONAL DISTRICT OF ILLINOIS AFL-CIO', 'contributorArea': 'Labor unions', 'electionYear': 2014, 'recipient': 'QUINN III, PATRICK JOSEPH (PAT) & VALLAS, PAUL GUST', 'amount': 5300.0}, {'contributorName': 'ILLINOIS AFL-CIO', 'contributorArea': 'Labor unions', 'electionYear': 2014, 'recipient': 'QUINN III, PATRICK JOSEPH (PAT) & VALLAS, PAUL GUST', 'amount': 5000.0}, {'contributorName': 'WILL-GRUNDY COUNTIES CENTRAL TRADES & LABOR COUNCIL', 'contributorArea': 'Labor unions', 'electionYear': 2014, 'recipient': 'QUINN III, PATRICK JOSEPH (PAT) & VALLAS, PAUL GUST', 'amount': 500.0}]}
-        print(results)
-        self.assertEqual(expected_results, results)
+        resp = requests.get(urllink, headers=self.headers, json=json_opts)
 
+        results = json.loads(resp.content.decode('utf-8'))
+        expected_results = {'totalCount': 3, 'page': 0, 'batchSize': 10, 'activeCacheRange': [0, 100], 'results': [{'amount': '5300.0', 'inState': 'True', 'electionYear': '2014', 'contributionRecipient': 'QUINN III, PATRICK JOSEPH (PAT) & VALLAS, PAUL GUST', 'contributionDate': 'None'}, {'amount': '5000.0', 'inState': 'True', 'electionYear': '2014', 'contributionRecipient': 'QUINN III, PATRICK JOSEPH (PAT) & VALLAS, PAUL GUST', 'contributionDate': 'None'}, {'amount': '500.0', 'inState': 'True', 'electionYear': '2014', 'contributionRecipient': 'QUINN III, PATRICK JOSEPH (PAT) & VALLAS, PAUL GUST', 'contributionDate': 'None'}]}
+        self.assertEqual(expected_results, results)
 
     def test_filter_fail_no_result(self):
         # ground truth verified
@@ -63,7 +122,6 @@ class TestFilter(unittest.TestCase):
         resp = requests.get(urllink, headers=self.headers)
         results = json.loads(resp.content.decode('utf-8'))
         expected_results = {'totalCount': 0, 'page': 0, 'batchSize': 10, 'activeCacheRange': [0, 100], 'results': []}
-        print(results)
         self.assertEqual(expected_results, results)
 
     def tearDown(self):

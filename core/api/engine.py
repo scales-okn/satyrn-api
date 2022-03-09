@@ -4,15 +4,17 @@ from copy import deepcopy
 
 from flask import current_app
 from sqlalchemy import func
-from sqlalchemy.sql.expression import case
+
 
 from pandas import DataFrame
 
 from .operations import OPERATION_SPACE as OPS
 from .seekers import rawGetResultSet
 from .transforms import TRANSFORMS_SPACE as TRS
-from .utils import _get_join_field, _name, _outerjoin_name, _entity_from_name, _remove_duplicate_vals, count_entities, sql_concat
-from .utils import _make_recursive_name, _entity_from_recursive_name
+
+from . import utils
+from . import sql_func
+
 
 # PREFILTERS = current_app.satConf.preFilters
 
@@ -159,7 +161,7 @@ def single_ring_analysis(s_opts, a_opts, ring, extractor, targetEntity, sess, db
     results.update({
         "entity_counts": row_count_query(s_opts, a_opts, ring, extractor, targetEntity, sess, db, field_types),
     })
-    results["field_names"] = [_entity_from_name(col_name) for col_name in results["field_names"]]
+    results["field_names"] = [utils._entity_from_name(col_name) for col_name in results["field_names"]]
 
     return results
 
@@ -215,8 +217,7 @@ def recursive_query(s_opts, a_opts, ring, extractor, targetEntity, session, db, 
     idx = col_names.index("target")
     per_idx = col_names.index("per")
     col_names[idx] = "target/per"
-    field_names[idx] = _make_recursive_name(field_names[idx], field_names[per_idx], "average")
-    print(field_names)
+    field_names[idx] = utils._make_recursive_name(field_names[idx], field_names[per_idx], "average")
     # field_names[idx] + "/" + field_names[per_idx]
 
     # Removes the per field from the query and col/field list
@@ -224,7 +225,7 @@ def recursive_query(s_opts, a_opts, ring, extractor, targetEntity, session, db, 
         del lst[per_idx]
 
     # Run query
-    avg = func.avg(s_query.c[_name(a_opts["target"]["entity"], a_opts["target"]["field"], copy_opts["op"])])
+    avg = func.avg(s_query.c[utils._name(a_opts["target"]["entity"], a_opts["target"]["field"], copy_opts["op"])])
     if a_opts.get("extra",{}).get("rounding", extractor.getRounding()) != "False":
         field = func.round(avg, a_opts.get("extra",{}).get("sigfigs", extractor.getSigFigs()))
 
@@ -253,16 +254,16 @@ def simple_query(s_opts, a_opts, ring, extractor, targetEntity, session, db, fie
     query = _do_filters(query, s_opts, ring, extractor, targetEntity, field_names, session, db)
 
     # Do joins
-    query = _do_joins(query, tables, a_opts["relationships"] if "relationships" in a_opts else [], extractor, targetEntity, db)
+    query = utils._do_joins(query, tables, a_opts["relationships"] if "relationships" in a_opts else [], extractor, targetEntity, db)
 
     # ADD THE UNIQUE CONSTRAINT ON THE TUPLES OF THE IMPORTANT FIELDS IDS
     # PENDING: this gives errors. right now will not add entity ids
     # query = query.distinct(*entity_ids)
 
-    group_args = [_name(d["entity"], d["field"], transform=d.get("transform")) for d in a_opts["groupBy"]] if "groupBy" in a_opts else []
+    group_args = [utils._name(d["entity"], d["field"], transform=d.get("transform")) for d in a_opts["groupBy"]] if "groupBy" in a_opts else []
     for field in field_types["group"]:
         if field in a_opts:
-             group_args.append(_name(a_opts[field]["entity"], a_opts[field]["field"], transform=a_opts[field].get("transform"), date_transform=a_opts[field].get("dateTransform")))
+             group_args.append(utils._name(a_opts[field]["entity"], a_opts[field]["field"], transform=a_opts[field].get("transform"), date_transform=a_opts[field].get("dateTransform")))
 
      # Modify field_names so that it also return type of field
     return query, group_args, field_names, col_names
@@ -284,7 +285,7 @@ def row_count_query(s_opts, a_opts, ring, extractor, targetEntity, session, db, 
             if "extra" not in a_opts[key]:
                 a_opts[key]["extra"] = {}
 
-    a_opts, _ = _remove_duplicate_vals(a_opts)
+    a_opts, _ = utils._remove_duplicate_vals(a_opts)
 
     q_args, tables, entity_ids, entity_names, field_names, col_names = _prep_query(a_opts, extractor, db, field_types=field_types, counts=True)
     query = session.query(*q_args)
@@ -293,11 +294,11 @@ def row_count_query(s_opts, a_opts, ring, extractor, targetEntity, session, db, 
     query = _do_filters(query, s_opts, ring, extractor, targetEntity, field_names, session, db)
 
     # Do joins
-    query = _do_joins(query, tables, a_opts["relationships"] if "relationships" in a_opts else [], extractor, targetEntity, db)
+    query = utils._do_joins(query, tables, a_opts["relationships"] if "relationships" in a_opts else [], extractor, targetEntity, db)
 
     # Count entities
     db_type = extractor.getDBType()
-    entity_counts = count_entities(query, entity_ids, field_names, db_type)
+    entity_counts = sql_func.count_entities(query, entity_ids, field_names, db_type)
 
     return entity_counts
 
@@ -360,7 +361,6 @@ def get_units(a_opts, extractor, field_types, field_names, col_names):
 
 def _prep_query(a_opts, extractor, db, field_types, counts=False):
     # Called to query across a (or multiple) computed values
-    print(a_opts)
 
     q_args = []
     tables = []
@@ -381,11 +381,11 @@ def _prep_query(a_opts, extractor, db, field_types, counts=False):
             col_names.append(field)
 
     for group in groupby_fields:
-        the_field, name = _get(extractor, group["entity"], group["field"], db,
+        the_field, name = utils._get(extractor, group["entity"], group["field"], db,
                                 transform=group.get("transform", None), date_transform=group.get("dateTransform", None))
         q_args.append(the_field)
         field_names.append(name)
-        table = _get_table_name(extractor, group["entity"], group["field"])
+        table = utils._get_table_name(extractor, group["entity"], group["field"])
         if table not in tables:
             tables.append(table)
         if group["entity"] not in unique_entities:
@@ -399,16 +399,13 @@ def _prep_query(a_opts, extractor, db, field_types, counts=False):
             target_fields.append(target)
             col_names.append(targ)
 
-    print(a_opts)
-    print(target_fields)
     for target in target_fields:
-        print(target.get("op", "None"))
 
-        the_field, field_name = _get(extractor, target["entity"], target["field"], db, op=target.get("op", "None"),
+        the_field, field_name = utils._get(extractor, target["entity"], target["field"], db, op=target.get("op", "None"),
                                         transform=target.get("transform", None), extra=target["extra"])
         q_args.append(the_field.label(field_name))
         field_names.append(field_name)
-        table = _get_table_name(extractor, target["entity"], target["field"])
+        table = utils._get_table_name(extractor, target["entity"], target["field"])
         if table not in tables:
             tables.append(table)
         if target["entity"] not in unique_entities:
@@ -417,7 +414,7 @@ def _prep_query(a_opts, extractor, db, field_types, counts=False):
     # Query the IDs of the entities we care about (as well as the nice name stuff for them)
     entity_ids = []
     for entity in unique_entities:
-        the_field, name = _get(extractor, entity, "id", db)
+        the_field, name = utils._get(extractor, entity, "id", db)
         entity_ids.append(name)
         if name not in field_names and counts:
             q_args.append(the_field)
@@ -436,15 +433,15 @@ def _do_filters(query, s_opts, ring, extractor, targetEntity, col_names, session
 
     # do prefilters
     pass
-    # query = query.filter(_get(extractor, targetEntity, "id", db) != None)
+    # query = query.filter(utils._get(extractor, targetEntity, "id", db) != None)
 
     # do normal filters
-    if s_opts:
-        query = rawGetResultSet(s_opts, ring, extractor, targetEntity, targetRange=None, simpleResults=True, just_query=True, sess=session, query=query)
+    if s_opts and "query" in s_opts and s_opts["query"]:
+        query = rawGetResultSet(s_opts, ring, extractor, targetEntity, targetRange=None, simpleResults=True, just_query=True, sess=session, query=query, make_joins=False)
 
     # do nan filtering
     for name in col_names:
-        param_dct = _entity_from_name(name)
+        param_dct = utils._entity_from_name(name)
         entity_dict = extractor.resolveEntity(param_dct["entity"])[1]
         if param_dct["field"] not in  ["id", "reference"]:
             attr_obj = [attr for attr in entity_dict.attributes if attr.name == param_dct["field"]][0]
@@ -458,97 +455,12 @@ def _do_filters(query, s_opts, ring, extractor, targetEntity, col_names, session
                 # meaning we cant directly use the name of the object, so we have to
                 # again get the "real" field and filter off of that
                 # PENDING: might have issues since there could be multiple fields with same name
-                field, name = _get(extractor, param_dct["entity"], param_dct["field"], db)
+                field, name = utils._get(extractor, param_dct["entity"], param_dct["field"], db)
                 query = query.filter(field != None)
 
     return query
 
 
-# PENDING: Should be stress tested, tested more
-# PENDING: Should try to share this with seekers as much as possible
-# PENDING: have yet to test the case where single entity across multiple tables
-# PENDING: have yet to test teh case where multiple entities in one table (tho it should be fine)
-# PENDING: test the case with derived person entity
-def _do_joins(query, tables, relationships, extractor, targetEntity, db):
-    '''
-    Do joins, if needed
-    We have a list of SQL tables that we are using, as well as the needed relationships
-    to conduct those joins.
-    '''
-
-    joined_tables = set()
-    p_table = _get_table_name(extractor, targetEntity, "id")
-    primary_bool = any(table == p_table for table in tables)
-
-
-    def do_join(query, path, added_tables=set()):
-        # Given a query, a path, and a 
-        # For now we are assuming one and only one of the tables in the path is not in added_tables
-        if path[0].split(".")[0] not in added_tables :
-            the_table = path[0].split(".")[0]
-            indices = [0,1]
-        else:
-            the_table = path[1].split(".")[0]
-            indices = [1,0]
-        return query.join(getattr(db, the_table),
-                            _get_join_field(path[indices[0]], db) == _get_join_field(path[indices[1]], db),
-                            isouter=True
-                            ), the_table
-
-    rel_items = [extractor.resolveRelationship(rel)[1] for rel in relationships]
-
-    if not primary_bool:
-        # If the primary table is not in the queried fields,
-        # Then we will execute the joins that are connected from a queried table to the primary table
-        
-        def rel_contains_entity_table(rel_item, entity, table):
-            # Check if relationship has a join, and has the entity and table given
-            # (might be superfluous to check entity)
-            if rel_item.fro != entity and rel_item.to != entity:
-                return False
-            if not len(rel_item.join):
-                return False
-            join = extractor.resolveJoin(rel_item.join[0])[1]
-            if join.from_ != table and join.to != table:
-                return False
-            return True
-        
-        # Go over the relationships, find the one(s) that link back to the target table
-        rels = [rel for rel in rel_items if rel_contains_entity_table(rel, targetEntity, p_table)]
-
-        # TODO: change this in case there are multiple joins
-        # Iterate thru these and join them
-        for rel_item in rels:
-            for join_item in rel_item.join:
-                join = extractor.resolveJoin(join_item)[1]
-
-                if join.from_ in tables:
-                    joined_tables.add(join.from_)
-                elif join.to in tables:
-                    joined_tables.add(join.to)
-                else:
-                    print("uhhhh hey bruh, something happened")
-                for path in join.path:
-                    query, add_table = do_join(query, path, joined_tables)
-                    joined_tables.add(add_table)
-
-        # update the list of relations to join to to remove the ones we already joined to
-        rel_items = [rel for rel in rel_items if not rel_contains_entity_table(rel, targetEntity, p_table)]
-
-    else:
-        joined_tables.add(_get_table_name(extractor, targetEntity, "id"))
-
-
-    # for the pending relationships, join them
-    for rel_item in rel_items:
-        for join_item in rel_item.join:
-            join = extractor.resolveJoin(join_item)[1]
-            for path in join.path:
-                print(path)
-                query, add_table = do_join(query, path, joined_tables)
-                joined_tables.add(add_table)
-
-    return query
 
 # PENDING: Do this
 # PNEDING: See if we actually need to do this, not sure if we do
@@ -571,165 +483,6 @@ def _format_results():
     # ordering (if any)
     pass
 
-
-
-def _parse_ref_string(ref_str):
-    # right now we assume ref_str is properly formed
-    # AND that there arent any other $, } in the string other than
-    # for attributes
-
-    val_lst = []
-    type_lst = []
-
-    idx = 0
-    is_attr = False
-    val_start_idx = 0
-
-    while idx < len(ref_str):
-        if ref_str[idx] == "$":
-            if idx > val_start_idx:
-                val_lst.append(ref_str[val_start_idx:idx])
-                type_lst.append(is_attr)
-
-            is_attr = True
-            val_start_idx = idx
-        elif ref_str[idx] == "}":
-
-            val_lst.append(ref_str[val_start_idx:idx+1])
-            type_lst.append(is_attr)
-            is_attr = False
-            val_start_idx = idx + 1
-
-        else:
-            pass
-        idx += 1
-
-    if val_start_idx < len(ref_str):
-        val_lst.append(ref_str[val_start_idx:len(ref_str)])
-        type_lst.append(is_attr)
-
-    return val_lst, type_lst
-
-
-# NOTE: we are assuming here that ALL fields in that reference
-# will belong to the entity
-def _parse_reference(extractor, entity, db):
-
-    entity_dict = extractor.resolveEntity(entity)[1]
-    ref = entity_dict.reference
-    val_lst, type_lst = _parse_ref_string(ref)
-
-    print(val_lst)
-    print(type_lst)
-
-    concatenable = []
-    for val, tpe in zip(val_lst, type_lst):
-        if tpe:
-            field, _ = _get_helper(extractor, entity, val[2:-1], db, None, None, None, None)
-            concatenable.append(field)
-        else:
-            concatenable.append(val)
-
-    name = _name(entity, "reference", None, None)
-    print(concatenable)
-    print(sql_concat(concatenable, extractor.getDBType()))
-    return sql_concat(concatenable, extractor.getDBType()).label(name), name
-
-
-
-# PENDING: handling multiple columns in the columns of source
-# PENDING: Add "Conversion" to pretty name here (e.g. True/False to other stuff)
-def _get(extractor, entity, attribute, db, transform=None, date_transform=None, op=None, extra=None):
-    '''
-    Returns the field from entity in ring, and the label of the field
-    '''
-    if attribute == "reference":
-        return _parse_reference(extractor, entity, db)
-    else:
-        return _get_helper(extractor, entity, attribute, db ,transform, date_transform, op, extra)
-
-# def _get_and_query_append(flag, q_args, field_names, extractor, entity, attribute, db, transform=None, date_transform=None, op=None):
-#     ## flag will either be "group, or the target that is passed"
-#     the_field, field_name = _get_helper(extractor, entity, attribute, db ,transform, date_transform, op)
-#     if flag == "group": 
-#         q_args.append(the_field)
-#         field_names.append(name)
-#     else: 
-#         target = flag
-#         entity_dict = extractor.resolveEntity(entity)[1]
-#         attr_obj = [attr for attr in entity_dict.attributes if attr.name == attribute][0]
-        
-#         if attr_obj.rounding == "True":
-#             q_args.append(func.round(OPS[target["op"]]["funcDict"]["op"](the_field, extractor.getDBType(), target["extra"]).label(field_name), attr_obj.sig_figs))
-#         else:
-#             q_args.append(OPS[target["op"]]["funcDict"]["op"](the_field, extractor.getDBType(), target["extra"]).label(field_name))
-        
-#         field_names.append(field_name)
-#     return q_args, field_names
-
-def _get_helper(extractor, entity, attribute, db, transform, date_transform, op, extra):
-    '''
-    Returns the field from entity in ring, and the label of the field
-    '''
-    entity_dict = extractor.resolveEntity(entity)[1]
-    if attribute != "id":
-        attr_obj = [attr for attr in entity_dict.attributes if attr.name == attribute][0]
-        model_name = attr_obj.source_table
-        field_name = attr_obj.source_columns[0]
-        if date_transform:
-            field_name = field_name + "_" + date_transform
-    else:
-        model_name = entity_dict.table
-        field_name = entity_dict.id[0]
-        attr_obj = None
-
-    model = getattr(db, model_name)
-    field = getattr(model, field_name)
-    name = _name(entity, attribute, op, transform, date_transform)
-
-    # Get null handling
-    if attr_obj and attr_obj.nullHandling and attr_obj.nullHandling == "cast":
-        field = _nan_cast(field, attr_obj.nullValue)
-
-    # Do operation if it is available
-    if op:
-        print("op true")
-        field = OPS[op]["funcDict"]["op"](field, extractor.getDBType(), extra)
-
-    if attr_obj:
-        # Round if object has rounding
-        if attr_obj.rounding == "True":
-            print("rounding true")
-            field = func.round(field, attr_obj.sig_figs)
-
-        if op == "percentage" and extra.get("rounding", extractor.getRounding()) != "False":
-            field = func.round(field, extra.get("sigfigs", extractor.getSigFigs()))
-
-
-    if transform:
-        field = TRS[transform]["processor"](field)
-
-    return field.label(name), name
-
-
-def _get_table_name(extractor, entity, attribute):
-    '''
-    Returns the table name correponding to an entity's attribute in the ring
-    '''
-    # returns the table corresponding to an entity in ring   
-    entity_dict = extractor.resolveEntity(entity)[1]
-    if attribute not in  ["id", "reference"]:
-        attr_obj = [attr for attr in entity_dict.attributes if attr.name == attribute][0]
-        model_name = attr_obj.source_table
-    else:
-        model_name = entity_dict.table
-    return model_name
-
-def _nan_cast(field, cast_val):
-    '''
-    Casts a field in case it is a null value
-    '''
-    return case([(field == None, cast_val)], else_=field)
 
 '''
 

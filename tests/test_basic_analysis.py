@@ -203,6 +203,56 @@ class TestAnalysis(unittest.TestCase):
         results = json.loads(resp.content.decode('utf-8'))
         self.assertEqual(expected_results, results)
 
+    def test_filter_year_min_amount_json(self):
+        # ground truth verified
+        search_opts = {}
+        analysis_opts = {
+            "target": {
+                "entity": "Contribution",
+                "field": "amount"
+            },
+            "query": {
+                "AND": [
+                    [
+                        {"entity": "Contribution",
+                        "field": "electionYear"},
+                        2010,
+                        "exact"
+                    ]
+                ]
+            },
+            "op": "min",
+            "relationships": []
+        }
+        expected_results = {
+            "counts": {
+                "Contribution//id": 129
+            },
+            "fieldNames": [
+                {
+                    "entity": "Contribution",
+                    "field": "amount",
+                    "op": "min"
+                }
+            ],
+            "length": 1,
+            "results": [
+                [
+                    100.0
+                ]
+            ],
+            "units": {
+                "results": [
+                    "dollar"
+                ]
+            }
+        }
+        urllink = make_results_url(self.url, self.ringid, self.versionid, "Contribution", "analysis", search_opts)
+
+        resp = requests.get(urllink, headers=self.headers, json=analysis_opts)
+        results = json.loads(resp.content.decode('utf-8'))
+        self.assertEqual(expected_results, results)
+
 
     def test_max_amount_groupby_instate(self):
         # ground truth verified        

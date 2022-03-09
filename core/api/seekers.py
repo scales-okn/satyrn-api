@@ -7,6 +7,11 @@ from sqlalchemy import func
 # SEARCH_SPACE = current_app.satConf.searchSpace
 # formatResult = current_app.satConf.formatResult
 # PREFILTERS = getattr(current_app.satConf, "preFilters")
+from sqlalchemy import and_, or_
+
+from . import utils
+from . import sql_func
+
 
 cache = app.cache
 CACHE_TIMEOUT=6000
@@ -43,7 +48,8 @@ def getCacheRange(page, batchSize):
 def getResultSet(opts, ring, ringExtractor, targetEntity, targetRange=[0,100]):
     return rawGetResultSet(opts, ring, ringExtractor, targetEntity, targetRange)
 
-def rawGetResultSet(opts, ring, ringExtractor, targetEntity, targetRange=None, simpleResults=True, just_query=False, sess=None, query=None):
+
+def rawGetResultSet(opts, ring, ringExtractor, targetEntity, targetRange=None, simpleResults=True, just_query=False, sess=None, query=None, make_joins=True):
     db = ring.db
     targetInfo = ringExtractor.resolveEntity(targetEntity)[1]
     targetModel = getattr(db, targetInfo.table)
@@ -57,82 +63,13 @@ def rawGetResultSet(opts, ring, ringExtractor, targetEntity, targetRange=None, s
         sess = db.Session()
         query = sess.query(targetModel)
 
-    '''
-    TODO: This would need to be modified,
-    example query
-    {
-        Query: {
-            And: [
-                {
-                    Or: [
-                        [{Judge, name}, Donna, contains] 
-                        [{Judge, name}, Andong, contains] 
-                    ]
-                },
-                [{Case, date, month}, October, equals] 
-            ]
-        }
-        Relationships: [CaseToJudge]
-    }
+    if opts["query"]:
+        query = query.filter(makeFilters(query, ringExtractor, db, opts["query"]))
 
-    {
-        Query: {
-            And: [
-                {
-                    Not: [{Judge, name}, Andrew, contains] 
-                },
-                {
-                    Not: [{Judge, name}, Andong, contains] 
-                }
-                ]
-        }
-        Relationships: [CaseToJudge]
-    }
-
-
-    before it wouldve been something like
-    {judgename: [andong, donna]}
-    {judgenam: andong, year:1020}
-
-    the general breakdwon of the code:
-        - Will have to be some kind of recursive function
-
-
-    makequery(the_d):
-
-        if the_d has operation (not, and ,or) (i.e. if it a dict):
-            if and or or:
-                return and/or(makequery for each thing  in the ands list)
-            if not:
-                return not of the makequery of thing that the_d has
-        else (it a list, really a len 3 tuple):
-            return a formed filter with the stuff in the_d
-
-
-
-    outline of code from here onward
-
-    1. do the makequery code
-    2. do joins
-    3. do sorting
-    4. return results, or not, i aint your mom
-
-
-    # PENDING: do we add reference to the query (line 58)
-
-    '''
-
-    for needleType, needle in opts.items():
-        if needleType in ["sortBy", "sortDir"]:
-            continue
-        # get the info from searchSpace
-        details = searchSpace[needleType]
-        # we care about the type, model and fields of the detail
-        if details["allowMultiple"]:
-            for subneedle in needle:
-                query = bindQuery(sess, targetModel, query, needleType, subneedle, details)
-        else:
-            query = bindQuery(sess, targetModel, query, needleType, needle, details)
+    # DO joins
+    if make_joins:
+        relationships = opts["relationships"]
+        query = utils._do_joins(query, [targetInfo.table], relationships, ringExtractor, targetEntity, db)
 
     # Do prefilters
     # TODO: bring this back?
@@ -146,6 +83,51 @@ def rawGetResultSet(opts, ring, ringExtractor, targetEntity, targetRange=None, s
     if just_query:
         return query
     return bundleQueryResults(query, targetRange, targetEntity, formatResult, simpleResults)
+
+
+
+def makeFilters(query, extractor, db, opts):
+    # check if just a condition
+    if type(opts) == list:
+        # this is just a condition for filtering
+        return addFilter(query, extractor, db, opts)
+
+    else:
+        # This is a dictionary, will need to do a boolean
+        if len(opts.keys()) != 1:
+            print("opts has more than one key or is empty")
+            print(opts.keys())
+            return None
+
+        if "AND" in opts:
+            flters = [makeFilters(query, extractor, db, opt) for opt in opts["AND"]]
+            return and_(*flters)
+
+        elif "OR" in opts:
+            flters = [makeFilters(query, extractor, db, opt) for opt in opts["OR"]]
+            return or_(*flters)
+
+        elif "NOT" in opts:
+            flter = makeFilters(query, extractor, db, opts["NOT"])
+            return ~flter
+
+        else:
+            print("opts does not have andm or or not")
+            print(opts)
+            return None
+
+
+def addFilter(query, extractor, db, opts):
+    dct = opts[0]
+    vals = opts[1]
+    filter_type = opts[2]
+    field, _ = utils._get(extractor, dct["entity"], dct["field"], db)
+    if filter_type == "exact":
+        return field == vals
+    else:
+        print(" no other type implemented yet other than exact")
+
+    return query
 
 
 
