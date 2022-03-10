@@ -354,3 +354,10 @@ def _remove_duplicate_vals(a_opts):
 
     return a_opts, del_keys
 
+def dict_print(d, indent=0):
+    for key, value in d.items():
+        print('\t' * indent + str(key))
+        if isinstance(value, dict):
+            pretty(value, indent+1)
+        else:
+            print('\t' * (indent+1) + str(value))

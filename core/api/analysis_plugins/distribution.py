@@ -17,7 +17,6 @@ def distributionQuery(s_opts, orig_a_opts, targetEntity):
 def pandasDistribution(a_opts, results, group_args, field_names, col_names):
 
     df = pd.DataFrame(results, columns=field_names)
-
     target_arg = _name(a_opts["target"]["entity"], a_opts["target"]["field"], a_opts["target"]["op"])
 
     # remove the "over" attributes from the group_args
@@ -39,7 +38,7 @@ def pandasDistribution(a_opts, results, group_args, field_names, col_names):
     else:
         df[target_arg] = df[target_arg] / df[target_arg].sum()
 
-    tuples = [tuple(x) for x in df.to_numpy()]\
+    tuples = [tuple(x) for x in df.to_numpy()]
 
     return {"results": tuples}, field_names, col_names
 
@@ -50,31 +49,79 @@ def distributionUnits(a_opts, field_names, col_names, init_units):
 
     return {"results": init_units}
 
-
-
-dct = {
-    "distribution": {
-        "fields": {
-            "target": {
-                "types": ["int", "float", "average", "count"],
-                "fieldType": "target"
-            },
-            "over": {
-                "types": ["string", "bool"],
-                "fieldType": "group"
-            }
+dct = { "distribution": {
+      "required": {
+          "target": {
+            "validInputs": ["int", "float", "average", "count"],
+            "fieldType": "target",
+            "parameters": [
+              {
+                "question": "language to be asked goes here",
+                "inputTypes": ["int", "float"],
+                "options": "aggregation",
+                "required": False,
+                "allowMultiple": False
+              }
+            ]
+          },
+          "over": {
+            "fieldType": "group",
+            "validInputs": ["id"],
+            "parameters": None
+          }
+      },
+      "optional": {
+        "groupBy": {
+          "allowed": True,
+          "maxDepth": 1,
+          # "validInputs": ["id", "int", "float"], # optional to override defaults
+          # "parameters": [ # optional to override defaults
+          #   "inputTypes": ["int", "float"],
+          #   "options": ["percentile", "threshold"],
+          #   "allowMultiple": False
+          # ]
         },
-        "type": "complex",
-        "unitsPrep": distributionUnits,
-        "nicename": "Distribution of",
-        "queryPrep": distributionQuery,
-        "pandasFunc": {
-            "op": pandasDistribution,
-        },
-        "groupingAllowed": {
-            "groupType": ["groupBy", "timeseries"],
-            "numberGroups": 1,
-            "numberRequired": 0
+        "timeSeries": {
+          "allowed": True,
+          "maxDepth": 1
         }
-    }
+      },
+      "spawned": {
+        "target2": {
+
+        }
+      },
+      "unitsPrep": distributionUnits, # move to a standard method name on PluginClass
+      "template": "Distribution of {target} over {over}",
+      "queryPrep": distributionQuery, # move to a standard method name on PluginClass
+      "pandasFunc": pandasDistribution, # move to a standard method name on PluginClass
+      "type": "complex",
+  }
 }
+
+# dct = {
+#     "distribution": {
+#         "fields": {
+#             "target": {
+#                 "types": ["int", "float", "average", "count"],
+#                 "fieldType": "target"
+#             },
+#             "over": {
+#                 "types": ["string", "bool"],
+#                 "fieldType": "group"
+#             }
+#         },
+#         "type": "complex",
+#         "unitsPrep": distributionUnits,
+#         "nicename": "Distribution of",
+#         "queryPrep": distributionQuery,
+#         "pandasFunc": {
+#             "op": pandasDistribution,
+#         },
+#         "groupingAllowed": {
+#             "groupType": ["groupBy", "timeseries"],
+#             "numberGroups": 1,
+#             "numberRequired": 0
+#         }
+#     }
+# }

@@ -60,6 +60,8 @@ def run_analysis(s_opts, a_opts, targetEntity, ring, extractor):
     #     pass
     # else:
 
+    print(extractor.getAnalysisSpace(targetEntity))
+
     db, sess  = _get_db_sess(ring)
     return single_ring_analysis(s_opts, a_opts, ring, extractor, targetEntity, sess, db)
 
@@ -97,7 +99,7 @@ def _expand_grouping(a_opts, field_types):
 
     # go thru the field_types[group] and expand as needed (ignore per and timesries)
     for field in field_types["group"]:
-        if field not in ["per", "timeseries"]:
+        if field not in ["per", "timeSeries"]:
             a_opts, new_field = _add_group_ref(a_opts, field)
             if new_field:
                 extra_fields.append(new_field)
@@ -127,17 +129,24 @@ def single_ring_analysis(s_opts, a_opts, ring, extractor, targetEntity, sess, db
 
     op = a_opts["op"]
     field_types = {
-        "group": ["per", "timeseries"],
-        "target": ["target"]
+        "group": [field for field, dct in OPS[op]["required"].items() if dct["fieldType"] == "group"],
+        "target": [field for field, dct in OPS[op]["required"].items() if dct["fieldType"] == "target"]
     }
+    # NOTE: RN we assume optionals will only be for grouping
+    field_types["group"].extend([field for field, dct in OPS[op]["optional"].items() if field != "groupBy"])
 
+    print(field_types)
+    print(a_opts)
+
+    a_opts, field_types = _expand_grouping(a_opts, field_types)
+    # TODO: change the field_types to account for required/optional keys
     if OPS[op]["type"] == "complex":
-        addit_groups = [field for field, dct in OPS[op]["fields"].items() if dct["fieldType"] == "group" and field not in field_types["group"]]
-        addit_target = [field for field, dct in OPS[op]["fields"].items() if dct["fieldType"] == "target" and field not in field_types["target"]]
-        field_types["group"].extend(addit_groups)
-        field_types["target"].extend(addit_target)
+        # addit_groups = [field for field, dct in OPS[op]["fields"].items() if dct["fieldType"] == "group" and field not in field_types["group"]]
+        # addit_target = [field for field, dct in OPS[op]["fields"].items() if dct["fieldType"] == "target" and field not in field_types["target"]]
+        # field_types["group"].extend(addit_groups)
+        # field_types["target"].extend(addit_target)
 
-        a_opts, field_types = _expand_grouping(a_opts, field_types)
+        # a_opts, field_types = _expand_grouping(a_opts, field_types)
 
         results, new_opts, field_names, col_names, units = complex_operation(s_opts, a_opts, ring, extractor, targetEntity, sess, db, field_types)
         a_opts = new_opts
@@ -145,7 +154,7 @@ def single_ring_analysis(s_opts, a_opts, ring, extractor, targetEntity, sess, db
         results.update({"field_names": field_names, "field_types": col_names, "units": units})
 
     else:
-        a_opts, field_types = _expand_grouping(a_opts, field_types)
+        # a_opts, field_types = _expand_grouping(a_opts, field_types)
         if OPS[op]["type"] == "simple":
             new_a_opts = OPS[op]["queryPrep"](s_opts, a_opts, targetEntity)[1]
             query, groupby_args, field_names, col_names = simple_query(s_opts, new_a_opts, ring, extractor, targetEntity, sess, db, field_types)
@@ -185,7 +194,7 @@ def complex_operation(s_opts, a_opts, ring, extractor, targetEntity, session, db
     results = [list(q) for q in query.all()]
 
     # What to do with the queries results and formatting
-    results, new_field_names, new_col_names = OPS[op_name]["pandasFunc"]["op"](new_a_opts, results, group_args, field_names, col_names)
+    results, new_field_names, new_col_names = OPS[op_name]["pandasFunc"](new_a_opts, results, group_args, field_names, col_names)
 
     # Do units
     units = get_units(new_a_opts, extractor, field_types, field_names, col_names)

@@ -31,76 +31,6 @@ def renamer(agg_func,desired_name):
     return return_func
 
 
-def pandasSum(df, col, group_cols):
-    # df = df.groupby(group_cols)[col].sum() if len(group_cols) else df
-    # df[col] = df[col].sum()
-    # return df
-    return df.groupby(group_cols, as_index=False).sum() if len(group_cols) else df.sum()
-
-def pandasMin(df, col, group_cols):
-    return df.groupby(group_cols, as_index=False).min() if len(group_cols) else df.min()
-
-def pandasMax(df, col, group_cols):
-    return df.groupby(group_cols, as_index=False).max() if len(group_cols) else df.max()
-
-def pandasAvg(df, col, group_cols):
-    return df.groupby(group_cols, as_index=False).mean() if len(group_cols) else df.mean()
-
-def pandasCount(df, col, group_cols):
-    return df.groupby(group_cols, as_index=False)[col].nunique()
-
-def pandasAvgCount(df, col, per, group_cols=[]):
-
-    grouped_df = df.groupby(per)
-
-    grouping = False
-    if len(group_cols):
-        grouping = True
-    group_cols.append(per)
-
-
-    # Count per group/perfield
-    df = df.groupby(group_cols).agg(
-            col=(col, "nunique"),
-        )
-
-    if grouping:
-        group_cols.pop()
-        df = df.groupby(group_cols)["col"]
-
-    df = df.mean()
-
-    return df
-
-def pandasAvgSum(df, col, per, group_cols=[]):
-
-    grouping = False
-    if len(group_cols):
-        grouping = True
-    group_cols.append(per)
-
-    # Count per group/perfield
-    df = df.groupby(group_cols).agg(
-            col=(col, "sum"),
-        )
-
-    if grouping:
-        group_cols.pop()
-        df = df.groupby(group_cols)["col"]
-
-    df = df.mean()
-
-    return df
-
-def pandasPercentage(df, col, numerator, group_cols=[]):
-    return
-
-
-def pandasOneHot(df, col, numerator):
-    df[col] = df[col].apply(lambda x: 1 if x == numerator else 0)
-    return df
-
-
 def base_query_prep(s_opts, orig_a_opts, targetEntity):
 
     a_opts = deepcopy(orig_a_opts)
@@ -112,221 +42,299 @@ def base_query_prep(s_opts, orig_a_opts, targetEntity):
 
 OPERATION_SPACE = {
     "average": {
-        "fields": {
+        "required": {
             "target": {
-                "types": ["float", "int"]
-            }
+                "validInputs": ["int", "float"],
+                "fieldType": "target",
+            },
         },
-        "units": "unchanged",
-        "nicename": "Average",
-        "queryPrep": base_query_prep,
+
         "funcDict": {
             "op": lambda field, dbtype, extra: func.avg(field),
         },
-        "pandasFunc": {
-            "op": pandasAvg
-        },
-        "type": "simple"
+        "template": "Average of {target}",
+        "units": "unchanged",
+        "type": "simple",
     },
     "count": {
-        "fields": {
+        "required": {
             "target": {
-                "types": ["id"]
-            }
+                "validInputs": ["id"],
+                "fieldType": "target",
+            },
         },
-        "units": "unchanged",
-        "nicename": "Count of",
-        "queryPrep": base_query_prep,
         "funcDict": {
             "op": lambda field, dbtype, extra: func.count(distinct(field)),
-            # "processing": distinct
         },
-        "pandasFunc": {
-            "op": pandasCount
-        },
-        "type": "simple"
+        "template": "Count of unique {target}",
+        "units": "unchanged",
+        "type": "simple",
     },
     "sum": {
-        "fields": {
+        "required": {
             "target": {
-                "types": ["float", "int"]
-            }
+                "validInputs": ["int", "float"],
+                "fieldType": "target",
+            },
         },
-        "units": "unchanged",
-        "nicename": "Total",
-        "queryPrep": base_query_prep,
+
         "funcDict": {
             "op": lambda field, dbtype, extra: func.sum(field),
         },
-        "pandasFunc": {
-            "op": pandasSum
-        },
-        "type": "simple"
+        "template": "Total {target}",
+        "units": "unchanged",
+        "type": "simple",
     },
     "min": {
-        "fields": {
+        "required": {
             "target": {
-                "types": ["float", "int"]
-            }
+                "validInputs": ["int", "float"],
+                "fieldType": "target",
+            },
         },
-        "units": "unchanged",
-        "nicename": "Minimum",
-        "queryPrep": base_query_prep,
+
         "funcDict": {
             "op": lambda field, dbtype, extra: func.min(field),
         },
-        "pandasFunc": {
-            "op": pandasMin
-        },
-        "type": "simple"
+        "template": "Min of {target}",
+        "units": "unchanged",
+        "type": "simple",
     },
     "max": {
-        "fields": {
+        "required": {
             "target": {
-                "types": ["float", "int"]
-            }
+                "validInputs": ["int", "float"],
+                "fieldType": "target",
+            },
         },
-        "units": "unchanged",
-        "nicename": "Maximum",
-        "queryPrep": base_query_prep,
+
         "funcDict": {
             "op": lambda field, dbtype, extra: func.max(field),
         },
-        "pandasFunc": {
-            "op": pandasMax
-        },
-        "type": "simple"
-    },
-    "mode": {
-        "fields": {
-            "target": {
-                "types": ["float", "int", "string", "bool"]
-            }
-        },
+        "template": "Max of {target}",
         "units": "unchanged",
-        "nicename": "Mode",
-        "queryPrep": base_query_prep,
-        "funcDict": {
-            "op": lambda field, dbtype, extra: func.mode().within_group(field.asc()),
-        },
-        "type": "simple"
+        "type": "simple",
     },
+    # "mode": {
+    #     "required": {
+    #         "target": {
+    #             "validInputs": ["int", "float"],
+    #             "fieldType": "target",
+    #         },
+    #     },
+    #     "funcDict": {
+    #         "op": lambda field, dbtype, extra: func.mode().within_group(field.asc()),
+    #     },
+    #     "template": "Mode of {target}",
+    #     "units": "unchanged"
+    #     "type": "simple",
+    # },
+
     "median": {
-        "fields": {
+        "required": {
             "target": {
-                "types": ["float", "int"]
+                "validInputs": ["int", "float"],
+                "fieldType": "target",
             },
         },
-        "units": "unchanged",
-        "nicename": "Median",
-        "queryPrep": base_query_prep,
         "funcDict": {
             "op": lambda field, dbtype, extra: sql_median(field, dbtype),
         },
-        "type": "simple"
+        "template": "Median of {target}",
+        "units": "unchanged",
+        "type": "simple",
     },
 
     "averageCount": {
-        "fields": {
+        "required": {
             "target": {
-                "types": ["id"]
+                "validInputs": ["id"],
+                "fieldType": "target",
             },
             "per": {
-                "types": ["id"]
+                "validInputs": ["id"],
+                "fieldType": "group",
             }
         },
-        "units": "target/per",
-        "nicename": "Average Count of",
-        "queryPrep": base_query_prep,
         "funcDict": {
             "op": lambda field, dbtype, extra: func.count(distinct(field)),
             "outerOp": lambda field, dbtype, extra: func.avg(field),
         },
-        "pandasFunc": {
-            "op": pandasAvgCount,
-        },
-        "type": "recursive"
+        "template": "Average Count of {target} per {per}",
+        "units": "target/per",
+        "type": "recursive",
     },
 
     "averageSum": {
-        "fields": {
+        "required": {
             "target": {
-                "types": ["float", "int"]
+                "validInputs": ["float", "int"],
+                "fieldType": "target",
             },
             "per": {
-                "types": ["id"]
+                "validInputs": ["id"],
+                "fieldType": "group",
             }
         },
-        "units": "target/per",
-        "nicename": "Average Total of",
-        "queryPrep": base_query_prep,
         "funcDict": {
             "op": lambda field, dbtype, extra: func.sum(field),
-            "outerOp": lambda field, dbtype, extra: func.sum(field),
+            "outerOp": lambda field, dbtype, extra: func.avg(field),
         },
-        "pandasFunc": {
-            "op": pandasAvgSum,
-        },
-        "type": "recursive"
+        "template": "Average Sum of {target} per {per}",
+        "units": "target/per",
+        "type": "recursive",
     },
 
+
     "percentage": {
-        "fields": {
+        "required": {
             "target": {
-                "types": ["string", "bool"]
+                "validInputs": ["string", "bool"],
+                "fieldType": "target",
+                "parameters": [
+                  {
+                    "question": "language to be asked goes here",
+                    "inputTypes": ["bool", "string"],
+                    "options": "any",
+                    "allowMultiple": True
+                  },
+                ]
             },
-            "numerator": {
-                "types": ["== target"]
-            }
         },
-        "units": "percentage",
-        "nicename": "Percentage of",
-        "queryPrep": base_query_prep,
         "funcDict": {
             "op": lambda field, dbtype, extra:  func.avg(onehot_processing(field, extra["numerator"])),
         },
-        "pandasFunc": {
-            "op": pandasPercentage,
-        },
-        "type": "simple"
+        "template": "Percentage of {target}",
+        "units": "percentage",
+        "type": "simple",
     },
 
     "oneHot": {
-        "fields": {
+        "required": {
             "target": {
-                "types": ["string", "bool"]
+                "validInputs": ["string", "bool"],
+                "fieldType": "target",
+                "parameters": [
+                  {
+                    "question": "language to be asked goes here",
+                    "inputTypes": ["bool", "string"],
+                    "options": "any",
+                    "allowMultiple": True
+                  },
+                ]
             },
-            "numerator": {
-                "types": ["== target"]
-            }
         },
-        "units": "none",
-        # "nicename": "Percentage of",
-        "queryPrep": base_query_prep,
         "funcDict": {
             "op": lambda field, dbtype, extra:  onehot_processing(field, extra["numerator"]),
-            # "processing": percentage_processing
         },
-        "pandasFunc": {
-            "op": pandasOneHot,
-        },
-        "type": "simple"
+        # "template": "OneHot of {target}",
+        "units": "none",
+        "type": "simple",
+        "statementManager": False
     },
+
     "None": {
-        "fields": {
+        "required": {
             "target": {
-                "types": ["string", "bool"]
+                "validInputs": ["int", "float", "bool", "string"],
+                "fieldType": "target",
             },
         },
-        "queryPrep": base_query_prep,
         "funcDict": {
             "op": lambda field, dbtype, extra: field,
         },
+        # "template": "{target}",
         "units": "unchanged",
-        "type": "simple"
-    }
+        "type": "simple",
+        "statementManager": False
+    },
 
 }
+
+for key in OPERATION_SPACE.keys():
+    OPERATION_SPACE[key]["queryPrep"] = base_query_prep
+    OPERATION_SPACE[key]["optional"] = {
+        "groupBy": {
+            "allowed": True,
+            "maxDepth": 2,
+        },
+        "timeSeries": {
+            "allowed": True,
+            "maxDepth": 1
+        }
+    }
+
+
+
+
+# def pandasSum(df, col, group_cols):
+#     # df = df.groupby(group_cols)[col].sum() if len(group_cols) else df
+#     # df[col] = df[col].sum()
+#     # return df
+#     return df.groupby(group_cols, as_index=False).sum() if len(group_cols) else df.sum()
+
+# def pandasMin(df, col, group_cols):
+#     return df.groupby(group_cols, as_index=False).min() if len(group_cols) else df.min()
+
+# def pandasMax(df, col, group_cols):
+#     return df.groupby(group_cols, as_index=False).max() if len(group_cols) else df.max()
+
+# def pandasAvg(df, col, group_cols):
+#     return df.groupby(group_cols, as_index=False).mean() if len(group_cols) else df.mean()
+
+# def pandasCount(df, col, group_cols):
+#     return df.groupby(group_cols, as_index=False)[col].nunique()
+
+# def pandasAvgCount(df, col, per, group_cols=[]):
+
+#     grouped_df = df.groupby(per)
+
+#     grouping = False
+#     if len(group_cols):
+#         grouping = True
+#     group_cols.append(per)
+
+
+#     # Count per group/perfield
+#     df = df.groupby(group_cols).agg(
+#             col=(col, "nunique"),
+#         )
+
+#     if grouping:
+#         group_cols.pop()
+#         df = df.groupby(group_cols)["col"]
+
+#     df = df.mean()
+
+#     return df
+
+# def pandasAvgSum(df, col, per, group_cols=[]):
+
+#     grouping = False
+#     if len(group_cols):
+#         grouping = True
+#     group_cols.append(per)
+
+#     # Count per group/perfield
+#     df = df.groupby(group_cols).agg(
+#             col=(col, "sum"),
+#         )
+
+#     if grouping:
+#         group_cols.pop()
+#         df = df.groupby(group_cols)["col"]
+
+#     df = df.mean()
+
+#     return df
+
+# def pandasPercentage(df, col, numerator, group_cols=[]):
+#     return
+
+
+# def pandasOneHot(df, col, numerator):
+#     df[col] = df[col].apply(lambda x: 1 if x == numerator else 0)
+#     return df
 
 
 

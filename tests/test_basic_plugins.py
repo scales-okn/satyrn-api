@@ -29,7 +29,7 @@ class TestAnalysis(unittest.TestCase):
 
 
         analysis_opts = {
-            "target": {
+            "target1": {
                 "entity":"Contribution",
                 "field": "id",
                 "op": "count"
@@ -40,10 +40,10 @@ class TestAnalysis(unittest.TestCase):
                 "op": "sum"
             },
             "op": "comparison",
-            "groupBy": [{
+            "group": {
                 "entity": "Contribution",
                 "field": "inState"
-            }],
+            },
             "relationships": []
         }
 
@@ -80,19 +80,18 @@ class TestAnalysis(unittest.TestCase):
                     2301950.0
                 ]
             ],
-            "units": {
-                "results": [
+            "units": [
                     "In State Contribution Status",
                     "Contribution",
                     "dollar"
                 ]
-            }
         }
 
         urllink = make_results_url(self.url, self.ringid, self.versionid, "Contribution", "analysis", search_opts)
 
         resp = requests.get(urllink, headers=self.headers, json=analysis_opts)
         results = json.loads(resp.content.decode('utf-8'))
+
         self.assertEqual(expected_results, results)
 
 
@@ -100,7 +99,7 @@ class TestAnalysis(unittest.TestCase):
         # ground truth verified        
         search_opts = {"electionYear":"2014"}
         analysis_opts = {
-            "target": {
+            "target1": {
                 "entity":"Contribution",
                 "field": "id",
                 "op": "count"
@@ -111,10 +110,10 @@ class TestAnalysis(unittest.TestCase):
                 "op": "sum"
             },
             "op": "comparison",
-            "groupBy": [{
+            "group": {
                 "entity": "Contributor",
                 "field": "id"
-            }],
+            },
             "relationships": ["ContribToContributor"]
         }
 
@@ -428,14 +427,12 @@ class TestAnalysis(unittest.TestCase):
                     500.0
                 ]
             ],
-            "units": {
-                "results": [
+            "units":  [
                     "Contributor",
                     "Contributor",
                     "Contribution",
                     "dollar"
                 ]
-            }
         }
         urllink = make_results_url(self.url, self.ringid, self.versionid, "Contribution", "analysis", search_opts)
 
@@ -448,7 +445,7 @@ class TestAnalysis(unittest.TestCase):
         # ground truth verified
         search_opts = {}
         analysis_opts = {
-            "target": {
+            "target1": {
                 "entity":"Contribution",
                 "field": "id",
                 "op": "count"
@@ -459,7 +456,7 @@ class TestAnalysis(unittest.TestCase):
                 "op": "sum"
             },
             "op": "correlation",
-            "grouping": {
+            "group": {
                 "entity": "Contributor",
                 "field": "id"
             },
@@ -1232,71 +1229,23 @@ class TestAnalysis(unittest.TestCase):
                 "entity": "Contribution",
                 "field": "inState"
             },
-            "timeseries": {
+            "timeSeries": {
                 "entity": "Contribution",
                 "field": "electionYear"
             },
             "relationships": []
         }
-        expected_results = {
-            "counts": {
-                "Contribution//id": 200
-            },
-            "fieldNames": [
-                {
-                    "entity": "Contribution",
-                    "field": "electionYear"
-                },
-                {
-                    "entity": "Contribution",
-                    "field": "inState"
-                },
-                {
-                    "entity": "Contribution",
-                    "field": "amount",
-                    "op": "sum"
-                }
-            ],
-            "length": 5,
-            "results": [
-                [
-                    2010.0,
-                    False,
-                    0.33150984682713347
-                ],
-                [
-                    2010.0,
-                    True,
-                    0.6684901531728665
-                ],
-                [
-                    2014.0,
-                    False,
-                    0.43538488568535255
-                ],
-                [
-                    2014.0,
-                    True,
-                    0.5646151143146475
-                ],
-                [
-                    2018.0,
-                    True,
-                    1.0
-                ]
-            ],
-            "units": {
-                "results": [
-                    "Election Year",
-                    "In State Contribution Status",
-                    "percentage of dollar"
-                ]
-            }
-        }
+        expected_results = {'counts': {'Contribution//id': 200}, 
+        'fieldNames': [{'entity': 'Contribution', 'field': 'inState'}, {'entity': 'Contribution', 'field': 'electionYear'}, {'entity': 'Contribution', 'field': 'amount', 'op': 'sum'}], 
+        'length': 5, 
+        'results': [[False, 2010.0, 0.33150984682713347], [False, 2014.0, 0.43538488568535255], [True, 2010.0, 0.6684901531728665], [True, 2014.0, 0.5646151143146475], [True, 2018.0, 1.0]],
+         'units': {'results': ['In State Contribution Status', 'Election Year', 'percentage of dollar']}}
+
         urllink = make_results_url(self.url, self.ringid, self.versionid, "Contribution", "analysis", search_opts)
 
         resp = requests.get(urllink, headers=self.headers, json=analysis_opts)
         results = json.loads(resp.content.decode('utf-8'))
+
         self.assertEqual(expected_results, results)
 
     def test_filter_year_distribution_sum_contributor_timeseries(self):
@@ -1643,12 +1592,11 @@ class TestAnalysis(unittest.TestCase):
         results = json.loads(resp.content.decode('utf-8'))
         self.assertEqual(expected_results, results)
 
-
     def test_comparison_empty(self):
         # ground truth verified
         search_opts = {"electionYear": "273823728"}
         analysis_opts = {
-            "target": {
+            "target1": {
                 "entity":"Contribution",
                 "field": "id",
                 "op": "count"
@@ -1659,10 +1607,10 @@ class TestAnalysis(unittest.TestCase):
                 "op": "sum"
             },
             "op": "comparison",
-            "groupBy": [{
+            "group": {
                 "entity": "Contribution",
                 "field": "inState"
-            }],
+            },
             "relationships": []
         }
         expected_results = {
@@ -1687,13 +1635,11 @@ class TestAnalysis(unittest.TestCase):
             ],
             "length": 0,
             "results": [],
-            "units": {
-                "results": [
+            "units":  [
                     "In State Contribution Status",
                     "Contribution",
                     "dollar"
                 ]
-            }
         }
         urllink = make_results_url(self.url, self.ringid, self.versionid, "Contribution", "analysis", search_opts)
 
@@ -1705,7 +1651,7 @@ class TestAnalysis(unittest.TestCase):
         # ground truth verified
         search_opts = {"electionYear": "1234"}
         analysis_opts = {
-            "target": {
+            "target1": {
                 "entity":"Contribution",
                 "field": "id",
                 "op": "count"
@@ -1716,7 +1662,7 @@ class TestAnalysis(unittest.TestCase):
                 "op": "sum"
             },
             "op": "correlation",
-            "grouping": {
+            "group": {
                 "entity": "Contributor",
                 "field": "id"
             },
@@ -1780,7 +1726,7 @@ class TestAnalysis(unittest.TestCase):
                 "entity": "Contribution",
                 "field": "inState"
             },
-            "timeseries": {
+            "timeSeries": {
                 "entity": "Contribution",
                 "field": "electionYear"
             },
@@ -1791,28 +1737,12 @@ class TestAnalysis(unittest.TestCase):
                 "Contribution//id": 0
             },
             "fieldNames": [
-                {
-                    "entity": "Contribution",
-                    "field": "electionYear"
-                },
-                {
-                    "entity": "Contribution",
-                    "field": "inState"
-                },
-                {
-                    "entity": "Contribution",
-                    "field": "amount",
-                    "op": "sum"
-                }
+                {'entity': 'Contribution', 'field': 'inState'}, {'entity': 'Contribution', 'field': 'electionYear'}, {'entity': 'Contribution', 'field': 'amount', 'op': 'sum'}
             ],
             "length": 0,
             "results": [],
             "units": {
-                "results": [
-                    "Election Year",
-                    "In State Contribution Status",
-                    "percentage of dollar"
-                ]
+                "results": ['In State Contribution Status', 'Election Year', 'percentage of dollar']
             }
         }
         urllink = make_results_url(self.url, self.ringid, self.versionid, "Contribution", "analysis", search_opts)

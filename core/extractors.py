@@ -50,20 +50,7 @@ class RingConfigExtractor(object):
         if "searchSpace" in self.cache[target]:
             return self.cache[target]["searchSpace"]
 
-# <<<<<<< HEAD
-#         searchSpace = {att.name: {
-#             "autocomplete": att.autocomplete,
-#             "type": att.baseIsa,
-#             "model": getattr(self.config.db, targetEnt.table),
-#             "fields": att.source_columns,
-#             "allowMultiple": att.allow_multiple,
-#             "nicename": att.nicename[0], # TODO: leverage the list for singular+plural
-#             "description": att.description,
-#             "resultFormat": att.resultFormat
-#         } for att in targetEnt.attributes if att.searchable}
-# =======
         ents = self._addAndTraverse_notrecursive(target)
-        # searchSpace = []
 
         searchSpace = {} 
 
@@ -87,22 +74,6 @@ class RingConfigExtractor(object):
                 } 
             }
 
-        # searchSpace = {}
-        # for ent_name, vals in ents.items():
-        #     ent, entObj = self.resolveEntity(ent_name)
-        #     rels, rel_type = vals
-        #     searchSpace[ent_name] = {att.name: {
-        #                             "autocomplete": att.autocomplete,
-        #                             "type": att.baseIsa,
-        #                             "model": getattr(self.config.db, entObj.table),
-        #                             "fields": att.source_columns,
-        #                             "allowMultiple": rel_type == "m2m",
-        #                             "nicename": att.nicename[0], # TODO: leverage the list for singular+plural
-        #                             "description": att.description,
-        #                             "relationships": rels, 
-        #                         } for att in entObj.attributes if att.searchable}
-# >>>>>>> filters
-
         self.cache[target]["searchSpace"] = searchSpace
         return searchSpace
 
@@ -113,26 +84,24 @@ class RingConfigExtractor(object):
             return self.cache[target]["analysisSpace"]
 
         analysisSpace = {}
-        ents = self._addAndTraverse_simple(target)
-        for ent_name, vals in ents.items():
-            ent, entObj = self.resolveEntity(ent_name)
-            rels, rel_type = vals
-            analysisSpace[ent_name] = {att.name: {
-                                "model": getattr(self.config.db, entObj.table),
-                                "field": att.source_columns[0],
-                                "type": att.baseIsa,
-                                "fieldName": att.nicename,
-                                "unit": att.units,
-                                "relationships": rels
-                            } for att in entObj.attributes if att.analyzable}
+        ents = self._addAndTraverse_notrecursive(target)
 
-        # TODO: bring some version of this back for V2 once attr joins are sorted out
-        # for att in analysisSpace.values():
-        #     if att.join_required:
-        #         att["joinTable"] = {
-        #             "model": ,
-        #             "field":
-        #         }
+
+        for ent_name, rel, rel_type in ents:
+            ent, entObj = self.resolveEntity(ent_name)
+            key_name = rel if rel else None
+            analysisSpace[key_name] = {
+                "entity": ent_name,
+                "rel_type": rel_type,
+                "attributes": { att.name: {
+                                "type": att.baseIsa,
+                                "model": getattr(self.config.db, entObj.table),
+                                "fields": att.source_columns,
+                                "nicename": att.nicename[0], # TODO: leverage the list for singular+plural
+                                "unit": att.units,
+                            } for att in entObj.attributes if att.searchable
+                } 
+            }
 
         self.cache[target]["analysisSpace"] = analysisSpace
         return analysisSpace
@@ -145,30 +114,6 @@ class RingConfigExtractor(object):
         entities.append((init_ent, None, "o2o"))
         ent_rels = [ent for ent in self._getConnectedEntities(init_ent) if ent[0] not in entities]
         entities.extend(ent_rels)
-        return entities
-
-
-    def _addAndTraverse_simple(self, init_ent):
-        # will only add each entity once
-
-        entities = {}
-        q = queue.SimpleQueue()
-
-        path_so_far = []
-        rel_type = "o2o"
-        q.put((init_ent, path_so_far, rel_type))
-
-        while not q.empty():
-            curr_ent, curr_path, curr_tpe = q.get()
-            if curr_ent not in entities:
-                entities[curr_ent] = (curr_path, curr_tpe)
-                ent_rels = [ent for ent in self._getConnectedEntities(curr_ent) if ent[0] not in entities]
-                for ent, rel, tpe in ent_rels:
-                    new_path = curr_path + [rel]
-                    new_tpe = _rel_math(curr_tpe, tpe)
-                    if new_tpe != "NA":
-                        q.put((ent, new_path, new_tpe))
-
         return entities
 
 
@@ -186,8 +131,31 @@ class RingConfigExtractor(object):
 
         return entities
 
+    # def _addAndTraverse_simple(self, init_ent):
+        # # will only add each entity once
+        # # DEPRECATED, not currently used
 
+        # entities = {}
+        # q = queue.SimpleQueue()
 
+        # path_so_far = []
+        # rel_type = "o2o"
+        # q.put((init_ent, path_so_far, rel_type))
+
+        # while not q.empty():
+        #     curr_ent, curr_path, curr_tpe = q.get()
+        #     if curr_ent not in entities:
+        #         entities[curr_ent] = (curr_path, curr_tpe)
+        #         ent_rels = [ent for ent in self._getConnectedEntities(curr_ent) if ent[0] not in entities]
+        #         for ent, rel, tpe in ent_rels:
+        #             new_path = curr_path + [rel]
+        #             new_tpe = _rel_math(curr_tpe, tpe)
+        #             if new_tpe != "NA":
+        #                 q.put((ent, new_path, new_tpe))
+
+        # return entities
+
+    # THIS WAS NEVER COMPLETED AND MIGHT NOT RUN PROPERLY
     # def _addAndTraverse_complex(self, init_ent):
     #     # PENDING DISCUSSION:
     #     # How to prevent loops
