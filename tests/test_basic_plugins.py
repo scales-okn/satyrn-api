@@ -1751,5 +1751,379 @@ class TestAnalysis(unittest.TestCase):
         results = json.loads(resp.content.decode('utf-8'))
         self.assertEqual(expected_results, results)
 
+    def test_summary_empty(self):
+        # ground truth verified
+        search_opts = {"electionYear": "1234"}
+        analysis_opts = {
+            "target": {
+                "entity":"Contribution",
+                "field": "amount"
+            },
+            "op": "summaryStatistics",
+            "relationships": []
+        }
+        expected_results = {
+            "counts": {
+                "Contribution//id": 0
+            },
+            "fieldNames": [
+                {
+                    "entity": "Contribution",
+                    "field": "amount",
+                    "op": "min"
+                },
+                {
+                    "entity": "Contribution",
+                    "field": "amount",
+                    "op": "median"
+                },
+                {
+                    "entity": "Contribution",
+                    "field": "amount",
+                    "op": "max"
+                },
+                {
+                    "entity": "Contribution",
+                    "field": "amount",
+                    "op": "average"
+                }
+            ],
+            "length": 0,
+            "results": [],
+            "units": [
+                "dollar",
+                "dollar",
+                "dollar",
+                "dollar"
+            ]
+        }
+        urllink = make_results_url(self.url, self.ringid, self.versionid, "Contribution", "analysis", search_opts)
+
+        resp = requests.get(urllink, headers=self.headers, json=analysis_opts)
+        results = json.loads(resp.content.decode('utf-8'))
+        self.assertEqual(expected_results, results)
+
+
+    def test_summary_amount(self):
+        # ground truth verified
+        search_opts = {}
+        analysis_opts = {
+            "target": {
+                "entity":"Contribution",
+                "field": "amount"
+            },
+            "op": "summaryStatistics",
+            "relationships": []
+        }
+        expected_results = {
+            "counts": {
+                "Contribution//id": 200
+            },
+            "fieldNames": [
+                {
+                    "entity": "Contribution",
+                    "field": "amount",
+                    "op": "min"
+                },
+                {
+                    "entity": "Contribution",
+                    "field": "amount",
+                    "op": "median"
+                },
+                {
+                    "entity": "Contribution",
+                    "field": "amount",
+                    "op": "max"
+                },
+                {
+                    "entity": "Contribution",
+                    "field": "amount",
+                    "op": "average"
+                }
+            ],
+            "length": 1,
+            "results": [
+                [
+                    100.0,
+                    1100.0,
+                    750000.0,
+                    18727.51
+                ]
+            ],
+            "units": [
+                "dollar",
+                "dollar",
+                "dollar",
+                "dollar"
+            ]
+        }
+        urllink = make_results_url(self.url, self.ringid, self.versionid, "Contribution", "analysis", search_opts)
+
+        resp = requests.get(urllink, headers=self.headers, json=analysis_opts)
+        results = json.loads(resp.content.decode('utf-8'))
+        self.assertEqual(expected_results, results)
+
+    def test_summary_amount_groupby_parent(self):
+        # ground truth verified
+        search_opts = {"electionYear": "1234"}
+        analysis_opts = {
+            "target": {
+                "entity":"Contribution",
+                "field": "amount"
+            },
+            "op": "summaryStatistics",
+            "groupBy":[{
+                "entity": "Contributor",
+                "field": "parentOrg"
+            }],
+            "relationships": ["ContribToContributor"]
+        }
+        expected_results = {
+            "counts": {
+                "Contribution//id": 200,
+                "Contributor//id": 118
+            },
+            "fieldNames": [
+                {
+                    "entity": "Contributor",
+                    "field": "parentOrg"
+                },
+                {
+                    "entity": "Contribution",
+                    "field": "amount",
+                    "op": "min"
+                },
+                {
+                    "entity": "Contribution",
+                    "field": "amount",
+                    "op": "median"
+                },
+                {
+                    "entity": "Contribution",
+                    "field": "amount",
+                    "op": "max"
+                },
+                {
+                    "entity": "Contribution",
+                    "field": "amount",
+                    "op": "average"
+                }
+            ],
+            "length": 28,
+            "results": [
+                [
+                    "AMERICAN FEDERATION OF TEACHERS / AFT",
+                    1000.0,
+                    7500.0,
+                    100000.0,
+                    21416.67
+                ],
+                [
+                    "BROTHERHOOD OF LOCOMOTIVE ENGINEERS & TRAINMEN / BLET",
+                    250.0,
+                    250.0,
+                    250.0,
+                    250.0
+                ],
+                [
+                    "COMMUNICATIONS WORKERS OF AMERICA / CWA",
+                    2500.0,
+                    2500.0,
+                    2500.0,
+                    2500.0
+                ],
+                [
+                    "FRATERNAL ORDER OF POLICE ASSOCIATES / FOP",
+                    250.0,
+                    750.0,
+                    2500.0,
+                    1062.5
+                ],
+                [
+                    "ILLINOIS AFL-CIO",
+                    250.0,
+                    2775.0,
+                    5300.0,
+                    2775.0
+                ],
+                [
+                    "INTERNATIONAL ALLIANCE OF THEATRICAL STAGE EMPLOYEES / IATSE",
+                    500.0,
+                    1000.0,
+                    5000.0,
+                    1833.33
+                ],
+                [
+                    "INTERNATIONAL ASSOCIATION OF BRIDGE STRUCTURAL ORNAMENTAL & REINFORCING IRON WORKERS",
+                    200.0,
+                    750.0,
+                    20000.0,
+                    4491.67
+                ],
+                [
+                    "INTERNATIONAL ASSOCIATION OF FIRE FIGHTERS / IAFF",
+                    500.0,
+                    2050.0,
+                    10000.0,
+                    3650.0
+                ],
+                [
+                    "INTERNATIONAL ASSOCIATION OF HEAT & FROST INSULATORS & ALLIED WORKERS / HFIAW",
+                    5000.0,
+                    5000.0,
+                    5000.0,
+                    5000.0
+                ],
+                [
+                    "INTERNATIONAL ASSOCIATION OF SHEET METAL AIR RAIL & TRANSPORTATION WORKERS / SMART",
+                    500.0,
+                    750.0,
+                    1000.0,
+                    750.0
+                ],
+                [
+                    "INTERNATIONAL BROTHERHOOD OF BOILERMAKERS IRON SHIP BUILDERS BLACKSMITHS FORGERS & HELPERS / IBB",
+                    100.0,
+                    175.0,
+                    250.0,
+                    175.0
+                ],
+                [
+                    "INTERNATIONAL BROTHERHOOD OF ELECTRICAL WORKERS / IBEW",
+                    250.0,
+                    1000.0,
+                    15000.0,
+                    3020.83
+                ],
+                [
+                    "INTERNATIONAL BROTHERHOOD OF TEAMSTERS / IBT",
+                    250.0,
+                    2500.0,
+                    50000.0,
+                    8650.0
+                ],
+                [
+                    "INTERNATIONAL UNION OF OPERATING ENGINEERS / IUOE",
+                    500.0,
+                    5000.0,
+                    50000.0,
+                    15833.33
+                ],
+                [
+                    "INTERNATIONAL UNION OF PAINTERS & ALLIED TRADES / IUPAT",
+                    200.0,
+                    1000.0,
+                    10000.0,
+                    2700.0
+                ],
+                [
+                    "LABORERS INTERNATIONAL UNION OF NORTH AMERICA / LIUNA",
+                    500.0,
+                    7500.0,
+                    100000.0,
+                    25375.0
+                ],
+                [
+                    "NATIONAL AFL-CIO",
+                    250.0,
+                    2750.0,
+                    10000.0,
+                    3869.57
+                ],
+                [
+                    "NATIONAL EDUCATION ASSOCIATION / NEA",
+                    1000.0,
+                    100500.0,
+                    200000.0,
+                    100500.0
+                ],
+                [
+                    "No value",
+                    100.0,
+                    1000.0,
+                    500000.0,
+                    27170.27
+                ],
+                [
+                    "SERVICE EMPLOYEES INTERNATIONAL UNION / SEIU",
+                    500.0,
+                    35000.0,
+                    750000.0,
+                    128312.5
+                ],
+                [
+                    "SHEET METAL WORKERS INTERNATIONAL ASSOCIATION / SMWIA",
+                    500.0,
+                    750.0,
+                    1000.0,
+                    750.0
+                ],
+                [
+                    "UNITE HERE! INTERNATIONAL UNION",
+                    500.0,
+                    500.0,
+                    500.0,
+                    500.0
+                ],
+                [
+                    "UNITED ASSOCIATION OF JOURNEYMEN & APPRENTICES OF THE PLUMBING & PIPE FITTING INDUSTRY OF THE UNITED STATES & CANADA / UA",
+                    200.0,
+                    1000.0,
+                    50000.0,
+                    6661.76
+                ],
+                [
+                    "UNITED AUTOMOBILE AEROSPACE & AGRICULTURAL IMPLEMENT WORKERS OF AMERICA / UAW",
+                    250.0,
+                    6250.0,
+                    250000.0,
+                    39406.25
+                ],
+                [
+                    "UNITED BROTHERHOOD OF CARPENTERS & JOINERS / UBC",
+                    250.0,
+                    2000.0,
+                    50000.0,
+                    8795.45
+                ],
+                [
+                    "UNITED FOOD & COMMERCIAL WORKERS INTERNATIONAL UNION / UFCW",
+                    250.0,
+                    1850.0,
+                    42600.0,
+                    14691.67
+                ],
+                [
+                    "UNITED STEEL PAPER & FORESTRY RUBBER MANUFACTURING ENERGY ALLIED INDUSTRIAL & SERVICE WORKERS INTERNATIONAL / USW",
+                    500.0,
+                    500.0,
+                    500.0,
+                    500.0
+                ],
+                [
+                    "UNITED UNION OF ROOFERS WATERPROOFERS & ALLIED WORKERS",
+                    200.0,
+                    200.0,
+                    200.0,
+                    200.0
+                ]
+            ],
+            "units": [
+                "Contributor Parent Organization",
+                "dollar",
+                "dollar",
+                "dollar",
+                "dollar"
+            ]
+        }
+        urllink = make_results_url(self.url, self.ringid, self.versionid, "Contribution", "analysis", search_opts)
+
+        resp = requests.get(urllink, headers=self.headers, json=analysis_opts)
+        results = json.loads(resp.content.decode('utf-8'))
+        self.assertEqual(expected_results, results)
+
+
+
+
 if __name__ == '__main__':
     unittest.main()
