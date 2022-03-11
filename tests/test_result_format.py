@@ -5,7 +5,10 @@ import os
 
 import requests
 
-from tests.helper_func import make_results_url
+try:
+    from tests.helper_func import make_results_url
+except:
+    from helper_func import make_results_url
 import json
 
 class TestMuliColumnFormat(unittest.TestCase):
