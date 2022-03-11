@@ -141,10 +141,11 @@ def single_ring_analysis(s_opts, a_opts, ring, extractor, targetEntity, sess, db
     a_opts, field_types = _expand_grouping(a_opts, field_types)
     # TODO: change the field_types to account for required/optional keys
     if OPS[op]["type"] == "complex":
-        # addit_groups = [field for field, dct in OPS[op]["fields"].items() if dct["fieldType"] == "group" and field not in field_types["group"]]
-        # addit_target = [field for field, dct in OPS[op]["fields"].items() if dct["fieldType"] == "target" and field not in field_types["target"]]
-        # field_types["group"].extend(addit_groups)
-        # field_types["target"].extend(addit_target)
+        if "spawned" in OPS[op]:
+            addit_groups = [field for field, dct in OPS[op]["spawned"].items() if dct["fieldType"] == "group" and field not in field_types["group"]]
+            addit_target = [field for field, dct in OPS[op]["spawned"].items() if dct["fieldType"] == "target" and field not in field_types["target"]]
+            field_types["group"].extend(addit_groups)
+            field_types["target"].extend(addit_target)
 
         # a_opts, field_types = _expand_grouping(a_opts, field_types)
 
@@ -191,8 +192,9 @@ def complex_operation(s_opts, a_opts, ring, extractor, targetEntity, session, db
 
     query, group_args, field_names, col_names = simple_query(s_opts, new_a_opts, ring, extractor, targetEntity, session, db, field_types)
     query = query.group_by(*group_args)
+    print(query.all())
     results = [list(q) for q in query.all()]
-
+    print(results)
     # What to do with the queries results and formatting
     results, new_field_names, new_col_names = OPS[op_name]["pandasFunc"](new_a_opts, results, group_args, field_names, col_names)
 
@@ -498,26 +500,16 @@ def _format_results():
 Pending Stuff (1/18/2022):
 
 
-
-- Querying niceName from id columns when grouping by id column
-
 - Querying multiple columns for one attribute
     e.g. date: year, month, day
     e.g. name: first, middle, last
 
 - Defining JSON with default behaviors (all of these can be added to config attributes)
-    - Rounding figures
-    - Date and datetime granularities
     - True/False conversion/format
-    - Null dropping/converting behavior
     - Multiple column behavior
         - concatenate by default for all
             - Might need to cast all to string first if not already string
         
-- Implement stuff to utilize the JSON
-    - Might just use it at compile time and add it to compiled ring?
-
-
 
 Next steps (11/26/2021)
 
@@ -534,19 +526,6 @@ Pending stuff
 - Distinct key checking for when multiple joins
 - Transform
     - Add test case where in config we have ae defined inequalities thingy
-
-
-
-Querying "Nice Name"
-e.g. suppose you want to query "average contribution grouped by contributor"
-The database is gonna get it by contributor.id, but in reality we want to have it by contributor.name
-- QFA: 
-    would we just use the "reference" field?
-        I think for contribution its "amount" which might be weird
-    are we committing to the format?
-        Not a huge issue, we can change it later, just wanted to know
-    would we still want to return the "ugly" rep? (i.e. contribution.id)
-        I'm leaning towards yes
 
 
 Querying multiple columns

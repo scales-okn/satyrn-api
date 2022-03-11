@@ -86,11 +86,6 @@ dct = { "distribution": {
           "maxDepth": 1
         }
       },
-      "spawned": {
-        "target2": {
-
-        }
-      },
       "unitsPrep": distributionUnits, # move to a standard method name on PluginClass
       "template": "Distribution of {target} over {over}",
       "queryPrep": distributionQuery, # move to a standard method name on PluginClass
