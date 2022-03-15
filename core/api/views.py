@@ -10,7 +10,7 @@ from .seekers import getResults
 from .autocomplete import runAutocomplete
 
 from .viewHelpers import CLEAN_OPS, apiKeyCheck, errorGen, organizeFilters, cleanDate, getOrCreateRing, getRing, getRingFromService, convertFilters, organizeFilters2
-
+from .viewHelpers import organizeAnalysis
 # # some "local globals"
 app = current_app # this is now the same app instance as defined in appBundler.py
 api = Blueprint("api", __name__)
@@ -192,6 +192,12 @@ def runAnalysis(ringId, version, targetEntity):
     searchOpts = analysisOpts
 
     searchOpts = organizeFilters2(searchOpts, searchSpace)
+
+    analysisOpts = organizeAnalysis(analysisOpts, ringExtractor.getAnalysisSpace(targetEntity))
+
+    if not analysisOpts:
+        print("ill formed analysis opts")
+        return jsonify({})
 
     # searchOpts = organizeFilters(request, searchSpace)
     # TODO: write bit of code to obtain from the json the filters and whatnot

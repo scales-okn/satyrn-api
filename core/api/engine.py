@@ -60,7 +60,7 @@ def run_analysis(s_opts, a_opts, targetEntity, ring, extractor):
     #     pass
     # else:
 
-    print(extractor.getAnalysisSpace(targetEntity))
+    # print(extractor.getAnalysisSpace(targetEntity))
 
     db, sess  = _get_db_sess(ring)
     return single_ring_analysis(s_opts, a_opts, ring, extractor, targetEntity, sess, db)
@@ -135,8 +135,6 @@ def single_ring_analysis(s_opts, a_opts, ring, extractor, targetEntity, sess, db
     # NOTE: RN we assume optionals will only be for grouping
     field_types["group"].extend([field for field, dct in OPS[op]["optional"].items() if field != "groupBy"])
 
-    print(field_types)
-    print(a_opts)
 
     a_opts, field_types = _expand_grouping(a_opts, field_types)
     # TODO: change the field_types to account for required/optional keys
@@ -192,9 +190,8 @@ def complex_operation(s_opts, a_opts, ring, extractor, targetEntity, session, db
 
     query, group_args, field_names, col_names = simple_query(s_opts, new_a_opts, ring, extractor, targetEntity, session, db, field_types)
     query = query.group_by(*group_args)
-    print(query.all())
     results = [list(q) for q in query.all()]
-    print(results)
+
     # What to do with the queries results and formatting
     results, new_field_names, new_col_names = OPS[op_name]["pandasFunc"](new_a_opts, results, group_args, field_names, col_names)
 

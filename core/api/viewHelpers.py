@@ -170,14 +170,119 @@ def organizeAnalysis(opts, analysisSpace):
     2. see if we have all the fields that are required
     3. See if we all the fields are proper types and whatno
 
-
+    4. if any of the required fields are missing, return indication that 
+    operation cannot go thru
+    
     PENDING: check relationships?
-
 
     NOTE: we might need to leave some leeway for paramters?
     unclear if we wanna do that check here OR if we wanna
     leave it for the frontend
     '''
+
+    new_opts = {}
+    # check if op is valid
+    if "op" not in opts or opts["op"] not in CLEAN_OPS:
+        print("op key missing or not in operation space")
+        return {}
+    else:
+        new_opts["op"] = opts["op"]
+
+    # check if relationships exist
+    # TODO: check if relationshisp valid
+    new_opts["relationships"] = opts.get("relationships", [])
+
+    op_dct = CLEAN_OPS[opts["op"]]
+    for req_field, req_dct in op_dct["required"].items():
+
+        if req_field not in opts:
+            print(f"field {req_field} not in opts")
+            return {}
+
+        new_opt = _checkAnalysisField(opts[req_field], req_dct, analysisSpace)
+        if not new_opt:
+            print(f"invalid opts for field {req_field}")
+            return {}
+        else:
+            new_opts[req_field] = new_opt
+
+
+    for opt_field, opt_dct in op_dct.get("optional", {}).items():
+        if opt_field not in opts:
+            print(f"field {opt_field} not in opts")
+            continue
+
+        if opt_field == "groupBy" or opt_dct["maxDepth"] > 1:
+
+
+            if type(opts[opt_field]) == dict:
+                opts[opt_field] = [opts[opt_field]]
+            elif type(opts[opt_field]) != list:
+                print(f"wrong type, shouldve been list")
+                continue
+
+            if len(opts[opt_field]) > opt_dct["maxDepth"]:
+                print(f"too many arguments for groupBy")
+                return {}
+
+            for opt in opts[opt_field]:
+                new_opt = _checkAnalysisField(opt, opt_dct, analysisSpace)
+                if not new_opt:
+                    print(f"invalid opts for field {opt_field}")
+                    return {}
+                else:
+                    if opt_field not in new_opts:
+                        new_opts[opt_field] = []
+                    new_opts[opt_field].append(new_opt)
+        else:
+            new_opt = _checkAnalysisField(opts[opt_field], opt_dct, analysisSpace)
+            if not new_opt:
+                print(f"invalid opts for field {opt_field}")
+                return {}
+            else:
+                new_opts[opt_field] = new_opt
+
+
+    return new_opts
+
+
+def _checkAnalysisField(opt_dct, req_dct, analysisSpace):
+    if type(opt_dct) != dict:
+        return {}
+    if "entity" not in opt_dct or "field" not in opt_dct:
+        return {}
+    ent = opt_dct["entity"]
+    field = opt_dct["field"]
+    ent_lst = [val for key, val in analysisSpace.items() if val["entity"] == ent and field in val["attributes"]]
+
+    if not ent_lst:
+        print(f"field {ent}, {field} not in analysis space")
+        return {}
+
+    else:
+        datatype = ent_lst[0]["attributes"][field]["type"]
+        # TODO: check data type validity w/what that req_dct requires
+        if datatype not in req_dct["validInputs"]:
+            print(f"field {ent},{field} datatype {datatype} does not match required datatype")
+            # do not copy value into list, but can continue in process
+            return {}
+
+        # parameter check: see if they meet requirements
+        params = req_dct.get("parameters")
+        # PENDING: how to check if parameters properly done
+        # if params:
+        #     for param_dct in params:
+        #         if datatype in param_dct["inputTypes"]:
+        #             # PENDING: How 
+        #         else:
+        #             if param_dct.get("required", False):
+        #                 print(f"field {req_field} requires parameter but not given?")
+
+        # else:
+        #     # No parameters, can carry on per ush
+        #     pass
+
+    return opt_dct
 
 
 #

@@ -95,12 +95,19 @@ class RingConfigExtractor(object):
                 "rel_type": rel_type,
                 "attributes": { att.name: {
                                 "type": att.baseIsa,
-                                "model": getattr(self.config.db, entObj.table),
+                                "model": getattr(self.config.db, entObj.table), # TODO: change for attr specific table
                                 "fields": att.source_columns,
                                 "nicename": att.nicename[0], # TODO: leverage the list for singular+plural
                                 "unit": att.units,
                             } for att in entObj.attributes if att.searchable
                 } 
+            }
+            analysisSpace[key_name]["attributes"]["id"] = {
+                "type": "id",
+                "model": getattr(self.config.db, entObj.table),
+                "fields": entObj.id,
+                "nicename": entObj.renderable, # TODO: leverage the list for singular+plural
+                "unit": entObj.name,        
             }
 
         self.cache[target]["analysisSpace"] = analysisSpace
