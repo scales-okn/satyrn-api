@@ -76,18 +76,25 @@ def corrUnits(a_opts, field_names, col_names, init_units):
 dct = { "correlation": {
       "required": {
           "target1": {
-            "validInputs": ["string", "bool", "int", "float", "average", "count"],
+            "validInputs": ["string", "boolean", "integer", "float", "id"],
             "fieldType": "target",
             "parameters": [
               {
                 "question": "language to be asked goes here",
-                "inputTypes": ["bool", "string"],
+                "inputTypes": ["boolean", "string"],
                 "options": "any",
                 "allowMultiple": False # to support multi-part numerators like "New York AND California"
               },
               {
                 "question": "language to be asked goes here",
-                "inputTypes": ["int", "float"],
+                "inputTypes": ["integer", "float"],
+                "options": "aggregation",
+                "required": False,
+                "allowMultiple": False
+              },
+              {
+                "question": "language to be asked goes here",
+                "inputTypes": ["id"],
                 "options": "aggregation",
                 "required": False,
                 "allowMultiple": False
@@ -95,12 +102,12 @@ dct = { "correlation": {
             ]
           },
           "target2": {
-            "validInputs": ["string", "bool", "int", "float", "average", "count"],
+            "validInputs": ["string", "boolean", "integer", "float", "id"],
             "fieldType": "target",
             "parameters": [
               {
                 "question": "language to be asked goes here",
-                "inputTypes": ["bool", "string"],
+                "inputTypes": ["boolean", "string"],
                 "options": "any",
                 "allowMultiple": True
               },
@@ -110,13 +117,20 @@ dct = { "correlation": {
                 "options": "aggregation",
                 "required": False,
                 "allowMultiple": False
+              },
+              {
+                "question": "language to be asked goes here",
+                "inputTypes": ["id"],
+                "options": "aggregation",
+                "required": False,
+                "allowMultiple": False
               }
             ]
           },
           "group": {
             "internalId": "group",
             "fieldType": "group",
-            "validInputs": ["id"],
+            "validInputs": ["id", "boolean"],
             "parameters": None
           }
       },
@@ -143,49 +157,6 @@ dct = { "correlation": {
       "type": "complex",
   }
 }
-
-# dct = {    
-#     "correlation": {
-#         "fields": {
-#             "target": {
-#                 "types": ["string", "bool", "int", "float", "average", "count"],
-#                 "fieldType": "target",
-#                 "extra": {
-#                     "numerator": {
-#                         "types": ["== target"],
-#                         "required": ["target == bool", "target == string"],             
-#                     }
-#                 }
-#             },
-#             "target2": {
-#                 "types": ["string", "bool", "int", "float", "average", "count"],
-#                 "fieldType": "target",
-#                 "extra": {
-#                     "numerator": {
-#                         "types": ["== target"],
-#                         "required": ["target == bool", "target == string"],             
-#                     }
-#                 }
-#             },
-#             "grouping": {
-#                 "types": ["id"],
-#                 "fieldType": "group",
-#             }
-#         },
-#         "unitsPrep": corrUnits, 
-#         "nicename": "Correlation between",
-#         "queryPrep": correlationQuery,
-#         "pandasFunc": {
-#             "op": pandasCorrelation,
-#         },
-#         "type": "complex",
-#         "groupingAllowed": {
-#             "groupType": [],
-#             "numberGroups": 0
-#         }
-#     },
-
-# }
 
 
 '''

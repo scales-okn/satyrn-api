@@ -33,12 +33,12 @@ def compareUnits(a_opts, field_names, col_names, init_units):
 dct = { "comparison": {
       "required": {
           "target1": {
-            "validInputs": ["string", "bool", "int", "float", "average", "count"],
+            "validInputs": ["string", "boolean", "integer", "float", "id"],
             "fieldType": "target",
             "parameters": [
               {
                 "question": "language to be asked goes here",
-                "inputTypes": ["bool", "string"],
+                "inputTypes": ["boolean", "string"],
                 "options": "any",
                 "allowMultiple": False # to support multi-part numerators like "New York AND California"
               },
@@ -48,16 +48,23 @@ dct = { "comparison": {
                 "options": "aggregation",
                 "required": False,
                 "allowMultiple": False
+              },
+              {
+                "question": "language to be asked goes here",
+                "inputTypes": ["id"],
+                "options": "aggregation",
+                "required": False,
+                "allowMultiple": False
               }
             ]
           },
           "target2": {
-            "validInputs": ["string", "bool", "int", "float", "average", "count"],
+            "validInputs": ["string", "boolean", "integer", "float", "id"],
             "fieldType": "target",
             "parameters": [
               {
                 "question": "language to be asked goes here",
-                "inputTypes": ["bool", "string"],
+                "inputTypes": ["boolean", "string"],
                 "options": "any",
                 "allowMultiple": True
               },
@@ -67,13 +74,20 @@ dct = { "comparison": {
                 "options": "aggregation",
                 "required": False,
                 "allowMultiple": False
+              },
+              {
+                "question": "language to be asked goes here",
+                "inputTypes": ["id"],
+                "options": "aggregation",
+                "required": False,
+                "allowMultiple": False
               }
             ]
           },
           "group": {
             "internalId": "group",
             "fieldType": "group",
-            "validInputs": ["id"],
+            "validInputs": ["id", "boolean"],
             "parameters": None
           }
       },

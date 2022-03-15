@@ -10,8 +10,6 @@ from .sql_func import sql_median
 import numpy as np
 
 def onehot_processing(model_field, pos_values):
-    # print(model_field)
-    # print(pos_values)
     '''
     - Add parameter that indicates that we are gonna be doing some range stuff (or decide here)
     - Add the if case for that
@@ -44,7 +42,7 @@ OPERATION_SPACE = {
     "average": {
         "required": {
             "target": {
-                "validInputs": ["int", "float"],
+                "validInputs": ["integer", "float"],
                 "fieldType": "target",
             },
         },
@@ -73,7 +71,7 @@ OPERATION_SPACE = {
     "sum": {
         "required": {
             "target": {
-                "validInputs": ["int", "float"],
+                "validInputs": ["integer", "float"],
                 "fieldType": "target",
             },
         },
@@ -88,7 +86,7 @@ OPERATION_SPACE = {
     "min": {
         "required": {
             "target": {
-                "validInputs": ["int", "float"],
+                "validInputs": ["integer", "float"],
                 "fieldType": "target",
             },
         },
@@ -103,7 +101,7 @@ OPERATION_SPACE = {
     "max": {
         "required": {
             "target": {
-                "validInputs": ["int", "float"],
+                "validInputs": ["integer", "float"],
                 "fieldType": "target",
             },
         },
@@ -133,7 +131,7 @@ OPERATION_SPACE = {
     "median": {
         "required": {
             "target": {
-                "validInputs": ["int", "float"],
+                "validInputs": ["integer", "float"],
                 "fieldType": "target",
             },
         },
@@ -168,7 +166,7 @@ OPERATION_SPACE = {
     "averageSum": {
         "required": {
             "target": {
-                "validInputs": ["float", "int"],
+                "validInputs": ["float", "integer"],
                 "fieldType": "target",
             },
             "per": {
@@ -189,12 +187,12 @@ OPERATION_SPACE = {
     "percentage": {
         "required": {
             "target": {
-                "validInputs": ["string", "bool"],
+                "validInputs": ["string", "boolean"],
                 "fieldType": "target",
                 "parameters": [
                   {
                     "question": "language to be asked goes here",
-                    "inputTypes": ["bool", "string"],
+                    "inputTypes": ["boolean", "string"],
                     "options": "any",
                     "allowMultiple": True
                   },
@@ -212,12 +210,12 @@ OPERATION_SPACE = {
     "oneHot": {
         "required": {
             "target": {
-                "validInputs": ["string", "bool"],
+                "validInputs": ["string", "boolean"],
                 "fieldType": "target",
                 "parameters": [
                   {
                     "question": "language to be asked goes here",
-                    "inputTypes": ["bool", "string"],
+                    "inputTypes": ["boolean", "string"],
                     "options": "any",
                     "allowMultiple": True
                   },
@@ -236,7 +234,7 @@ OPERATION_SPACE = {
     "None": {
         "required": {
             "target": {
-                "validInputs": ["int", "float", "bool", "string"],
+                "validInputs": ["integer", "float", "boolean", "string"],
                 "fieldType": "target",
             },
         },
@@ -257,10 +255,17 @@ for key in OPERATION_SPACE.keys():
         "groupBy": {
             "allowed": True,
             "maxDepth": 2,
+            "validInputs": ["id", "integer", "float", "string", "boolean"],
+            "parameters": [{ # optional to override defaults
+                "inputTypes": ["integer", "float"],
+                "options": ["percentile", "threshold"],
+                "allowMultiple": False
+            }]
         },
         "timeSeries": {
             "allowed": True,
-            "maxDepth": 1
+            "maxDepth": 1,
+            "validInputs": ["date", "datetime"]
         }
     }
 
@@ -348,4 +353,58 @@ for filename in os.listdir(directory):
         name = ".".join(["core", "api", "analysis_plugins", filename[:-3]])
         mod = importlib.import_module(name)
         op = getattr(mod, "dct")
+        # add defaults for optionals
+        op_name = list(op.keys())[0]
+        if "optional" not in op[op_name]:
+            op[op_name]["optional"] = {
+                "groupBy": {
+                    "allowed": True,
+                    "maxDepth": 2,
+                    "validInputs": ["id", "integer", "float", "string", "boolean"],
+                    "parameters": [{ # optional to override defaults
+                        "inputTypes": ["integer", "float"],
+                        "options": ["percentile", "threshold"],
+                        "allowMultiple": False
+                    }]
+                },
+                "timeSeries": {
+                    "allowed": True,
+                    "maxDepth": 1,
+                    "validInputs": ["date", "datetime"]
+                }
+            }
+        else:
+            # defaults for groupby
+            group = op[op_name]["optional"].get("groupBy", {})
+            if group:
+                if "validInputs" not in group:
+                    group["validInputs"] = ["id", "integer", "float", "string","boolean"]
+                if "parameters" not in group:
+                    group["parameters"] = [{ # optional to override defaults
+                        "inputTypes": ["integer", "float"],
+                        "options": ["percentile", "threshold"],
+                        "allowMultiple": False
+                    }]
+                else:
+                    # check if parameters already defined for int and float
+                    tpes = []
+                    for tpe in ["integer", "float"]:
+                        init = [param for param in group["parameters"] if tpe in param["inputTypes"]]
+                        if not init:
+                            tpes.append(tpe)
+
+                    if tpes:
+                        group["parameters"].append({ # optional to override defaults
+                            "inputTypes": tpes,
+                            "options": ["percentile", "threshold"],
+                            "allowMultiple": False
+                        })
+
+
+            # defaults for timeseries
+            timeSeries = op[op_name]["optional"].get("timeSeries")
+            if timeSeries:
+                if "validInputs" not in timeSeries:
+                    timeSeries["validInputs"] = ["date", "datetime"]
+
         OPERATION_SPACE.update(op)

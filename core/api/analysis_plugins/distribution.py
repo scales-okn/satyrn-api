@@ -52,12 +52,12 @@ def distributionUnits(a_opts, field_names, col_names, init_units):
 dct = { "distribution": {
       "required": {
           "target": {
-            "validInputs": ["int", "float", "average", "count"],
+            "validInputs": ["integer", "float", "average", "count"],
             "fieldType": "target",
             "parameters": [
               {
                 "question": "language to be asked goes here",
-                "inputTypes": ["int", "float"],
+                "inputTypes": ["integer", "float"],
                 "options": "aggregation",
                 "required": False,
                 "allowMultiple": False
@@ -66,7 +66,7 @@ dct = { "distribution": {
           },
           "over": {
             "fieldType": "group",
-            "validInputs": ["id"],
+            "validInputs": ["id", "boolean", "string"],
             "parameters": None
           }
       },

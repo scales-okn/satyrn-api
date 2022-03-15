@@ -27,22 +27,9 @@ def summaryUnits(a_opts, field_names, col_names, init_units):
 dct = { "summaryStatistics": {
       "required": {
           "target": {
-            "validInputs": ["int", "float", "id"],
+            "validInputs": ["integer", "float"],
             "fieldType": "target",
             "parameters": [
-              # {
-              #   "question": "language to be asked goes here",
-              #   "inputTypes": ["id"],
-              #   "options": "any",
-              #   "allowMultiple": False # to support multi-part numerators like "New York AND California"
-              # },
-              # {
-              #   "question": "language to be asked goes here",
-              #   "inputTypes": ["int", "float"],
-              #   "options": "aggregation",
-              #   "required": False,
-              #   "allowMultiple": False
-              # }
             ]
           },
       },
