@@ -1229,10 +1229,10 @@ class TestAnalysis(unittest.TestCase):
                 "entity": "Contribution",
                 "field": "inState"
             },
-            "timeSeries": {
+            "groupBy": [{
                 "entity": "Contribution",
                 "field": "electionYear"
-            },
+            }],
             "relationships": []
         }
         expected_results = {'counts': {'Contribution//id': 200}, 
@@ -1245,8 +1245,10 @@ class TestAnalysis(unittest.TestCase):
 
         resp = requests.get(urllink, headers=self.headers, json=analysis_opts)
         results = json.loads(resp.content.decode('utf-8'))
-
+        # print(expected_results)
+        # print(results)
         self.assertEqual(expected_results, results)
+
 
     def test_filter_year_distribution_sum_contributor_timeseries(self):
         # ground truth verified
@@ -1726,10 +1728,10 @@ class TestAnalysis(unittest.TestCase):
                 "entity": "Contribution",
                 "field": "inState"
             },
-            "timeSeries": {
+            "groupBy": [{
                 "entity": "Contribution",
                 "field": "electionYear"
-            },
+            }],
             "relationships": []
         }
         expected_results = {
@@ -1749,6 +1751,8 @@ class TestAnalysis(unittest.TestCase):
 
         resp = requests.get(urllink, headers=self.headers, json=analysis_opts)
         results = json.loads(resp.content.decode('utf-8'))
+        # print(expected_results)
+        # print(results)
         self.assertEqual(expected_results, results)
 
     def test_summary_empty(self):
@@ -1865,7 +1869,7 @@ class TestAnalysis(unittest.TestCase):
 
     def test_summary_amount_groupby_parent(self):
         # ground truth verified
-        search_opts = {"electionYear": "1234"}
+        search_opts = {}
         analysis_opts = {
             "target": {
                 "entity":"Contribution",
@@ -2120,6 +2124,8 @@ class TestAnalysis(unittest.TestCase):
 
         resp = requests.get(urllink, headers=self.headers, json=analysis_opts)
         results = json.loads(resp.content.decode('utf-8'))
+        # print(results)
+        # print(expected_results)
         self.assertEqual(expected_results, results)
 
 
