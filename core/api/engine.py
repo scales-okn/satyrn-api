@@ -236,6 +236,7 @@ def recursive_query(s_opts, a_opts, ring, extractor, targetEntity, session, db, 
     avg = func.avg(s_query.c[utils._name(a_opts["target"]["entity"], a_opts["target"]["field"], copy_opts["op"])])
     if a_opts.get("extra",{}).get("rounding", extractor.getRounding()) != "False":
         field = func.round(avg, a_opts.get("extra",{}).get("sigfigs", extractor.getSigFigs()))
+        # field = func.round(avg)
 
     query_args.append(field)
     query = session.query(*query_args)

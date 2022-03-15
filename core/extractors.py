@@ -269,10 +269,10 @@ class RingConfigExtractor(object):
         return [(k, {
             "autocomplete": ("autocomplete" in v and v["autocomplete"]),
             "type": v["type"],
-            "allowMultiple": v["allowMultiple"],
+            "allowMultiple": searchSpace[None]["allowMultiple"],
             "nicename": v["nicename"],
             "desc": v["description"] if "description" in v else None
-        }) for k, v in searchSpace.items()]
+        }) for k, v in searchSpace[None]["attributes"].items()]
 
     def getFieldUnits(self, target=None):
         return {k: v["unit"] for k, v in self.getAnalysisSpace(target).items() if "unit" in v}

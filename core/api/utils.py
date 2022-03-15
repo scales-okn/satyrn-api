@@ -109,6 +109,8 @@ def _parse_reference(extractor, entity, db):
         else:
             concatenable.append(val)
 
+    print(concatenable)
+
     name = _name(entity, "reference", None, None)
     return sql_concat(concatenable, extractor.getDBType()).label(name), name
 
@@ -123,7 +125,8 @@ def _get(extractor, entity, attribute, db, transform=None, date_transform=None, 
     if attribute == "reference":
         return _parse_reference(extractor, entity, db)
     else:
-        return _get_helper(extractor, entity, attribute, db ,transform, date_transform, op, extra)
+        field, name = _get_helper(extractor, entity, attribute, db ,transform, date_transform, op, extra)
+        return field.label(name), name
 
 
 def _get_helper(extractor, entity, attribute, db, transform, date_transform, op, extra):
@@ -168,7 +171,7 @@ def _get_helper(extractor, entity, attribute, db, transform, date_transform, op,
     if transform:
         field = TRS[transform]["processor"](field)
 
-    return field.label(name), name
+    return field, name
 
 
 def _get_table_name(extractor, entity, attribute):

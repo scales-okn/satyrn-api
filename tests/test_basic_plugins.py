@@ -1235,11 +1235,12 @@ class TestAnalysis(unittest.TestCase):
             }],
             "relationships": []
         }
-        expected_results = {'counts': {'Contribution//id': 200}, 
-        'fieldNames': [{'entity': 'Contribution', 'field': 'inState'}, {'entity': 'Contribution', 'field': 'electionYear'}, {'entity': 'Contribution', 'field': 'amount', 'op': 'sum'}], 
-        'length': 5, 
-        'results': [[False, 2010.0, 0.33150984682713347], [False, 2014.0, 0.43538488568535255], [True, 2010.0, 0.6684901531728665], [True, 2014.0, 0.5646151143146475], [True, 2018.0, 1.0]],
-         'units': {'results': ['In State Contribution Status', 'Election Year', 'percentage of dollar']}}
+        expected_results = {'counts': {'Contribution//id': 200}, 'fieldNames': 
+        [{'entity': 'Contribution', 'field': 'electionYear'}, {'entity': 'Contribution', 'field': 'inState'}, 
+        {'entity': 'Contribution', 'field': 'amount', 'op': 'sum'}], 'length': 5, 
+        'results': [[2010.0, False, 0.33150984682713347], [2010.0, True, 0.6684901531728665], 
+        [2014.0, False, 0.43538488568535255], [2014.0, True, 0.5646151143146475], [2018.0, True, 1.0]], 
+        'units': {'results': ['Election Year', 'In State Contribution Status', 'percentage of dollar']}}
 
         urllink = make_results_url(self.url, self.ringid, self.versionid, "Contribution", "analysis", search_opts)
 
@@ -1734,19 +1735,10 @@ class TestAnalysis(unittest.TestCase):
             }],
             "relationships": []
         }
-        expected_results = {
-            "counts": {
-                "Contribution//id": 0
-            },
-            "fieldNames": [
-                {'entity': 'Contribution', 'field': 'inState'}, {'entity': 'Contribution', 'field': 'electionYear'}, {'entity': 'Contribution', 'field': 'amount', 'op': 'sum'}
-            ],
-            "length": 0,
-            "results": [],
-            "units": {
-                "results": ['In State Contribution Status', 'Election Year', 'percentage of dollar']
-            }
-        }
+        expected_results = {'counts': {'Contribution//id': 0}, 
+        'fieldNames': [{'entity': 'Contribution', 'field': 'electionYear'}, {'entity': 'Contribution', 'field': 'inState'}, 
+        {'entity': 'Contribution', 'field': 'amount', 'op': 'sum'}], 'length': 0, 'results': [], 
+        'units': {'results': ['Election Year', 'In State Contribution Status', 'percentage of dollar']}}
         urllink = make_results_url(self.url, self.ringid, self.versionid, "Contribution", "analysis", search_opts)
 
         resp = requests.get(urllink, headers=self.headers, json=analysis_opts)

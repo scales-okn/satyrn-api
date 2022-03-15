@@ -25,7 +25,8 @@ def sql_concat(field_lst, db_type):
         return reduce(lambda a, b: a + b, field_lst, "")
 
     elif db_type == "postgres":
-        return func.concatenate(field_lst)
+        return reduce(lambda a, b: a + b, field_lst, "")
+        # return func.concatenate(field_lst)
 
     pass
 

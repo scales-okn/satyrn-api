@@ -193,7 +193,7 @@ def runAnalysis(ringId, version, targetEntity):
 
     searchOpts = organizeFilters2(searchOpts, searchSpace)
 
-    analysisOpts = organizeAnalysis(analysisOpts, ringExtractor.getAnalysisSpace(targetEntity))
+    # analysisOpts = organizeAnalysis(analysisOpts, ringExtractor.getAnalysisSpace(targetEntity))
 
     if not analysisOpts:
         print("ill formed analysis opts")
