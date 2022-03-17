@@ -736,13 +736,17 @@ class Ring_Configuration(Ring_Object):
                 # get the list of joins?
                 rels = {r.name: r for r in self.relationships if r.name in rel.rel_list}
 
-                self.relationships[idx].join = [rels[r].join for r in rel.rel_list if rels[r].join]
+                # self.relationships[idx].join = []
+                self.relationships[idx].join = [x for r in rel.rel_list for x in rels[r].join if rels[r].join]
 
                 # get the type of relation (o2o, m2o, m2m, o2m)
                 self.relationships[idx].relation = _walk_rel_path(rel.fro, rel.to, [rels[r] for r in rel.rel_list])
 
                 # get whether it bidirectional or not
                 self.relationships[idx].bidirectional = all(rels[r].bidirectional for r in rel.rel_list)
+
+                print(self.relationships[idx])
+                print(self.relationships[idx].join)
 
     def parse_file_with_path(self, path):
         with open(path, 'r') as file:
