@@ -52,7 +52,7 @@ class RingConfigExtractor(object):
 
         ents = self._addAndTraverse_notrecursive(target)
 
-        searchSpace = {} 
+        searchSpace = {}
 
         for ent_name, rel, rel_type in ents:
             ent, entObj = self.resolveEntity(ent_name)
@@ -71,7 +71,7 @@ class RingConfigExtractor(object):
                                 "description": att.description,
                                 "resultFormat": att.resultFormat
                             } for att in entObj.attributes if att.searchable
-                } 
+                }
             }
 
         self.cache[target]["searchSpace"] = searchSpace
@@ -86,7 +86,6 @@ class RingConfigExtractor(object):
         analysisSpace = {}
         ents = self._addAndTraverse_notrecursive(target)
 
-
         for ent_name, rel, rel_type in ents:
             ent, entObj = self.resolveEntity(ent_name)
             key_name = rel if rel else None
@@ -100,14 +99,14 @@ class RingConfigExtractor(object):
                                 "nicename": att.nicename[0], # TODO: leverage the list for singular+plural
                                 "unit": att.units,
                             } for att in entObj.attributes if att.searchable
-                } 
+                }
             }
             analysisSpace[key_name]["attributes"]["id"] = {
                 "type": "id",
                 "model": getattr(self.config.db, entObj.table),
                 "fields": entObj.id,
                 "nicename": entObj.renderable, # TODO: leverage the list for singular+plural
-                "unit": entObj.name,        
+                "unit": entObj.name,
             }
 
         self.cache[target]["analysisSpace"] = analysisSpace
@@ -189,7 +188,7 @@ class RingConfigExtractor(object):
     #             if ent not in lst: #AND the new entity is not present in the entity set of path walkthru
     #                 new_set = deepcopy(lst)
     #                 new_set.add(ent)
-    #                 if new_rel != "NA": 
+    #                 if new_rel != "NA":
     #                     q.put((ent, new_path, new_tpe))
 
     #     return entities
@@ -236,7 +235,7 @@ class RingConfigExtractor(object):
         renderMap = {
             col["key"]: self.getSearchSpace(target)[None]["attributes"][col["key"]]["fields"] for col in cols
         }
-        
+
         results = {
             attr: self.coerceValsToString([getattr(result, field) for field in fields], searchSpace[None]["attributes"][attr]["resultFormat"])
             for attr, fields in renderMap.items()
@@ -247,20 +246,30 @@ class RingConfigExtractor(object):
         # TODO: make this both a) type (leveraging ontology + styling) aware and b) template-compatible
         if formatting[0] and formatting[1]:
             return  ("{}, {}".format(*vals))
-        else: 
+        else:
             tmpl = ("{} " * len(vals)).strip()
             return tmpl.format(*vals)
 
     # a few helper functions
     def getCleanAnalysisSpace(self, target=None):
         analysisSpace = self.getAnalysisSpace(target)
-        output = []
-        for k, v in analysisSpace.items():
-            subout = {k1: v1 for k1, v1 in v.items() if k1 in ["type", "fieldName", "unit", "desc"]}
-            if "transform" in v:
-                subout["transform"] = {"type": v["transform"]["type"]}
-            subout["targetField"] = k
-            output.append(subout)
+        output = {}
+        for k0, v0 in analysisSpace.items():
+            subspace = {}
+            subspace["entity"] = v0["entity"]
+            subspace["relType"] = v0["rel_type"]
+            attrs = []
+            for k, v in v0["attributes"].items():
+                attr = {}
+                for k1, v1 in v.items():
+                    if k1 in ["type", "nicename", "unit", "desc"]:
+                        attr[k1] = v1
+                if "transform" in v:
+                    attr["transform"] = {"type": v["transform"]["type"]}
+                attr["targetField"] = k
+                attrs.append(attr)
+            subspace["attributes"] = attrs
+            output[k0] = subspace
         return output
 
     # TODO: Needs to be changed to account for multiple entities and whatnot
