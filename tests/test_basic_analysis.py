@@ -792,93 +792,6 @@ class TestAnalysis(unittest.TestCase):
         results = json.loads(resp.content.decode('utf-8'))
         self.assertEqual(expected_results, results)
 
-    # def test_filter_area_average_amount(self):
-        # ground truth verified
-        # NOT WORKING YET BC FILTERS DONT WORK ON OTHER ENTITIES
-        # search_opts = {"contributorArea": "Other unions"}
-        # analysis_opts = {
-        #     "target": {
-        #         "entity": "Contribution",
-        #         "field": "amount"
-        #     },
-        #     "op": "average",
-        #     "relationships": ["ContribToContributor"]
-        # }
-        # expected_results = {'results': [(1500.0,)], 'units': [['dollar', 'dollars']],
-        #                     'counts': [{'rowCount': 6, 'type': 'prefilter'},
-        #                                {'filter': 'amount', 'rowCount': 6, 'type': 'nullIgnore'}],}
-        # urllink = make_results_url(self.url, self.ringid, self.versionid, "Contribution", "analysis", search_opts)
-
-        # resp = requests.get(urllink, headers=self.headers, json=analysis_opts)
-        # results = json.loads(resp.content.decode('utf-8'))
-        # print(results)
-        # self.assertEqual(expected_results, results)
-        # pass
-
-    # def test_filter_area_sum_amount_time_year(self):
-        # ground truth verified
-        # NOT WORKING YET BC FILTERS DONT WORK ON OTHER ENTITIES
-        # search_opts = {"contributorArea": "Other unions"}
-        # analysis_opts = {
-        #     "target": {
-        #         "entity": "Contribution",
-        #         "field": "amount"
-        #     },
-        #     "op": "sum",
-        #     "timeSeries": {
-        #         "entity": "Contribution",
-        #         "field": "electionYear"
-        #     },
-        #     "relationships": ["ContribToContributor"]
-        # }
-        # expected_results = {'results': [(2010.0, 8000.0), (2014.0, 1000.0)], 'units': [['year', 'years'], ['dollar', 'dollars']],
-        #                     'counts': [{'rowCount': 6, 'type': 'prefilter'},
-        #                                {"filter": "electionYear", "rowCount": 6, "type": "nullIgnore"},
-        #                                {'filter': 'amount', 'rowCount': 6, 'type': 'nullIgnore'}],}
-        # urllink = make_results_url(self.url, self.ringid, self.versionid, "Contribution", "analysis", search_opts)
-
-        # resp = requests.get(urllink, headers=self.headers, json=analysis_opts)
-        # results = json.loads(resp.content.decode('utf-8'))
-        # print(results)
-        # self.assertEqual(expected_results, results)
-        # pass
-
-    # def test_filter_area_average_amount_groupby_instate_time_year(self):
-        # ground truth verified
-        # NOT WORKING YET BC FILTERS DONT WORK ON OTHER ENTITIES
-        # search_opts = {"contributorArea": "Labor unions"}
-        # analysis_opts = {
-        #     "target": {
-        #         "entity": "Contribution",
-        #         "field": "amount"
-        #     },
-        #     "op": "average",
-        #     "timeSeries": {
-        #         "entity": "Contribution",
-        #         "field": "electionYear"
-        #     },
-        #     "groupBy": [{
-        #         "entity": "Contribution",
-        #         "field": "inState"
-        #     }],
-        #     "relationships": ["ContribToContributor"]
-        # }
-        # expected_results = {'results': [(2010, 'In State Contribution', 7406.25), (2014, 'In State Contribution', 3600.0)],
-        #                     'units': [['year', 'years'], ['In State Contribution Status', 'In State Contribution Statuses'], ['dollar', 'dollars']],
-        #                     'counts': [{'rowCount': 11, 'type': 'prefilter'},
-        #                                {"filter": "electionYear", "rowCount": 11, "type": "nullIgnore"},
-        #                                {"filter": "inState", "rowCount": 11, "type": "nullIgnore"},
-
-                                       
-        #                                {'filter': 'amount', 'rowCount': 11, 'type': 'nullIgnore'},]}
-        # urllink = make_results_url(self.url, self.ringid, self.versionid, "Contribution", "analysis", search_opts)
-
-        # resp = requests.get(urllink, headers=self.headers, json=analysis_opts)
-        # results = json.loads(resp.content.decode('utf-8'))
-        # print(results)
-        # self.assertEqual(expected_results, results)
-        # pass
-
     def test_averagecount_contribution_contributor(self):
         # ground truth verified
         search_opts = {}
@@ -1362,6 +1275,107 @@ class TestAnalysis(unittest.TestCase):
             }
         }
         urllink = make_results_url(self.url, self.ringid, self.versionid, "Contributor", "analysis", search_opts)
+
+        resp = requests.get(urllink, headers=self.headers, json=analysis_opts)
+        results = json.loads(resp.content.decode('utf-8'))
+        self.assertEqual(expected_results, results)
+
+    def test_filter_area_average_amount(self):
+
+        search_opts = {}
+        analysis_opts = {
+            "target": {
+                "entity": "Contribution",
+                "field": "amount"
+            },
+            "op": "average",
+            "relationships": ["ContribToContributor"],
+            "query": {
+                "AND": [
+                    [
+                        {"entity": "Contributor",
+                        "field": "area"},
+                        "Other unions",
+                        "exact"
+                    ]
+                ]
+            },
+        }
+        expected_results = {'counts': {'Contribution//id': 6}, 'fieldNames': [{'entity': 'Contribution', 'field': 'amount', 'op': 'average'}], 
+                    'length': 1, 'results': [[1500.0]], 'units': {'results': ['dollar']}}
+        urllink = make_results_url(self.url, self.ringid, self.versionid, "Contribution", "analysis", search_opts)
+
+        resp = requests.get(urllink, headers=self.headers, json=analysis_opts)
+        results = json.loads(resp.content.decode('utf-8'))
+        self.assertEqual(expected_results, results)
+        # pass
+
+    def test_filter_area_sum_amount_time_year(self):
+        search_opts = {}
+        analysis_opts = {
+            "target": {
+                "entity": "Contribution",
+                "field": "amount"
+            },
+            "op": "sum",
+            "timeSeries": {
+                "entity": "Contribution",
+                "field": "electionYear"
+            },
+            "relationships": ["ContribToContributor"],
+            "query": {
+                "AND": [
+                    [
+                        {"entity": "Contributor",
+                        "field": "area"},
+                        "Other unions",
+                        "exact"
+                    ]
+                ]
+            },
+        }
+        expected_results = {'counts': {'Contribution//id': 6}, 'fieldNames': [{'entity': 'Contribution', 'field': 'electionYear'}, {'entity': 'Contribution', 'field': 'amount', 'op': 'sum'}], 
+                            'length': 2, 'results': [[2010.0, 8000.0], [2014.0, 1000.0]], 'units': {'results': ['Election Year', 'dollar']}}
+        urllink = make_results_url(self.url, self.ringid, self.versionid, "Contribution", "analysis", search_opts)
+
+        resp = requests.get(urllink, headers=self.headers, json=analysis_opts)
+        results = json.loads(resp.content.decode('utf-8'))
+        self.assertEqual(expected_results, results)
+
+
+    def test_filter_area_average_amount_groupby_instate_time_year(self):
+        search_opts = {}
+        analysis_opts = {
+            "target": {
+                "entity": "Contribution",
+                "field": "amount"
+            },
+            "op": "average",
+            "timeSeries": {
+                "entity": "Contribution",
+                "field": "electionYear"
+            },
+            "groupBy": [{
+                "entity": "Contribution",
+                "field": "inState"
+            }],
+            "relationships": ["ContribToContributor"],
+            "query": {
+                "AND": [
+                    [
+                        {"entity": "Contributor",
+                        "field": "area"},
+                        "Labor unions",
+                        "contains"
+                    ]
+                ]
+            },
+        }
+        expected_results = {'counts': {'Contribution//id': 11}, 
+                            'fieldNames': [{'entity': 'Contribution', 'field': 'inState'}, {'entity': 'Contribution', 'field': 'electionYear'}, {'entity': 'Contribution', 'field': 'amount', 'op': 'average'}], 
+                            'length': 2, 'results': [[True, 2010.0, 7406.25], [True, 2014.0, 3600.0]],
+                             'units': {'results': ['In State Contribution Status', 'Election Year', 'dollar']}}
+        urllink = make_results_url(self.url, self.ringid, self.versionid, "Contribution", "analysis", search_opts)
 
         resp = requests.get(urllink, headers=self.headers, json=analysis_opts)
         results = json.loads(resp.content.decode('utf-8'))
