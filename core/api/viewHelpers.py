@@ -117,9 +117,67 @@ def checkFilter(filt, searchSpace):
     field = ent_dct["field"]
     ent_lst = [val for key, val in searchSpace.items() if val["entity"] == ent and field in val["attributes"]]
     if len(ent_lst):
+        # TODO: Consider cases where ent_lst length > 1.
+        # rn the hunch is that it shouldnt matter
+        # since different relationships dont change
+        # the underlying data type and such of the attribute/entity
+
         # TODO: deeper check
         # types, values, etc
         # date cleaning, etc
+
+        ent = ent_lst[0]
+        attr = ent["attributes"][field]
+
+        if attr["type"] == "date":
+            clean_func = cleanDate
+        elif attr["type"] == "integer":
+            clean_func = cleanInt
+        elif attr["type"] == "float":
+            clean_func = cleanFloat
+        else:
+            clean_func = lambda x: x
+
+        if filt[2] == "range":
+            if attr["type"] not in ["date", "integer", "float"]:
+                return None
+
+            if type(filt[1]) != list or len(filt[1]) != 2:
+                return None
+
+            filt[1] = [clean_func(val) for val in filt[1]]
+            if None in filt[1]:
+                return None
+
+        elif filt[2] == "exact":
+            filt[1] = clean_func(filt[1])
+
+            if filt[1] == None:
+                return None
+
+        elif filt[2] == "contains":
+            if attr["type"] != "string":
+                return None
+            filt[1] = clean_func(filt[1])
+
+            if filt[1] == None:
+                return None
+
+        elif filt[2] in ["lessthan", "greaterthan", "lessthan_eq", "greaterthan_eq"]:
+            if attr["type"] not in ["date", "integer", "float"]:
+                return None
+
+            filt[1] = clean_func(filt[1])
+            if filt[1] == None:
+                return None
+
+        else:
+            print("rn no other options allowed")
+            return None
+
+
+
+
         return filt
     else:
         return None
@@ -143,11 +201,9 @@ def convertFilters(targetEntity, searchSpace, filter_dct):
     return query
 
 
-# TODO: change this to work with new format: [((ent, field), bigads dict)]
 # NOTE: this will be relationshipless bc its for 2.0
 def _createSearchTuple(targetEntity, searchSpace, key, val, tpe="exact"):
 
-    # att_dct = [y for x, y in searchSpace if x == (targetEntity, key) and not y["relationships"]][0]
     att_dct = searchSpace[None]["attributes"]
     if att_dct[key]["type"]  == "float":
         val = float(val)
@@ -160,9 +216,21 @@ def _createSearchTuple(targetEntity, searchSpace, key, val, tpe="exact"):
 def cleanDate(dte):
     return datetime.strptime(dte, '%Y-%m-%d') if dte != "null" else None
 
+def cleanFloat(num):
+    try:
+        return float(num)
+    except ValueError:
+        return None    
+
+def cleanInt(num):
+    try:
+        return int(num)
+    except ValueError:
+        return None    
+
+
 
 def organizeAnalysis(opts, analysisSpace):
-    # TODO: do it
     '''
     vibe:
     0: check if "op", and "relationships" in dct

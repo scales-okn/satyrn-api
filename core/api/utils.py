@@ -169,7 +169,7 @@ def _get_helper(extractor, entity, attribute, db, transform, date_transform, op,
 
 
     if transform:
-        field = TRS[transform]["processor"](field)
+        field = TRS[transform]["processor"](field, extractor.getDBType(), extra)
 
     return field, name
 

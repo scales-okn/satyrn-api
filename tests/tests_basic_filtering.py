@@ -128,6 +128,89 @@ class TestFilter(unittest.TestCase):
         pass
 
 
+    def test_filter_area_contains(self):
+        # ground truth verified
+        opts = {"batchSize": 5}
+        json_opts = {
+            "query": {
+                "AND": [
+                    [
+                        {"entity": "Contributor",
+                        "field": "area"},
+                        "union",
+                        "contains"
+                    ]
+                ]
+            },
+            "relationships": ["ContribToContributor"]
+        }
+        urllink = make_results_url(self.url, self.ringid, self.versionid, "Contribution", "results", opts)
+
+        resp = requests.get(urllink, headers=self.headers, json=json_opts)
+
+        results = json.loads(resp.content.decode('utf-8'))
+        expected_results = {"totalCount": 178, "page": 0, "batchSize": 5, "activeCacheRange": [0, 50], "results": [{"amount": "2500.0", "inState":
+                            "True", "electionYear": "2010", "contributionRecipient": "QUINN III, PATRICK JOSEPH (PAT) & SIMON, SHEILA J",
+                            "contributionDate": "None"}, {"amount": "5000.0", "inState": "True", "electionYear": "2010", "contributionRecipient":
+                            "QUINN III, PATRICK JOSEPH (PAT) & SIMON, SHEILA J", "contributionDate": "None"}, {"amount": "100.0", "inState": "True",
+                            "electionYear": "2010", "contributionRecipient": "HYNES, DANIEL W", "contributionDate": "None"}, {"amount": "25000.0",
+                            "inState": "True", "electionYear": "2010", "contributionRecipient": "QUINN III, PATRICK JOSEPH (PAT) & SIMON, SHEILA J",
+                            "contributionDate": "None"}, {"amount": "1000.0", "inState": "False", "electionYear": "2014", "contributionRecipient":
+                            "QUINN III, PATRICK JOSEPH (PAT) & VALLAS, PAUL GUST", "contributionDate": "None"}]}
+        self.assertEqual(expected_results, results)
+
+
+    def test_filter_amount_range(self):
+        # ground truth verified
+        opts = {"batchSize": 1, "page": 1}
+        json_opts = {
+            "query": {
+                "AND": [
+                    [
+                        {"entity": "Contribution",
+                        "field": "amount"},
+                        [0,200],
+                        "range"
+                    ]
+                ]
+            },
+            "relationships": []
+        }
+        urllink = make_results_url(self.url, self.ringid, self.versionid, "Contribution", "results", opts)
+
+        resp = requests.get(urllink, headers=self.headers, json=json_opts)
+
+        results = json.loads(resp.content.decode('utf-8'))
+        expected_results = {"totalCount": 10, "page": 1, "batchSize": 1, "activeCacheRange": [0, 10], "results": [{"amount": "100.0", "inState":
+                            "True", "electionYear": "2010", "contributionRecipient": "QUINN III, PATRICK JOSEPH (PAT) & SIMON, SHEILA J",
+                            "contributionDate": "None"}]}
+        self.assertEqual(expected_results, results)
+
+    def test_filter_amount_lessthan(self):
+        # ground truth verified
+        opts = {"batchSize": 1, "page": 1}
+        json_opts = {
+            "query": {
+                "AND": [
+                    [
+                        {"entity": "Contribution",
+                        "field": "amount"},
+                        1000,
+                        "lessthan"
+                    ]
+                ]
+            },
+            "relationships": []
+        }
+        urllink = make_results_url(self.url, self.ringid, self.versionid, "Contribution", "results", opts)
+
+        resp = requests.get(urllink, headers=self.headers, json=json_opts)
+
+        results = json.loads(resp.content.decode('utf-8'))
+        expected_results = {"totalCount": 60, "page": 1, "batchSize": 1, "activeCacheRange": [0, 10], "results": [{"amount": "250.0", "inState":
+"True", "electionYear": "2014", "contributionRecipient": "QUINN III, PATRICK JOSEPH (PAT) & VALLAS, PAUL GUST",
+"contributionDate": "None"}]}
+        self.assertEqual(expected_results, results)
 
 if __name__ == '__main__':
     unittest.main()

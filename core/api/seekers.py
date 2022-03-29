@@ -124,8 +124,22 @@ def addFilter(query, extractor, db, opts):
     field, _ = utils._get(extractor, dct["entity"], dct["field"], db)
     if filter_type == "exact":
         return field == vals
+    elif filter_type == "range":
+        return and_(field >= vals[0], field <= vals[1])
+    elif filter_type == "contains":
+        return func.lower(field).contains(func.lower(vals))
+    elif filter_type in ["lessthan", "greaterthan", "lessthan_eq", "greaterthan_eq"]:
+        comparator_dict = {
+            "lessthan": lambda a,b: a < b,
+            "greaterthan": lambda a,b: a > b,
+            "lessthan_eq": lambda a,b: a <= b,
+            "greaterthan_eq": lambda a,b: a >= b,
+        }
+        return comparator_dict[filter_type](field, vals)
     else:
         print(" no other type implemented yet other than exact")
+        print("technically this hould never be reached bc we checked filters in api")
+        return None
 
     return query
 

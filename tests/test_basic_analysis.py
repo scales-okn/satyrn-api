@@ -1209,5 +1209,164 @@ class TestAnalysis(unittest.TestCase):
         results = json.loads(resp.content.decode('utf-8'))
         self.assertEqual(expected_results, results)
 
+    def test_count_contributor_groupby_parentorg(self):
+        # ground truth verified
+        search_opts = {}
+        analysis_opts = {
+            "target": {
+                "entity":"Contributor",
+                "field": "id"
+            },
+            "op": "count",
+            "groupBy": [{
+                "entity": "Contributor",
+                "field": "parentOrg"
+            }],
+            "relationships": []
+        }
+        expected_results = {
+            "counts": {
+                "Contributor//id": 118
+            },
+            "fieldNames": [
+                {
+                    "entity": "Contributor",
+                    "field": "parentOrg"
+                },
+                {
+                    "entity": "Contributor",
+                    "field": "id",
+                    "op": "count"
+                }
+            ],
+            "length": 28,
+            "results": [
+                [
+                    "AMERICAN FEDERATION OF TEACHERS / AFT",
+                    3
+                ],
+                [
+                    "BROTHERHOOD OF LOCOMOTIVE ENGINEERS & TRAINMEN / BLET",
+                    1
+                ],
+                [
+                    "COMMUNICATIONS WORKERS OF AMERICA / CWA",
+                    1
+                ],
+                [
+                    "FRATERNAL ORDER OF POLICE ASSOCIATES / FOP",
+                    1
+                ],
+                [
+                    "ILLINOIS AFL-CIO",
+                    1
+                ],
+                [
+                    "INTERNATIONAL ALLIANCE OF THEATRICAL STAGE EMPLOYEES / IATSE",
+                    3
+                ],
+                [
+                    "INTERNATIONAL ASSOCIATION OF BRIDGE STRUCTURAL ORNAMENTAL & REINFORCING IRON WORKERS",
+                    5
+                ],
+                [
+                    "INTERNATIONAL ASSOCIATION OF FIRE FIGHTERS / IAFF",
+                    2
+                ],
+                [
+                    "INTERNATIONAL ASSOCIATION OF HEAT & FROST INSULATORS & ALLIED WORKERS / HFIAW",
+                    1
+                ],
+                [
+                    "INTERNATIONAL ASSOCIATION OF SHEET METAL AIR RAIL & TRANSPORTATION WORKERS / SMART",
+                    2
+                ],
+                [
+                    "INTERNATIONAL BROTHERHOOD OF BOILERMAKERS IRON SHIP BUILDERS BLACKSMITHS FORGERS & HELPERS / IBB",
+                    2
+                ],
+                [
+                    "INTERNATIONAL BROTHERHOOD OF ELECTRICAL WORKERS / IBEW",
+                    9
+                ],
+                [
+                    "INTERNATIONAL BROTHERHOOD OF TEAMSTERS / IBT",
+                    13
+                ],
+                [
+                    "INTERNATIONAL UNION OF OPERATING ENGINEERS / IUOE",
+                    6
+                ],
+                [
+                    "INTERNATIONAL UNION OF PAINTERS & ALLIED TRADES / IUPAT",
+                    2
+                ],
+                [
+                    "LABORERS INTERNATIONAL UNION OF NORTH AMERICA / LIUNA",
+                    7
+                ],
+                [
+                    "NATIONAL AFL-CIO",
+                    5
+                ],
+                [
+                    "NATIONAL EDUCATION ASSOCIATION / NEA",
+                    1
+                ],
+                [
+                    "No value",
+                    25
+                ],
+                [
+                    "SERVICE EMPLOYEES INTERNATIONAL UNION / SEIU",
+                    3
+                ],
+                [
+                    "SHEET METAL WORKERS INTERNATIONAL ASSOCIATION / SMWIA",
+                    1
+                ],
+                [
+                    "UNITE HERE! INTERNATIONAL UNION",
+                    1
+                ],
+                [
+                    "UNITED ASSOCIATION OF JOURNEYMEN & APPRENTICES OF THE PLUMBING & PIPE FITTING INDUSTRY OF THE UNITED STATES & CANADA / UA",
+                    10
+                ],
+                [
+                    "UNITED AUTOMOBILE AEROSPACE & AGRICULTURAL IMPLEMENT WORKERS OF AMERICA / UAW",
+                    2
+                ],
+                [
+                    "UNITED BROTHERHOOD OF CARPENTERS & JOINERS / UBC",
+                    7
+                ],
+                [
+                    "UNITED FOOD & COMMERCIAL WORKERS INTERNATIONAL UNION / UFCW",
+                    2
+                ],
+                [
+                    "UNITED STEEL PAPER & FORESTRY RUBBER MANUFACTURING ENERGY ALLIED INDUSTRIAL & SERVICE WORKERS INTERNATIONAL / USW",
+                    1
+                ],
+                [
+                    "UNITED UNION OF ROOFERS WATERPROOFERS & ALLIED WORKERS",
+                    1
+                ]
+            ],
+            "units": {
+                "results": [
+                    "Contributor Parent Organization",
+                    "Contributor"
+                ]
+            }
+        }
+        urllink = make_results_url(self.url, self.ringid, self.versionid, "Contributor", "analysis", search_opts)
+
+        resp = requests.get(urllink, headers=self.headers, json=analysis_opts)
+        results = json.loads(resp.content.decode('utf-8'))
+        self.assertEqual(expected_results, results)
+
+
 if __name__ == '__main__':
     unittest.main()

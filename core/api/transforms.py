@@ -42,7 +42,7 @@ def lambda_func(string):
     return lambda x: (comp_1(value_1, x)) & (comp_2(x, value_2))
 
 
-def inequalities_processing(model_field, string_list=None, else_val=None):
+def inequalities_processing(model_field, db_type, extra):
     '''
     Returns a sqlalchemy case expression for building the string_list
     Examples:
@@ -69,16 +69,16 @@ def inequalities_processing(model_field, string_list=None, else_val=None):
         ("x > 20", "> 20 years")
     ],
     '''
+    extra = extra if extra else {}
     transform_dict = {}
-    if string_list == None:
-        string_list = ["x < 200", "200 <= x < 500", "500 <= x"]
+    string_list = extra.get("string_list", ["x < 200", "200 <= x < 500", "500 <= x"])
     if type(string_list[0]) == str:
         for string in string_list:
             transform_dict[string] = lambda_func(string)
     else:
         for string1, string2 in string_list:
             transform_dict[string2] = lambda_func(string1)        
-    return make_case_expression(model_field, transform_dict, else_val)
+    return make_case_expression(model_field, transform_dict, else_val=extra.get("else_val", None))
 
 
 
@@ -107,24 +107,25 @@ def year_processing(model_field, string_list=None, else_val=None):
 #     return func.substr(model_field, 0, (func.length(model_field) - func.instr(model_field, " ")))
 
 TRANSFORMS_SPACE = {
-    "inequalities": {
+    "threshold": {
         "dataType": ["float", "int"],
         "newType": "string",
         "processor": inequalities_processing,
 
     },
-    "month_transform": {
-        "dataType": ["datetime"],
-        "newType": "date",
-        "processor": month_processing,
 
-    },
-    "year_transform": {
-        "dataType": ["datetime"],
-        "newType": "date",
-        "processor": year_processing,
+    # "month_transform": {
+    #     "dataType": ["datetime"],
+    #     "newType": "date",
+    #     "processor": month_processing,
 
-    },
+    # },
+    # "year_transform": {
+    #     "dataType": ["datetime"],
+    #     "newType": "date",
+    #     "processor": year_processing,
+
+    # },
     # "substr_transform": {
     #     "dataType": ["string"],
     #     "newType": "string",
