@@ -37,7 +37,12 @@ def sql_median(field, db_type):
     elif db_type == "postgres":
         return func.percentile_disc(0.5).within_group(field.asc())
 
-
+# def sql_percent_rank(field, db_type):
+#     # NOTE: DOes not currently work
+#     if db_type == "sqlite":
+#         return func.percent_rank(field)
+#     elif db_type == "postgres":
+#         return func.percent_rank().within_group(field.asc())
 
 
 def count_entities(query, entity_ids, field_names, db_type):

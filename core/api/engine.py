@@ -154,6 +154,27 @@ def single_ring_analysis(s_opts, a_opts, ring, extractor, targetEntity, sess, db
 
     else:
         # a_opts, field_types = _expand_grouping(a_opts, field_types)
+
+        # TODO:
+        # In case u need to query stuff before the "real" query
+        # For now: if any of the groupby args have a transform==percentile
+        # Then, do another path with the needed query
+        # AND then add those things as "extras"/args for the prep_query
+        # for field in field_types["group"]:
+        #     if a_opts[field].get("transform", None) == "percentile":
+        #         new_a_opts = func_to_get_params()
+        #         query, groupby_args, field_names, col_names = simple_query(s_opts, new_a_opts, ring, extractor, targetEntity, sess, db, field_types)
+        #         query = query.group_by(*groupby_args) if len(groupby_args) else query  
+        #         results = [q for q in query.all()]
+        #         # From results, get the params
+        #         params = results              
+        #         a_opts[field]["extra"] = {"nums": params}
+
+        # for idx, group in enumerate(a_opts.get("groupBy", [])):
+        #     if a_opts["groupBy"][idx].get("transform", None) == "percentile":
+        #         params = func_to_get_params()
+        #         a_opts["groupBy"][idx]["extra"] = {"nums": params}
+
         if OPS[op]["type"] == "simple":
             new_a_opts = OPS[op]["queryPrep"](s_opts, a_opts, targetEntity)[1]
             query, groupby_args, field_names, col_names = simple_query(s_opts, new_a_opts, ring, extractor, targetEntity, sess, db, field_types)

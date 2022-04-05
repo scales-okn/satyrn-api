@@ -17,5 +17,9 @@
     
    	"result_formatting":{
    		"rounding":["True", 2] 
-   	}
+   	},
+    "transforms_defaults": {
+        "threshold": ["x < 200", "200 <= x < 500", "500 <= x"],
+        "percentiles": "quartiles"
+    }
 }

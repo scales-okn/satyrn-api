@@ -194,6 +194,7 @@ class Ring_Attribute(Ring_Object):
             self.autocomplete = md.get('autocomplete', True if self.searchable else False)
             self.description = md.get('description')
             self.resultFormat = md.get('resultFormat', [False,False])
+            self.threshold = md.get("threshold", None)
 
         default_path = os.environ.get("SATYRN_ROOT_DIR") + "/" +"core" + "/" + "defaults.json"
         with open(default_path, 'r') as file:
@@ -217,6 +218,9 @@ class Ring_Attribute(Ring_Object):
                 else:
                     self.rounding = defaults.get("result_formatting")["rounding"][0]
                     self.sig_figs = defaults.get("result_formatting")["rounding"][1]
+
+                if not self.threshold:
+                    self.threshold = defaults["transforms_defaults"]["threshold"]
 
             if self.baseIsa and self.baseIsa in ["date", "datetime", "date"]:
                 if info.get("dateGranularity"):

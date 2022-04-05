@@ -9,6 +9,7 @@ from flask import current_app
 from sqlalchemy.sql.expression import case, extract
 from sqlalchemy.sql.functions import concat
 from sqlalchemy import func
+# from .sql_func import sql_percent_rank
 
 def make_case_expression(model_field, transform_dict, else_val):
     # print(transform_dict)
@@ -42,7 +43,7 @@ def lambda_func(string):
     return lambda x: (comp_1(value_1, x)) & (comp_2(x, value_2))
 
 
-def inequalities_processing(model_field, db_type, extra):
+def threshold_processing(model_field, db_type, extra):
     '''
     Returns a sqlalchemy case expression for building the string_list
     Examples:
@@ -69,9 +70,9 @@ def inequalities_processing(model_field, db_type, extra):
         ("x > 20", "> 20 years")
     ],
     '''
-    extra = extra if extra else {}
+    # extra = extra if extra else {}
     transform_dict = {}
-    string_list = extra.get("string_list", ["x < 200", "200 <= x < 500", "500 <= x"])
+    string_list = extra.get("threshold", TRANSFORMS_SPACE["threshold"]["default"])
     if type(string_list[0]) == str:
         for string in string_list:
             transform_dict[string] = lambda_func(string)
@@ -80,23 +81,47 @@ def inequalities_processing(model_field, db_type, extra):
             transform_dict[string2] = lambda_func(string1)        
     return make_case_expression(model_field, transform_dict, else_val=extra.get("else_val", None))
 
+# def percentiles_processing(model_field, db_type, extra):
+#     '''
+#     Returns a sqlalchemy case expression for bucketing
+#     int/floats into the percentiles needed
+#     '''
+#     # extra = extra if extra else {}
+#     # transform_dict = {}
+#     # string_list = extra.get("threshold", TRANSFORMS_SPACE["threshold"]["default"])
+#     # if type(string_list[0]) == str:
+#     #     for string in string_list:
+#     #         transform_dict[string] = lambda_func(string)
+#     # else:
+#     #     for string1, string2 in string_list:
+#     #         transform_dict[string2] = lambda_func(string1)        
+#     # return make_case_expression(model_field, transform_dict, else_val=extra.get("else_val", None)) 
+
+#     rank_field = sql_percent_rank(model_field, db_type)
+#     transform_dict = {str(y): lambda x: x < y/100 for y in [0, 25, 50, 100]}
+#     return make_case_expression(rank_field, transform_dict, else_val=None)
 
 
-def month_processing(model_field, string_list=None, else_val=None):
-    '''
-    obtains a datetime and then from that, maps them to datetime
 
-    '''
-    return concat(extract('year', model_field), "/", extract('month', model_field))
+# def percentile_parameters(s_opts, a_opts, ring, extractor, targetEntity, session, db, field_types, field):
+#     # Given all that (might not need it all, we'll see)
+#     # Return a new a_opts that has the needed parameters
+#     '''
+#     e.g.
+#     {Contribution amount percentiles}
+#     to
+#     {Contribution amount percentiles [0, 100, 2345, 100000]}
+
+#     and everything else the same i think
+#     '''
+#     # Make the new query
 
 
-def year_processing(model_field, string_list=None, else_val=None):
-    '''
-    obtains a datetime and then from that, maps them to datetime
 
-    '''
-    return extract('year', model_field)
+#     # Return the new query to run? that way we can do prep query and all that shizz over there
 
+#     # 
+#     pass
 
 
 # def substr_processing(model_field, string_list=None, else_val=None):
@@ -110,10 +135,17 @@ TRANSFORMS_SPACE = {
     "threshold": {
         "dataType": ["float", "int"],
         "newType": "string",
-        "processor": inequalities_processing,
+        "processor": threshold_processing,
+        "default": ["x < 1000", "1000 <= x"]
 
     },
+    # "percentiles": {
+    #     "dataType": ["float", "int"],
+    #     "newType": "string",
+    #     "processor": percentiles_processing,
+    #     "default": "quartiles"
 
+    # },
     # "month_transform": {
     #     "dataType": ["datetime"],
     #     "newType": "date",
