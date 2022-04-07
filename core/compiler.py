@@ -116,11 +116,11 @@ class Ring_Object(object):
         ## is valid can return a touple of the following format
             ## return (False, "details of the error message")
                 ## return (True, [])
-        ## what to do? 
+        ## what to do?
             ## check what exactly is failing and return a message.
-                ## how do I check JSON objects or ring objects? 
+                ## how do I check JSON objects or ring objects?
             ## this would mean that I have to change all other code that uses is_valid.
-                
+
         ## return (False, ["initialization set to false.",...] )
         return (False, {"initialization set to false."})
 
@@ -156,12 +156,12 @@ class Ring_Attribute(Ring_Object):
         self.dateMaxGranularity = None
         ## addition of rounding
         '''
-            exp of syntax: "rounding":["True", 0]  means 0 decimal rounding--> round to the nearest int 
+            exp of syntax: "rounding":["True", 0]  means 0 decimal rounding--> round to the nearest int
         '''
         self.rounding = None
         self.sig_figs = None
 
-        ## Donna's trying to do some error handling 
+        ## Donna's trying to do some error handling
         self.errorSet = set()
 
     def parse(self, name, info):
@@ -202,14 +202,14 @@ class Ring_Attribute(Ring_Object):
             ##check if the value is set in the ring
             if info.get("nullHandling"):
                 self.nullHandling = info.get("nullHandling")
-            else: 
+            else:
                 self.nullHandling = defaults.get("null_defaults")[self.baseIsa][0]
             if info.get("nullValue"):
                 self.nullValue = info.get("nullValue")
-            else: 
-                self.nullValue = defaults.get("null_defaults")[self.baseIsa][1] 
+            else:
+                self.nullValue = defaults.get("null_defaults")[self.baseIsa][1]
 
-            ## rounding 
+            ## rounding
             if self.baseIsa in ["float", "integer"]:
                 ##chek if the value is set in the ring
                 if info.get("rounding"):
@@ -229,8 +229,8 @@ class Ring_Attribute(Ring_Object):
                     granularity = defaults.get("date_defaults")[self.baseIsa]
                 self.dateMaxGranularity = granularity [1]
                 self.dateMinGranularity = granularity [0]
-        
-    
+
+
 
     def construct(self):
 
@@ -274,11 +274,11 @@ class Ring_Attribute(Ring_Object):
         if self.source_columns == None:
             self.errorSet.add("Ring Attribute 'column' is missing.")
         ## now we do some imp stuff
-        if len(self.errorSet) == 0: 
+        if len(self.errorSet) == 0:
             ## No errors!
                 ## It will return (True, [])
             return (bool(self.name and self.nicename and self.isa and self.source_table and self.source_columns), {})
-        else: 
+        else:
             ## will return a string of errors
             errorString = ' '.join(self.errorSet)
             return (False, errorString)
@@ -293,17 +293,19 @@ class Ring_Entity(Ring_Object):
 
         # Initialize other properties
         self.name = None
+        self.nicename = None
         self.table = None
         self.renderable = False
         self.reference = None
         self.attributes = []
 
-        ## Donna's trying to do some error handling 
+        ## Donna's trying to do some error handling
         self.errorSet = set()
         self.attribute_name = []
 
     def parse(self, entity):
         self.name = entity.get('name')
+        self.nicename = entity.get('nicename', [entity.get('name'), entity.get('name')])
         self.reference = entity.get('reference')
         self.table = entity.get('table')
         self.id = self.safe_extract_list('id', entity)
@@ -337,7 +339,7 @@ class Ring_Entity(Ring_Object):
             self.errorSet.add("Ring Entity 'Table' is missing.")
         if self.id == None:
             self.errorSet.add("Ring Attribute 'id' is missing.")
-        if self.id_type == None: 
+        if self.id_type == None:
             self.errorSet.add("Ring Attribute 'id type' is missing.")
         if self.attributes == None:
             self.errorSet.add("Ring Attributes are invalid.")
@@ -348,7 +350,7 @@ class Ring_Entity(Ring_Object):
             ## No errors!
                 ## It will return (True, [])
             return (True, {})
-        else: 
+        else:
             ## will return a string of errors
             errorString = ' '.join(self.errorSet)
             return (False, self.errorSet)
@@ -366,7 +368,7 @@ class Ring_Relationship(Ring_Object):
         self.relation = "m2m"
         self.bidirectional = True
 
-        ## Donna's trying to do some error handling 
+        ## Donna's trying to do some error handling
         self.errorSet = set()
 
         # ANDONg added new stuff for derived relationships
@@ -421,7 +423,7 @@ class Ring_Relationship(Ring_Object):
             self.errorSet.add("Ring relationship has no joins.")
 
         if len(self.errorSet) == 0:
-            ## No errors: 
+            ## No errors:
             return (True, {})
         else:
             ## will return a string of errors
@@ -443,7 +445,7 @@ class Ring_Source(Ring_Object):
         # # Tie in the base
         self.base = base if base else declarative_base()
 
-        ## Donna's trying to do some error handling 
+        ## Donna's trying to do some error handling
         self.errorSet = set()
 
     def parse(self, source):
@@ -483,7 +485,7 @@ class Ring_Source(Ring_Object):
         valid =  bool(self.type and self.connection_string and self.tables)
         if self.joins:
             valid = valid and reduce((lambda x, y: x and y), map((lambda x: x.is_valid()[0]), self.joins))
-            if valid == False: 
+            if valid == False:
                 self.errorSet.add("there is an issue with the validity of the joins.")
         if len(self.errorSet) == 0:
             return (True, {})
@@ -530,7 +532,7 @@ class Ring_Source(Ring_Object):
         else:
             self.eng = create_engine("sqlite:///" + path)
             connect_to_extensions(self.eng)
-            self.Session = sessionmaker(bind=self.eng)            
+            self.Session = sessionmaker(bind=self.eng)
 
         def cast_value(value, tpe, dateparse=None):
             if tpe == "INTEGER":
@@ -622,7 +624,7 @@ class Ring_Join(Ring_Object):
         self.to = None
         self.path = None
 
-        ## Donna's trying to do some error handling 
+        ## Donna's trying to do some error handling
         self.errorSet = set()
 
     def parse(self, join):
@@ -674,7 +676,7 @@ class Ring_Configuration(Ring_Object):
         self.relationships = []
         self.default_target_model = None
 
-        ## Donna's trying to do some error handling 
+        ## Donna's trying to do some error handling
         self.errorSet = set()
         self.entity_name = []
         self.rounding = None
@@ -931,7 +933,7 @@ class Ring_Compiler(object):
             model_map[table][col_name + "_date"] = column_property(extr_dct["year"] + "/" + extr_dct["month"] +  "/" + extr_dct["day"])
             # do day of week
             model_map[table][col_name + "_dayofweek"] = column_property(cast(extract("dow", model_map[attribute.source_table][col_name]), String))
-        
+
         # check if year month valid
         # if minID > 0 and maxID == 0:
         #     model_map[table][col_name + "_month"] = column_property(concat(extr_dct["year"], "/", extr_dct["month"]))
