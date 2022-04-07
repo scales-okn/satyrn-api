@@ -153,27 +153,6 @@ def single_ring_analysis(s_opts, a_opts, ring, extractor, targetEntity, sess, db
         results.update({"field_names": field_names, "field_types": col_names, "units": units})
 
     else:
-        # a_opts, field_types = _expand_grouping(a_opts, field_types)
-
-        # TODO:
-        # In case u need to query stuff before the "real" query
-        # For now: if any of the groupby args have a transform==percentile
-        # Then, do another path with the needed query
-        # AND then add those things as "extras"/args for the prep_query
-        # for field in field_types["group"]:
-        #     if a_opts[field].get("transform", None) == "percentile":
-        #         new_a_opts = func_to_get_params()
-        #         query, groupby_args, field_names, col_names = simple_query(s_opts, new_a_opts, ring, extractor, targetEntity, sess, db, field_types)
-        #         query = query.group_by(*groupby_args) if len(groupby_args) else query  
-        #         results = [q for q in query.all()]
-        #         # From results, get the params
-        #         params = results              
-        #         a_opts[field]["extra"] = {"nums": params}
-
-        # for idx, group in enumerate(a_opts.get("groupBy", [])):
-        #     if a_opts["groupBy"][idx].get("transform", None) == "percentile":
-        #         params = func_to_get_params()
-        #         a_opts["groupBy"][idx]["extra"] = {"nums": params}
 
         if OPS[op]["type"] == "simple":
             new_a_opts = OPS[op]["queryPrep"](s_opts, a_opts, targetEntity)[1]
@@ -204,6 +183,26 @@ def complex_operation(s_opts, a_opts, ring, extractor, targetEntity, session, db
     op_name = a_opts["op"]
 
     # What to query/Query translation
+
+    # TODO: Path for when queryPrep is a list with len > 1 (and consequently pandasFunc len > 1)
+    '''
+    Basically, the pipelin would be:
+    input: original a_opts and everything
+        queryPrep1
+            return new_a_opts1
+        pandasFunc1
+        queryPrep2 (that also takes in as an input results from pandasFunc1)
+            returns new_a_opts2
+        pandasFunc2
+        ...
+    output: 
+
+    Other (potential) needed changes:
+    - row_counts: does this affect how we count rows? Right now it would only count for
+    the last new_a_opts
+    - units: same as row_count
+    '''
+
     new_a_opts = OPS[op_name]["queryPrep"](s_opts, a_opts, targetEntity)[1]
     for key in field_types["target"]:
         if key in new_a_opts and "extra" not in new_a_opts[key]:
