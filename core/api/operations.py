@@ -35,7 +35,7 @@ def base_query_prep(s_opts, orig_a_opts, targetEntity):
     a_opts["target"].update({"op": a_opts["op"],
                     "extra": {"numerator": a_opts["numerator"]} if "numerator" in a_opts["target"] else {}
                 })
-    
+
     return s_opts, a_opts, targetEntity
 
 
@@ -51,7 +51,7 @@ OPERATION_SPACE = {
         "funcDict": {
             "op": lambda field, dbtype, extra: func.avg(field),
         },
-        "template": "Average of {target}",
+        "template": "Average {target}",
         "units": "unchanged",
         "type": "simple",
     },
@@ -139,7 +139,7 @@ OPERATION_SPACE = {
         "funcDict": {
             "op": lambda field, dbtype, extra: sql_median(field, dbtype),
         },
-        "template": "Median of {target}",
+        "template": "Median {target}",
         "units": "unchanged",
         "type": "simple",
     },

@@ -88,15 +88,16 @@ class RingConfigExtractor(object):
 
         for ent_name, rel, rel_type in ents:
             ent, entObj = self.resolveEntity(ent_name)
-            key_name = rel if rel else None
+            key_name = rel if rel else "_self"
             analysisSpace[key_name] = {
                 "entity": ent_name,
+                "nicename": entObj.nicename,
                 "rel_type": rel_type,
                 "attributes": { att.name: {
                                 "type": att.baseIsa,
                                 "model": getattr(self.config.db, entObj.table), # TODO: change for attr specific table
                                 "fields": att.source_columns,
-                                "nicename": att.nicename[0], # TODO: leverage the list for singular+plural
+                                "nicename": att.nicename,
                                 "unit": att.units,
                             } for att in entObj.attributes if att.searchable
                 }
@@ -257,6 +258,7 @@ class RingConfigExtractor(object):
         for k0, v0 in analysisSpace.items():
             subspace = {}
             subspace["entity"] = v0["entity"]
+            subspace["nicename"] = v0["nicename"]
             subspace["relType"] = v0["rel_type"]
             attrs = []
             for k, v in v0["attributes"].items():
