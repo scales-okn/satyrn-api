@@ -194,14 +194,14 @@ def runAnalysis(ringId, version, targetEntity):
     searchOpts = organizeFilters2(searchOpts, searchSpace)
 
     # analysisOpts = organizeAnalysis(analysisOpts, ringExtractor.getAnalysisSpace(targetEntity))
+    # NOTE: this is currently commented out bc it is not taking into account potential plans taht can stem from entities
+    # that are not the search target entity but would still be valid
 
     if not analysisOpts:
         print("ill formed analysis opts")
         return jsonify({})
 
     # searchOpts = organizeFilters(request, searchSpace)
-    # TODO: write bit of code to obtain from the json the filters and whatnot
-    # TODO: rview getseachspace and organize filters to make sure weget the crucial parts of it
     raw_results = run_analysis(s_opts=searchOpts, a_opts=analysisOpts, targetEntity=targetEntity, ring=ring, extractor=ringExtractor)
 
     results = {
