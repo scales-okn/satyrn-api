@@ -1747,57 +1747,57 @@ class TestAnalysis(unittest.TestCase):
         # print(results)
         self.assertEqual(expected_results, results)
 
-    def test_summary_empty(self):
-        # ground truth verified
-        search_opts = {"electionYear": "1234"}
-        analysis_opts = {
-            "target": {
-                "entity":"Contribution",
-                "field": "amount"
-            },
-            "op": "summaryStatistics",
-            "relationships": []
-        }
-        expected_results = {
-            "counts": {
-                "Contribution//id": 0
-            },
-            "fieldNames": [
-                {
-                    "entity": "Contribution",
-                    "field": "amount",
-                    "op": "min"
-                },
-                {
-                    "entity": "Contribution",
-                    "field": "amount",
-                    "op": "median"
-                },
-                {
-                    "entity": "Contribution",
-                    "field": "amount",
-                    "op": "max"
-                },
-                {
-                    "entity": "Contribution",
-                    "field": "amount",
-                    "op": "average"
-                }
-            ],
-            "length": 0,
-            "results": [],
-            "units": [
-                "dollar",
-                "dollar",
-                "dollar",
-                "dollar"
-            ]
-        }
-        urllink = make_results_url(self.url, self.ringid, self.versionid, "Contribution", "analysis", search_opts)
+    # def test_summary_empty(self):
+    #     # ground truth verified
+    #     search_opts = {"electionYear": "1234"}
+    #     analysis_opts = {
+    #         "target": {
+    #             "entity":"Contribution",
+    #             "field": "amount"
+    #         },
+    #         "op": "summaryStatistics",
+    #         "relationships": []
+    #     }
+    #     expected_results = {
+    #         "counts": {
+    #             "Contribution//id": 0
+    #         },
+    #         "fieldNames": [
+    #             {
+    #                 "entity": "Contribution",
+    #                 "field": "amount",
+    #                 "op": "min"
+    #             },
+    #             {
+    #                 "entity": "Contribution",
+    #                 "field": "amount",
+    #                 "op": "median"
+    #             },
+    #             {
+    #                 "entity": "Contribution",
+    #                 "field": "amount",
+    #                 "op": "max"
+    #             },
+    #             {
+    #                 "entity": "Contribution",
+    #                 "field": "amount",
+    #                 "op": "average"
+    #             }
+    #         ],
+    #         "length": 0,
+    #         "results": [],
+    #         "units": [
+    #             "dollar",
+    #             "dollar",
+    #             "dollar",
+    #             "dollar"
+    #         ]
+    #     }
+    #     urllink = make_results_url(self.url, self.ringid, self.versionid, "Contribution", "analysis", search_opts)
 
-        resp = requests.get(urllink, headers=self.headers, json=analysis_opts)
-        results = json.loads(resp.content.decode('utf-8'))
-        self.assertEqual(expected_results, results)
+    #     resp = requests.get(urllink, headers=self.headers, json=analysis_opts)
+    #     results = json.loads(resp.content.decode('utf-8'))
+    #     self.assertEqual(expected_results, results)
 
 
     def test_summary_amount(self):
