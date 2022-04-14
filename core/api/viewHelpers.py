@@ -220,13 +220,13 @@ def cleanFloat(num):
     try:
         return float(num)
     except ValueError:
-        return None    
+        return None
 
 def cleanInt(num):
     try:
         return int(num)
     except ValueError:
-        return None    
+        return None
 
 
 
@@ -238,9 +238,9 @@ def organizeAnalysis(opts, analysisSpace):
     2. see if we have all the fields that are required
     3. See if we all the fields are proper types and whatno
 
-    4. if any of the required fields are missing, return indication that 
+    4. if any of the required fields are missing, return indication that
     operation cannot go thru
-    
+
     PENDING: check relationships?
 
     NOTE: we might need to leave some leeway for paramters?
@@ -341,7 +341,7 @@ def _checkAnalysisField(opt_dct, req_dct, analysisSpace):
         # if params:
         #     for param_dct in params:
         #         if datatype in param_dct["inputTypes"]:
-        #             # PENDING: How 
+        #             # PENDING: How
         #         else:
         #             if param_dct.get("required", False):
         #                 print(f"field {req_field} requires parameter but not given?")
@@ -387,6 +387,9 @@ def getRingFromService(ringId, version=None):
         request = requests.get(os.path.join(app.uxServiceAPI, "rings", ringId), headers=headers)
     requestJSON = request.json()
     ringConfig = requestJSON["data"]["ring"]
+
+    print("getting ring", flush=True)
+    print("ring not found", flush=True)
 
     if type(ringConfig) == str:
         ringConfig = json.loads(ringConfig)
