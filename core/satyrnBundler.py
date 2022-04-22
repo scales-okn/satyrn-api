@@ -50,16 +50,25 @@ app.config["UX_SERVICE_API_KEY"] = os.environ.get("UX_SERVICE_API_KEY", app.conf
 app.cache = Cache(app)
 
 # bootstrap the site info and rings from the config json
-with open(os.environ["SATYRN_SITE_CONFIG"]) as f:
-    siteConf = json.load(f)
-app.satMetadata = siteConf
+if os.environ.get("SATYRN_SITE_CONFIG"):
+    with open(os.environ.get("SATYRN_SITE_CONFIG")) as f:
+        siteConf = json.load(f)
+    app.satMetadata = siteConf
+else:
+    # boilerplate default site config
+    app.satMetadata = {
+        "name": "Satyrn Platform",
+        "icon": "",
+        "description": "",
+        "rings": []
+    }
 
 app.rings = {}
 app.ringExtractors = {}
 
-# if we're in dev, we can bootstrap rings through the site config
+# if we're in local dev, we can bootstrap rings through the site config
 # any additional ones will still assume a running version of the FE
 if app.config["ENV"].lower() in ["dev", "development"]:
-    rings, extractors = compile_rings(siteConf["rings"])
+    rings, extractors = compile_rings(app.satMetadata.get("rings", []))
     app.rings = rings
     app.ringExtractors = extractors
