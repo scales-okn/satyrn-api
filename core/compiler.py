@@ -825,6 +825,12 @@ class Ring_Compiler(object):
     def __init__(self, config):
         self.config = config
 
+        # Get upper ontology
+        default_path = os.environ.get("SATYRN_ROOT_DIR") + "/" +"core" + "/" + "upperONtology.json"
+        with open(default_path, 'r') as file:
+            defaults = json.load(file)
+            self.upperOnt = defaults      
+
     def build_ORM(self):
         self.db = DB_Wrapper()
         models = self.build_models()
@@ -985,8 +991,15 @@ class Ring_Compiler(object):
         return model_map
 
 
+    # TODO: Modify this method to be able to deal with different kinds of data types
+    # grab the upper ontology (maybe in the init it exists and we have it as a class attr)
+    # If type in it, use that for the underlying data type
+    # If not, revert to the just doing normal column stuff
     def column_with_type(self, type_string, primary_key=False, foreign_key=None):
-        if type_string not in ["date", "datetime"]:
+
+        if type_string in self.upperOnt:
+            sa_type = getattr(sa, self.upperOnt[type_string].capitalize())
+        elif type_string not in ["date", "datetime"]:
             sa_type = getattr(sa, type_string.capitalize())
         if primary_key:
             return Column(sa_type, primary_key=True)

@@ -266,81 +266,10 @@ for key in OPERATION_SPACE.keys():
         "timeSeries": {
             "allowed": True,
             "maxDepth": 1,
-            "validInputs": ["date", "datetime"]
+            "validInputs": ["date", "datetime", "date:year"]
         }
     }
 
-
-
-
-# def pandasSum(df, col, group_cols):
-#     # df = df.groupby(group_cols)[col].sum() if len(group_cols) else df
-#     # df[col] = df[col].sum()
-#     # return df
-#     return df.groupby(group_cols, as_index=False).sum() if len(group_cols) else df.sum()
-
-# def pandasMin(df, col, group_cols):
-#     return df.groupby(group_cols, as_index=False).min() if len(group_cols) else df.min()
-
-# def pandasMax(df, col, group_cols):
-#     return df.groupby(group_cols, as_index=False).max() if len(group_cols) else df.max()
-
-# def pandasAvg(df, col, group_cols):
-#     return df.groupby(group_cols, as_index=False).mean() if len(group_cols) else df.mean()
-
-# def pandasCount(df, col, group_cols):
-#     return df.groupby(group_cols, as_index=False)[col].nunique()
-
-# def pandasAvgCount(df, col, per, group_cols=[]):
-
-#     grouped_df = df.groupby(per)
-
-#     grouping = False
-#     if len(group_cols):
-#         grouping = True
-#     group_cols.append(per)
-
-
-#     # Count per group/perfield
-#     df = df.groupby(group_cols).agg(
-#             col=(col, "nunique"),
-#         )
-
-#     if grouping:
-#         group_cols.pop()
-#         df = df.groupby(group_cols)["col"]
-
-#     df = df.mean()
-
-#     return df
-
-# def pandasAvgSum(df, col, per, group_cols=[]):
-
-#     grouping = False
-#     if len(group_cols):
-#         grouping = True
-#     group_cols.append(per)
-
-#     # Count per group/perfield
-#     df = df.groupby(group_cols).agg(
-#             col=(col, "sum"),
-#         )
-
-#     if grouping:
-#         group_cols.pop()
-#         df = df.groupby(group_cols)["col"]
-
-#     df = df.mean()
-
-#     return df
-
-# def pandasPercentage(df, col, numerator, group_cols=[]):
-#     return
-
-
-# def pandasOneHot(df, col, numerator):
-#     df[col] = df[col].apply(lambda x: 1 if x == numerator else 0)
-#     return df
 
 
 
@@ -371,7 +300,7 @@ for filename in os.listdir(directory):
                 "timeSeries": {
                     "allowed": True,
                     "maxDepth": 1,
-                    "validInputs": ["date", "datetime"]
+                    "validInputs": ["date", "datetime", "date:year"]
                 }
             }
         else:
@@ -406,6 +335,6 @@ for filename in os.listdir(directory):
             timeSeries = op[op_name]["optional"].get("timeSeries")
             if timeSeries:
                 if "validInputs" not in timeSeries:
-                    timeSeries["validInputs"] = ["date", "datetime"]
+                    timeSeries["validInputs"] = ["date", "datetime", "date:year"]
 
         OPERATION_SPACE.update(op)

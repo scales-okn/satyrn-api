@@ -180,6 +180,8 @@ def runAnalysis(ringId, version, targetEntity):
     # operation = request.args.get("op", None)
     analysisOpts = request.json
 
+    # print(analysisOpts)
+
     # first, get the search/filter stuff:
     searchSpace = ringExtractor.getSearchSpace(targetEntity)
     searchOpts = organizeFilters(request, searchSpace, targetEntity)
@@ -189,9 +191,14 @@ def runAnalysis(ringId, version, targetEntity):
     if "query" not in analysisOpts:
         analysisOpts["query"] = {}
 
-    searchOpts = analysisOpts
 
+    # print(analysisOpts)
+
+    searchOpts = analysisOpts
     searchOpts = organizeFilters2(searchOpts, searchSpace)
+
+
+    # print(searchOpts)
 
     # analysisOpts = organizeAnalysis(analysisOpts, ringExtractor.getAnalysisSpace(targetEntity))
     # NOTE: this is currently commented out bc it is not taking into account potential plans taht can stem from entities

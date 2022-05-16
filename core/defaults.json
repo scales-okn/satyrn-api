@@ -6,7 +6,8 @@
             "integer": ["ignore", 0],
             "boolean": ["ignore", "False"],
             "date": ["ignore", "None"],
-            "datetime": ["ignore", "None"]
+            "datetime": ["ignore", "None"],
+            "date:year": ["ignore", 0]
     },
     
     "date_defaults": {

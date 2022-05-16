@@ -164,7 +164,7 @@ def checkFilter(filt, searchSpace):
                 return None
 
         elif filt[2] in ["lessthan", "greaterthan", "lessthan_eq", "greaterthan_eq"]:
-            if attr["type"] not in ["date", "integer", "float"]:
+            if attr["type"] not in ["date", "integer", "float", "date:year"]:
                 return None
 
             filt[1] = clean_func(filt[1])
