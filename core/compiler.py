@@ -826,7 +826,7 @@ class Ring_Compiler(object):
         self.config = config
 
         # Get upper ontology
-        default_path = os.environ.get("SATYRN_ROOT_DIR") + "/" +"core" + "/" + "upperONtology.json"
+        default_path = os.environ.get("SATYRN_ROOT_DIR") + "/" +"core" + "/" + "upperOntology.json"
         with open(default_path, 'r') as file:
             defaults = json.load(file)
             self.upperOnt = defaults      
