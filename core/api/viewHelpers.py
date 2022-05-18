@@ -42,7 +42,6 @@ def errorGen(msg):
 def organizeFilters(request, searchSpace, targetEntity):
 
     opts = {}
-    # iterables = {k[1]: val for k, val in searchSpace if k[0] == targetEntity}
     iterables = searchSpace[None]["attributes"]
 
     for k in iterables.keys():
@@ -100,10 +99,6 @@ def traverseFilters(opts, searchSpace):
             return None
 
 
-# TODO: change this so that it can handle new format: [((ent, field), bigads dict)]
-# filter to get the list of entries that have (ent, field) as first in the tuple
-# if there, all good
-# migth be ok if there ar emore than 1, might not need further checking or whatevs around relationships and stuff
 # NOTE: we are assuming that regardless of relationship, some requirements remain the same
 # i.e. filters fro the same entity regardless of relationship will format and meet same requirements
 def checkFilter(filt, searchSpace):
@@ -117,14 +112,6 @@ def checkFilter(filt, searchSpace):
     field = ent_dct["field"]
     ent_lst = [val for key, val in searchSpace.items() if val["entity"] == ent and field in val["attributes"]]
     if len(ent_lst):
-        # TODO: Consider cases where ent_lst length > 1.
-        # rn the hunch is that it shouldnt matter
-        # since different relationships dont change
-        # the underlying data type and such of the attribute/entity
-
-        # TODO: deeper check
-        # types, values, etc
-        # date cleaning, etc
 
         ent = ent_lst[0]
         attr = ent["attributes"][field]
@@ -175,9 +162,6 @@ def checkFilter(filt, searchSpace):
             print("rn no other options allowed")
             return None
 
-
-
-
         return filt
     else:
         return None
@@ -201,7 +185,6 @@ def convertFilters(targetEntity, searchSpace, filter_dct):
     return query
 
 
-# NOTE: this will be relationshipless bc its for 2.0
 def _createSearchTuple(targetEntity, searchSpace, key, val, tpe="exact"):
 
     att_dct = searchSpace[None]["attributes"]
@@ -229,23 +212,17 @@ def cleanInt(num):
         return None
 
 
-
 def organizeAnalysis(opts, analysisSpace):
     '''
-    vibe:
-    0: check if "op", and "relationships" in dct
-    1. grab requirements for operation
-    2. see if we have all the fields that are required
+    Process:
+    0: Check if "op", and "relationships" in dct
+    1. Grab requirements for operation
+    2. See if we have all the fields that are required
     3. See if we all the fields are proper types and whatno
-
     4. if any of the required fields are missing, return indication that
     operation cannot go thru
 
-    PENDING: check relationships?
-
-    NOTE: we might need to leave some leeway for paramters?
-    unclear if we wanna do that check here OR if we wanna
-    leave it for the frontend
+    PENDING: check relationships, check parameters
     '''
 
     new_opts = {}
@@ -310,7 +287,6 @@ def organizeAnalysis(opts, analysisSpace):
             else:
                 new_opts[opt_field] = new_opt
 
-
     return new_opts
 
 
@@ -329,26 +305,13 @@ def _checkAnalysisField(opt_dct, req_dct, analysisSpace):
 
     else:
         datatype = ent_lst[0]["attributes"][field]["type"]
-        # TODO: check data type validity w/what that req_dct requires
         if datatype not in req_dct["validInputs"]:
             print(f"field {ent},{field} datatype {datatype} does not match required datatype")
-            # do not copy value into list, but can continue in process
             return {}
 
         # parameter check: see if they meet requirements
         params = req_dct.get("parameters")
-        # PENDING: how to check if parameters properly done
-        # if params:
-        #     for param_dct in params:
-        #         if datatype in param_dct["inputTypes"]:
-        #             # PENDING: How
-        #         else:
-        #             if param_dct.get("required", False):
-        #                 print(f"field {req_field} requires parameter but not given?")
-
-        # else:
-        #     # No parameters, can carry on per ush
-        #     pass
+        # PENDING: check if parameters properly done
 
     return opt_dct
 

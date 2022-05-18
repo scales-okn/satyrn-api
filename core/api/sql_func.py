@@ -1,11 +1,8 @@
+# SQL functions to be able to work in postres and sqlite
 
 from sqlalchemy import func
-# MEthods for databases
-
 from pandas import DataFrame
-
 from functools import reduce
-
 from sqlalchemy.sql.expression import case
 
 def sql_right(field, db_type, char_n=2):
@@ -16,8 +13,7 @@ def sql_right(field, db_type, char_n=2):
         return func.right(field, 2)
 
 def sql_concat(field_lst, db_type):
-    # For now, not implemented, will do sop if needed in the future
-    # since or sqlite and postgres + works for both
+    # concatenating strings together
     if len(field_lst) == 1:
         return field_lst[0]
 
@@ -27,7 +23,6 @@ def sql_concat(field_lst, db_type):
     elif db_type == "postgres":
         return reduce(lambda a, b: a + b, field_lst, "")
         # return func.concatenate(field_lst)
-
     pass
 
 def sql_median(field, db_type):
@@ -37,16 +32,8 @@ def sql_median(field, db_type):
     elif db_type == "postgres":
         return func.percentile_disc(0.5).within_group(field.asc())
 
-# def sql_percent_rank(field, db_type):
-#     # NOTE: DOes not currently work
-#     if db_type == "sqlite":
-#         return func.percent_rank(field)
-#     elif db_type == "postgres":
-#         return func.percent_rank().within_group(field.asc())
-
-
 def count_entities(query, entity_ids, field_names, db_type):
-
+    # Count the unique entity_ids in a given query
     entity_counts = {}
     if db_type == "sqlite":
         df = DataFrame(query.all(), columns=field_names).nunique()
@@ -59,10 +46,15 @@ def count_entities(query, entity_ids, field_names, db_type):
     return entity_counts
 
 def _nan_cast(field, cast_val):
-    '''
-    Casts a field in case it is a null value
-    '''
+    # Casts a field in case it is a null value
     return case([(field == None, cast_val)], else_=field)
 
 
 
+# # Unused, for future development
+# def sql_percent_rank(field, db_type):
+#     # NOTE: DOes not currently work
+#     if db_type == "sqlite":
+#         return func.percent_rank(field)
+#     elif db_type == "postgres":
+#         return func.percent_rank().within_group(field.asc())

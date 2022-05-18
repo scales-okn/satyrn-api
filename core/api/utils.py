@@ -8,7 +8,6 @@ def _parse_ref_string(ref_str):
     # right now we assume ref_str is properly formed
     # AND that there arent any other $, } in the string other than
     # for attributes
-
     val_lst = []
     type_lst = []
 
@@ -40,8 +39,6 @@ def _parse_ref_string(ref_str):
         type_lst.append(is_attr)
 
     return val_lst, type_lst
-
-
 
 def _mirrorRel(rel_type):
     dct = {
@@ -82,7 +79,6 @@ def _walk_rel_path(fro, to, rels):
             curr_ent = rel.fro
         else:
             print("Error, not properly formed relationship path")
-            print("fdsjkfjlssldkjskdlfjlkj")
             return "NA"
 
         init_rel = _rel_math(init_rel, curr_rel)
@@ -100,7 +96,6 @@ def _parse_reference(extractor, entity, db):
     ref = entity_dict.reference
     val_lst, type_lst = _parse_ref_string(ref)
 
-
     concatenable = []
     for val, tpe in zip(val_lst, type_lst):
         if tpe:
@@ -109,15 +104,13 @@ def _parse_reference(extractor, entity, db):
         else:
             concatenable.append(val)
 
-    print(concatenable)
-
     name = _name(entity, "reference", None, None)
     return sql_concat(concatenable, extractor.getDBType()).label(name), name
 
 
-
 # PENDING: handling multiple columns in the columns of source
 # PENDING: Add "Conversion" to pretty name here (e.g. True/False to other stuff)
+# PENDING: Adding capabilities for multi-table entities (currently being worked on by developers)
 def _get(extractor, entity, attribute, db, transform=None, date_transform=None, op=None, extra=None):
     '''
     Returns the field from entity in ring, and the label of the field
@@ -193,14 +186,10 @@ def _get_table_name(extractor, entity, attribute):
 
 
 
-
-# PENDING: Should be stress tested, tested more
-# PENDING: Should try to share this with seekers as much as possible
-# PENDING: have yet to test the case where single entity across multiple tables
-# PENDING: have yet to test teh case where multiple entities in one table (tho it should be fine)
-# PENDING: test the case with derived person entity
-# PENDING: think if we have to have a list of joins we've done in case we might repeat a join
-# RN we hav a strictercondition than that (we do not do a join if both tables are already joined in the query)
+# PENDING: account for case where single entity across multiple tables (e.g. derived data table)
+# PENDING: account for case where multiple entities in one table
+# PENDING: think about transitioning to checking if we have to have a list of joins we've done in case we might repeat a join
+# right we hav a stricter condition than that (we do not do a join if both tables are already joined in the joined query)
 def _do_joins(query, tables, relationships, extractor, targetEntity, db):
     '''
     Do joins, if needed
@@ -212,12 +201,6 @@ def _do_joins(query, tables, relationships, extractor, targetEntity, db):
     p_table = _get_table_name(extractor, targetEntity, "id")
     primary_bool = any(table == p_table for table in tables)
     # seond conditino should be true always for filterin join
-
-
-    # print(query)
-    # print(tables)
-    # print(relationships)
-
 
     def do_join(query, path, added_tables=set()):
         # Given a query, a path, and a 
@@ -231,9 +214,6 @@ def _do_joins(query, tables, relationships, extractor, targetEntity, db):
         else:
             print(f"path {path} already joined")
             return query, None
-        # print(path)
-        # print("table to join")
-        # print(the_table)
         return query.join(getattr(db, the_table),
                             _get_join_field(path[indices[0]], db) == _get_join_field(path[indices[1]], db),
                             isouter=True
@@ -244,11 +224,6 @@ def _do_joins(query, tables, relationships, extractor, targetEntity, db):
     if not primary_bool:
         # If the primary table is not in the queried fields AND not joined yet to query,
         # Then we will execute the joins that are connected from a queried table to the primary table
-
-        # query = query.filter(_get(extractor, targetEntity, "id", db) != None)
-
-        # print("primary not in query, gonn do dis path")
-        
         def rel_contains_entity_table(rel_item, entity, table):
             # Check if relationship has a join, and has the entity and table given
             # (might be superfluous to check entity)
@@ -264,11 +239,6 @@ def _do_joins(query, tables, relationships, extractor, targetEntity, db):
         # Go over the relationships, find the one(s) that link back to the target table
         rels = [rel for rel in rel_items if rel_contains_entity_table(rel, targetEntity, p_table)]
 
-        # print("rels that contain entity table")
-        # print(rels)
-
-
-        # TODO: change this in case there are multiple joins
         # Iterate thru these and join them
         for rel_item in rels:
             if rel_item.join:
@@ -280,8 +250,8 @@ def _do_joins(query, tables, relationships, extractor, targetEntity, db):
                     join_lst = rel_item.join
                     join_item = rel_item.join[0]
                 else:
-                    print("bruh idk whw")
-                    join_item = rel_item.join[0]
+                    print("join path does not include target Entity, unclear error")
+                    return None
 
                 join = extractor.resolveJoin(join_item)[1]
 
@@ -291,18 +261,16 @@ def _do_joins(query, tables, relationships, extractor, targetEntity, db):
                     elif join.to in tables:
                         joined_tables.add(join.to)
                     else:
-                        print("uhhhh hey bruh, something happened")
-                        print("neither table in join is in talbes used in query")             
+                        print("neither table in join is in tables used in query")   
+                        return None          
 
 
                 for join_item in join_lst:
                     join = extractor.resolveJoin(join_item)[1]
-
                     for path in join.path:
                         query, add_table = do_join(query, path, joined_tables)
                         if add_table:
                             joined_tables.add(add_table)
-
 
         # update the list of relations to join to to remove the ones we already joined to
         rel_items = [rel for rel in rel_items if not rel_contains_entity_table(rel, targetEntity, p_table)]
@@ -360,9 +328,7 @@ def _entity_from_name(col_name):
     return dct
 
 
-
 def _make_recursive_name(numer_name, denom_name, op):
-
     return "./.".join([numer_name, denom_name, op])
 
 
@@ -399,10 +365,11 @@ def _remove_duplicate_vals(a_opts):
 
     return a_opts, del_keys
 
-def dict_print(d, indent=0):
-    for key, value in d.items():
-        print('\t' * indent + str(key))
-        if isinstance(value, dict):
-            pretty(value, indent+1)
-        else:
-            print('\t' * (indent+1) + str(value))
+# # for debugging
+# def dict_print(d, indent=0):
+#     for key, value in d.items():
+#         print('\t' * indent + str(key))
+#         if isinstance(value, dict):
+#             pretty(value, indent+1)
+#         else:
+#             print('\t' * (indent+1) + str(value))

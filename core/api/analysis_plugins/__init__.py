@@ -1,5 +1,5 @@
 '''
-Todefine an operation, we need to
+To define an operation, we need to
 - establish what are the fields, their types/requirements, etc
 	- The fields would be the ones that users would set via the plan manager
 	- Here we also define "spawned fields", more details on that later on the stuff about the query prep
@@ -9,8 +9,6 @@ Todefine an operation, we need to
 - Analysis
 	- This is the methods that receives all the stuff from the query (i.e. the things from the d atabase) and
 	does stuff to analyze it (e.g. correlation matrix, doing divisions/alterations, etc.)
-
-
 
 def queryTranslationFunction(s_opts, orig_a_opts, targetEntity):
 
@@ -92,5 +90,4 @@ dct = {
     },
 
 }
-
 '''

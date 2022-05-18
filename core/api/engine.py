@@ -1,5 +1,5 @@
-# the placeholder for the analytics engine
-# might delegate to seekers.py for search/return of results? analysis optimizations TBD
+# the main file that handles analytics
+
 from copy import deepcopy
 
 from flask import current_app
@@ -7,7 +7,6 @@ from sqlalchemy import func
 
 
 from pandas import DataFrame
-
 from .operations import OPERATION_SPACE as OPS
 from .seekers import rawGetResultSet
 from .transforms import TRANSFORMS_SPACE as TRS
@@ -16,14 +15,10 @@ from . import utils
 from . import sql_func
 
 
-# PREFILTERS = current_app.satConf.preFilters
-
 cache = current_app.cache
 CACHE_TIMEOUT=3000
 
-
-# TODO: ponder on the stuff about the format in which we should expect values (e.g. list of one, wrapped single values, double nested lists)
-
+@cache.memoize(timeout=CACHE_TIMEOUT)
 def run_analysis(s_opts, a_opts, targetEntity, ring, extractor):
     '''
     Callable function for the views API
@@ -54,21 +49,12 @@ def run_analysis(s_opts, a_opts, targetEntity, ring, extractor):
         sess = db.Session()
         return db, sess
 
-    # If across two rings, do a different path
-    # if len(a_opts["rings"]) > 1:
-    #     # analysis_across_two_rings(s_opts, a_opts)
-    #     pass
-    # else:
-
-    # print(extractor.getAnalysisSpace(targetEntity))
-
     db, sess  = _get_db_sess(ring)
     return single_ring_analysis(s_opts, a_opts, ring, extractor, targetEntity, sess, db)
 
 
 def _add_group_ref(a_opts, field_name, pos=None):
     # if given pos, it means the undelrying field was a list
-
     if pos != None:
         name = field_name + str(pos) + "_ref"
         orig_dct = a_opts[field_name][pos]
@@ -87,9 +73,7 @@ def _add_group_ref(a_opts, field_name, pos=None):
 
 
 def _expand_grouping(a_opts, field_types):
-
     extra_fields = []
-
     # go thru the groupby args and expand as needed
     if "groupBy" in a_opts:
         for idx in range(len(a_opts["groupBy"])):
@@ -105,9 +89,7 @@ def _expand_grouping(a_opts, field_types):
                 extra_fields.append(new_field)
 
     field_types["group"].extend(extra_fields)
-
     return a_opts, field_types
-
 
 
 def single_ring_analysis(s_opts, a_opts, ring, extractor, targetEntity, sess, db):
@@ -132,7 +114,7 @@ def single_ring_analysis(s_opts, a_opts, ring, extractor, targetEntity, sess, db
         "group": [field for field, dct in OPS[op]["required"].items() if dct["fieldType"] == "group"],
         "target": [field for field, dct in OPS[op]["required"].items() if dct["fieldType"] == "target"]
     }
-    # NOTE: RN we assume optionals will only be for grouping
+    # NOTE: we assume optionals will only be for grouping
     field_types["group"].extend([field for field, dct in OPS[op]["optional"].items() if field != "groupBy"])
 
 
@@ -144,8 +126,6 @@ def single_ring_analysis(s_opts, a_opts, ring, extractor, targetEntity, sess, db
             addit_target = [field for field, dct in OPS[op]["spawned"].items() if dct["fieldType"] == "target" and field not in field_types["target"]]
             field_types["group"].extend(addit_groups)
             field_types["target"].extend(addit_target)
-
-        # a_opts, field_types = _expand_grouping(a_opts, field_types)
 
         results, new_opts, field_names, col_names, units = complex_operation(s_opts, a_opts, ring, extractor, targetEntity, sess, db, field_types)
         a_opts = new_opts
@@ -161,8 +141,8 @@ def single_ring_analysis(s_opts, a_opts, ring, extractor, targetEntity, sess, db
         elif OPS[op]["type"] == "recursive":
             query, field_names, col_names = recursive_query(s_opts, a_opts, ring, extractor, targetEntity, sess, db, field_types)
         else:
-            print("unclear waht op")
-            exit()
+            print("Unavailable type of operation")
+            return None
         units = get_units(a_opts, extractor, field_types, field_names, col_names)
         results = {"results": [list(q) for q in query.all()], "field_names": field_names, "field_types": col_names, "units": {"results": units}}
         
@@ -178,13 +158,10 @@ def complex_operation(s_opts, a_opts, ring, extractor, targetEntity, session, db
     '''
     Complex operation defined via analysis plugins
     More on these in the analysis_plugins folder
-    
     '''
     op_name = a_opts["op"]
 
-    # What to query/Query translation
-
-    # TODO: Path for when queryPrep is a list with len > 1 (and consequently pandasFunc len > 1)
+    # PENDING: Path for when queryPrep is a list with len > 1 (and consequently pandasFunc len > 1)
     '''
     Basically, the pipelin would be:
     input: original a_opts and everything
@@ -246,7 +223,6 @@ def recursive_query(s_opts, a_opts, ring, extractor, targetEntity, session, db, 
     per_idx = col_names.index("per")
     col_names[idx] = "target/per"
     field_names[idx] = utils._make_recursive_name(field_names[idx], field_names[per_idx], "average")
-    # field_names[idx] + "/" + field_names[per_idx]
 
     # Removes the per field from the query and col/field list
     for lst in [query_args, col_names, field_names]:
@@ -402,8 +378,7 @@ def _prep_query(a_opts, extractor, db, field_types, counts=False):
 
     col_names = ["groupBy" + str(idx) for idx, val in enumerate(groupby_fields)]
 
-
-    # TODO: Modify this so it accounts for lists as well (eventually ,not needed now i think)
+    # TODO: Modify this so it accounts for lists as well
     for field in field_types["group"]:
         if field in a_opts:
             groupby_fields.append(a_opts[field])
@@ -419,7 +394,6 @@ def _prep_query(a_opts, extractor, db, field_types, counts=False):
             tables.append(table)
         if group["entity"] not in unique_entities:
             unique_entities.append(group["entity"])
-
         
     target_fields = []
     for targ in field_types["target"]:
@@ -488,28 +462,3 @@ def _do_filters(query, s_opts, ring, extractor, targetEntity, col_names, session
                 query = query.filter(field != None)
 
     return query
-
-
-
-# PENDING: Do this
-# PNEDING: See if we actually need to do this, not sure if we do
-def _format_results():
-    # make human legible
-
-    '''
-    Do the dictionary mapping if needed (no longer need to query stuff from original db hopefully)
-
-    # TODO PATCH: This is a non sustainable solution for percentage operation
-    # if analysisOpts["operation"] == "percentage":
-        # for idx, x in enumerate(results["results"]):
-            # print(x)
-            # results["results"][idx][-1] *= 10
-    Do anything you need to do for percentage stuff (multiplying by 100 i think)
-
-    Do any unit conversions if needed (e.g. currency, temperatures, distances)
-    '''
-
-    # ordering (if any)
-    pass
-
-

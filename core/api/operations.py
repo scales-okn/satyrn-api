@@ -1,3 +1,4 @@
+# File containing the "core" satyrn analysis operation capabilities. These are all available for plugins
 
 from sqlalchemy import func
 from sqlalchemy import distinct
@@ -128,7 +129,6 @@ OPERATION_SPACE = {
     #     "units": "unchanged"
     #     "type": "simple",
     # },
-
     "median": {
         "required": {
             "target": {
