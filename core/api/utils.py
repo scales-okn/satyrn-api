@@ -99,13 +99,13 @@ def _parse_reference(extractor, entity, db):
     concatenable = []
     for val, tpe in zip(val_lst, type_lst):
         if tpe:
-            field, _ = _get_helper(extractor, entity, val[2:-1], db, None, None, None, None)
+            field, _, joins_todo = _get_helper(extractor, entity, val[2:-1], db, None, None, None, None)
             concatenable.append(field)
         else:
             concatenable.append(val)
 
     name = _name(entity, "reference", None, None)
-    return sql_concat(concatenable, extractor.getDBType()).label(name), name
+    return sql_concat(concatenable, extractor.getDBType()).label(name), name, joins_todo
 
 
 # PENDING: handling multiple columns in the columns of source
@@ -118,17 +118,29 @@ def _get(extractor, entity, attribute, db, transform=None, date_transform=None, 
     if attribute == "reference":
         return _parse_reference(extractor, entity, db)
     else:
-        field, name = _get_helper(extractor, entity, attribute, db ,transform, date_transform, op, extra)
-        return field.label(name), name
+        field, name, joins_todo = _get_helper(extractor, entity, attribute, db ,transform, date_transform, op, extra)
+        return field.label(name), name, joins_todo
 
 
 def _get_helper(extractor, entity, attribute, db, transform, date_transform, op, extra):
     '''
     Returns the field from entity in ring, and the label of the field
     '''
+    print("---> attribute is: ", attribute)
     entity_dict = extractor.resolveEntity(entity)[1]
+    joins_todo = []
     if attribute != "id":
         attr_obj = [attr for attr in entity_dict.attributes if attr.name == attribute][0]
+        ## if attribute is not in the main table:
+        print("here we are: ",attr_obj.source_table,  entity_dict.table)
+        if attr_obj.source_table != entity_dict.table:
+            ##(multi-table entity) --> we got some joins to do
+            print("WE're in the if statement for attr_obj ", attr_obj.name)
+            for item in attr_obj.source_joins:
+                print("hello? wtf ", item)
+                joins_todo.append(item)
+
+        ##go back to business as usual
         model_name = attr_obj.source_table
         field_name = attr_obj.source_columns[0]
         if date_transform:
@@ -154,8 +166,6 @@ def _get_helper(extractor, entity, attribute, db, transform, date_transform, op,
         # Round if object has rounding
         if attr_obj.rounding == "True":
             field = func.round(field, attr_obj.sig_figs)
-            # field = func.round(field)
-            # print(attr_obj.sig_figs)
 
         if op == "percentage" and extra.get("rounding", extractor.getRounding()) != "False":
             field = func.round(field, extra.get("sigfigs", extractor.getSigFigs()))
@@ -167,8 +177,8 @@ def _get_helper(extractor, entity, attribute, db, transform, date_transform, op,
             attr_obj = [attr for attr in entity_dict.attributes if attr.name == attribute][0]
             extra["threshold"] = extra.get("threshold", attr_obj.threshold)
         field = TRS[transform]["processor"](field, extractor.getDBType(), extra)
-
-    return field, name
+    print(joins_todo)
+    return field, name, joins_todo
 
 
 def _get_table_name(extractor, entity, attribute):
@@ -185,43 +195,89 @@ def _get_table_name(extractor, entity, attribute):
     return model_name
 
 
-
 # PENDING: account for case where single entity across multiple tables (e.g. derived data table)
 # PENDING: account for case where multiple entities in one table
 # PENDING: think about transitioning to checking if we have to have a list of joins we've done in case we might repeat a join
 # right we hav a stricter condition than that (we do not do a join if both tables are already joined in the joined query)
-def _do_joins(query, tables, relationships, extractor, targetEntity, db):
-    '''
-    Do joins, if needed
-    We have a list of SQL tables that we are using, as well as the needed relationships
-    to conduct those joins.
-    '''
 
-    joined_tables = set()
-    p_table = _get_table_name(extractor, targetEntity, "id")
-    primary_bool = any(table == p_table for table in tables)
-    # seond conditino should be true always for filterin join
-
-    def do_join(query, path, added_tables=set()):
+def do_join_helper(query, path, db, added_tables=set()):
         # Given a query, a path, and a 
         # For now we are assuming one and only one of the tables in the path is not in added_tables
+        print("in join helper. path is: ", path)
         if path[0].split(".")[0] not in added_tables :
+            print("in if")
+            if path[1].split(".")[0] not in added_tables:
+                print("interesting. confused.")
             the_table = path[0].split(".")[0]
             indices = [0,1]
         elif path[1].split(".")[0] not in added_tables :
+            print("in elif")
             the_table = path[1].split(".")[0]
             indices = [1,0]
         else:
             print(f"path {path} already joined")
             return query, None
+        # print(path)
+        # print("table to join")
+        # print(the_table)
+        print ("_____________________________________")
+        print(query.join(getattr(db, the_table),
+                            _get_join_field(path[indices[0]], db) == _get_join_field(path[indices[1]], db),
+                            isouter=True
+                            ), the_table)
+        print ("_____________________________________")
         return query.join(getattr(db, the_table),
                             _get_join_field(path[indices[0]], db) == _get_join_field(path[indices[1]], db),
                             isouter=True
                             ), the_table
+# PENDING: Should be stress tested, tested more
+# PENDING: Should try to share this with seekers as much as possible
+# PENDING: have yet to test the case where single entity across multiple tables
+# PENDING: have yet to test teh case where multiple entities in one table (tho it should be fine)
+# PENDING: test the case with derived person entity
+# PENDING: think if we have to have a list of joins we've done in case we might repeat a join
+# RN we hav a strictercondition than that (we do not do a join if both tables are already joined in the query)
+def _do_joins(query, tables, relationships, extractor, targetEntity, db, entity_names, joins_todo):
+    '''
+    Do joins, if needed
+    We have a list of SQL tables that we are using, as well as the needed relationships
+    to conduct those joins.
+    '''
+    print("******** tables: ", tables, relationships, "entities -->", entity_names )
+    joined_tables = set()
+    p_table = _get_table_name(extractor, targetEntity, "id")
+    primary_bool = any(table == p_table for table in tables)
+    # seond conditino should be true always for filterin join
 
+    print(targetEntity, type(targetEntity), p_table)
+    # print(query)
+    # print(tables)
+    # print(relationships)
+    
     rel_items = [extractor.resolveRelationship(rel)[1] for rel in relationships]
 
+    if targetEntity in entity_names and not primary_bool and len(entity_names) == 1:
+        print("&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&& ", targetEntity )
+        ## find joins in join_todo that have a connection to the targetEntity
+        the_chosen = []
+        for join in joins_todo:
+            join_i = extractor.resolveJoin(join)[1]
+            print("IN THE LOOP: ", join_i.from_, join_i.to, join_i)
+            if join_i.from_ == p_table or join_i.to == p_table:
+                print("------ THE CHOSEN HAS BEEN FOUND ------")
+                the_chosen.append(join)
+                break
+        if the_chosen:
+            ##do those joins
+            query, joined_tables3 = do_multitable_joins(query, the_chosen, extractor, targetEntity, db, joined_tables, tables)
+            print("LETS SEE IF THE BANDAID STICKS? ", joined_tables3)
+            tables.append(p_table)
+            primary_bool = any(table == p_table for table in tables)
+        else:
+            print("idk something is really wrong.")
+            
     if not primary_bool:
+        
         # If the primary table is not in the queried fields AND not joined yet to query,
         # Then we will execute the joins that are connected from a queried table to the primary table
         def rel_contains_entity_table(rel_item, entity, table):
@@ -238,6 +294,7 @@ def _do_joins(query, tables, relationships, extractor, targetEntity, db):
         
         # Go over the relationships, find the one(s) that link back to the target table
         rels = [rel for rel in rel_items if rel_contains_entity_table(rel, targetEntity, p_table)]
+
 
         # Iterate thru these and join them
         for rel_item in rels:
@@ -261,14 +318,14 @@ def _do_joins(query, tables, relationships, extractor, targetEntity, db):
                     elif join.to in tables:
                         joined_tables.add(join.to)
                     else:
-                        print("neither table in join is in tables used in query")   
-                        return None          
+                        print("uhhhh hey bruh, something happened")
+                        print("neither table in join is in talbes used in query")             
 
 
                 for join_item in join_lst:
                     join = extractor.resolveJoin(join_item)[1]
                     for path in join.path:
-                        query, add_table = do_join(query, path, joined_tables)
+                        query, add_table = do_join_helper( query, path, db, joined_tables)
                         if add_table:
                             joined_tables.add(add_table)
 
@@ -276,20 +333,42 @@ def _do_joins(query, tables, relationships, extractor, targetEntity, db):
         rel_items = [rel for rel in rel_items if not rel_contains_entity_table(rel, targetEntity, p_table)]
 
     else:
+        print("in the else statement : ", _get_table_name(extractor, targetEntity, "id"))
         joined_tables.add(_get_table_name(extractor, targetEntity, "id"))
 
 
     # for the pending relationships, join them
     for rel_item in rel_items:
+        print("just cuz")
         if rel_item.join: # if relationship requires join
             for join_item in rel_item.join:
                 join = extractor.resolveJoin(join_item)[1]
                 for path in join.path: #in case we have multiple joins in the path
-                    query, add_table = do_join(query, path, joined_tables)
+                    query, add_table = do_join_helper(query, path, db,joined_tables)
                     if add_table:
                         joined_tables.add(add_table)
+    print ("22222 HERE IS THE ISSUE: ", joined_tables)
+    print(query)
 
-    return query
+    return query, joined_tables
+
+def do_multitable_joins(query, joins, extractor, targetEntity, db, joined_tables, tables):
+    print("@@@@@@@@@@@@@@@@@@@@@joins: ", joins, joined_tables)
+    for join_item in joins:
+        print("=====back at it again: ", join_item, joined_tables, targetEntity, tables)
+        if joined_tables == set(): 
+            ## add the table in tables in it just cuz it can't be empty
+            joined_tables.add(tables[0])
+            print("we're fucked")
+        join = extractor.resolveJoin(join_item)[1]
+        for path in join.path: #in case we have multiple joins in the path
+            print("path is: ", path)
+            query, add_table = do_join_helper(query, path, db, joined_tables)
+            if add_table:
+                joined_tables.add(add_table)
+    print ("joined_tables: ", joined_tables)
+    return query, joined_tables
+
 
 
 

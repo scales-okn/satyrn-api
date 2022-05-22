@@ -206,14 +206,13 @@ def recursive_query(s_opts, a_opts, ring, extractor, targetEntity, session, db, 
     Could expand to other "recursive" operations (e.g. min average)
     requires a "per" field in a_opts
     '''
-
+    
     copy_opts = deepcopy(a_opts)
     copy_opts["op"] = "count" if a_opts["op"] == "averageCount" else "sum"
     copy_opts = OPS[copy_opts["op"]]["queryPrep"](s_opts, copy_opts, targetEntity)[1]
     query, query_args, field_names, col_names = simple_query(s_opts, copy_opts, ring, extractor, targetEntity, session, db, field_types)
 
     query = query.group_by(*query_args)
-
     # Build new query arguments
     s_query = query.subquery()
     query_args = [s_query.c[arg] for arg in query_args]
@@ -241,6 +240,7 @@ def recursive_query(s_opts, a_opts, ring, extractor, targetEntity, session, db, 
     query_args.pop() 
     query = query.group_by(*query_args) if query_args else query
 
+
     return query, field_names, col_names
 
 
@@ -250,17 +250,19 @@ def simple_query(s_opts, a_opts, ring, extractor, targetEntity, session, db, fie
     Queries from db, filters, and joins
     Returns runnable query, grouping arguments, and column/field names
     '''
-
     # Query fields
-    q_args, tables, entity_ids, entity_names, field_names, col_names = _prep_query(a_opts, extractor, db, field_types=field_types)
+    q_args, tables, entity_ids, entity_names, field_names, col_names, joins_todo = _prep_query(a_opts, extractor, db, field_types=field_types)
     query = session.query(*q_args)
-
     # Do filtering
-    query = _do_filters(query, s_opts, ring, extractor, targetEntity, field_names, session, db)
-
+    query , joins_todo2 = _do_filters(query, s_opts, ring, extractor, targetEntity, field_names, session, db)
+    for i in joins_todo2:
+        if i not in joins_todo:
+            joins_todo.append(i)
+    print("************joins_todo: ", joins_todo)
     # Do joins
-    query = utils._do_joins(query, tables, a_opts["relationships"] if "relationships" in a_opts else [], extractor, targetEntity, db)
-
+    query, joined_tables = utils._do_joins(query, tables, a_opts["relationships"] if "relationships" in a_opts else [], extractor, targetEntity, db, entity_names, joins_todo)
+    query, joined_tables = utils.do_multitable_joins(query, joins_todo, extractor, targetEntity, db, joined_tables, tables)
+    print("joins todo is: ", joins_todo)
     # ADD THE UNIQUE CONSTRAINT ON THE TUPLES OF THE IMPORTANT FIELDS IDS
     # PENDING: this gives errors. right now will not add entity ids
     # query = query.distinct(*entity_ids)
@@ -271,6 +273,9 @@ def simple_query(s_opts, a_opts, ring, extractor, targetEntity, session, db, fie
              group_args.append(utils._name(a_opts[field]["entity"], a_opts[field]["field"], transform=a_opts[field].get("transform"), date_transform=a_opts[field].get("dateTransform")))
 
      # Modify field_names so that it also return type of field
+    print("back from both joins. This is the tables: ", joined_tables)
+    print("3 query is: ", query)
+
     return query, group_args, field_names, col_names
 
 
@@ -292,14 +297,15 @@ def row_count_query(s_opts, a_opts, ring, extractor, targetEntity, session, db, 
 
     a_opts, _ = utils._remove_duplicate_vals(a_opts)
 
-    q_args, tables, entity_ids, entity_names, field_names, col_names = _prep_query(a_opts, extractor, db, field_types=field_types, counts=True)
+    q_args, tables, entity_ids, entity_names, field_names, col_names, joins_todo = _prep_query(a_opts, extractor, db, field_types=field_types, counts=True)
     query = session.query(*q_args)
 
     # Do filtering
-    query = _do_filters(query, s_opts, ring, extractor, targetEntity, field_names, session, db)
+    query, joins_todo = _do_filters(query, s_opts, ring, extractor, targetEntity, field_names, session, db)
 
     # Do joins
-    query = utils._do_joins(query, tables, a_opts["relationships"] if "relationships" in a_opts else [], extractor, targetEntity, db)
+    query, joined_tables = utils._do_joins(query, tables, a_opts["relationships"] if "relationships" in a_opts else [], extractor, targetEntity, db, entity_names, joins_todo)
+    query, joined_tables = utils.do_multitable_joins(query, joins_todo, extractor, targetEntity, db, joined_tables, tables)
 
     # Count entities
     db_type = extractor.getDBType()
@@ -372,6 +378,7 @@ def _prep_query(a_opts, extractor, db, field_types, counts=False):
     field_names = []
     unique_entities = []
     col_names = []
+    joins_todo = []
 
     # Get groupby fields
     groupby_fields = deepcopy(a_opts["groupBy"]) if "groupBy" in a_opts else []
@@ -385,7 +392,7 @@ def _prep_query(a_opts, extractor, db, field_types, counts=False):
             col_names.append(field)
 
     for group in groupby_fields:
-        the_field, name = utils._get(extractor, group["entity"], group["field"], db,
+        the_field, name, joins_todo = utils._get(extractor, group["entity"], group["field"], db,
                                 transform=group.get("transform", None), date_transform=group.get("dateTransform", None))
         q_args.append(the_field)
         field_names.append(name)
@@ -404,7 +411,7 @@ def _prep_query(a_opts, extractor, db, field_types, counts=False):
 
     for target in target_fields:
 
-        the_field, field_name = utils._get(extractor, target["entity"], target["field"], db, op=target.get("op", "None"),
+        the_field, field_name, joins_todo_group = utils._get(extractor, target["entity"], target["field"], db, op=target.get("op", "None"),
                                         transform=target.get("transform", None), extra=target["extra"])
         q_args.append(the_field.label(field_name))
         field_names.append(field_name)
@@ -413,18 +420,24 @@ def _prep_query(a_opts, extractor, db, field_types, counts=False):
             tables.append(table)
         if target["entity"] not in unique_entities:
             unique_entities.append(target["entity"])
-      
+        for item in joins_todo_group:
+            if item not in joins_todo:
+                joins_todo.append(item)
+    
     # Query the IDs of the entities we care about (as well as the nice name stuff for them)
     entity_ids = []
     for entity in unique_entities:
-        the_field, name = utils._get(extractor, entity, "id", db)
+        the_field, name, joins_todo_entities = utils._get(extractor, entity, "id", db)
         entity_ids.append(name)
         if name not in field_names and counts:
             q_args.append(the_field)
             field_names.append(name)
             col_names.append(name + "_id")
+        for item in joins_todo_entities:
+            if item not in joins_todo:
+                joins_todo.append(item)
 
-    return q_args, tables, entity_ids, unique_entities, field_names, col_names
+    return q_args, tables, entity_ids, unique_entities, field_names, col_names, joins_todo
 
 
 # PENDING: Finish filling this out for prefilters
@@ -437,10 +450,11 @@ def _do_filters(query, s_opts, ring, extractor, targetEntity, col_names, session
     # do prefilters
     pass
     # query = query.filter(utils._get(extractor, targetEntity, "id", db) != None)
-
+    joins_todo = []
     # do normal filters
     if s_opts and "query" in s_opts and s_opts["query"]:
-        query = rawGetResultSet(s_opts, ring, extractor, targetEntity, targetRange=None, simpleResults=True, just_query=True, sess=session, query=query, make_joins=False)
+        print("from engine going to rawGetResultSet")
+        query, joins_todo = rawGetResultSet(s_opts, ring, extractor, targetEntity, targetRange=None, simpleResults=True, just_query=True, sess=session, query=query, make_joins=False)
 
     # do nan filtering
     for name in col_names:
@@ -458,7 +472,36 @@ def _do_filters(query, s_opts, ring, extractor, targetEntity, col_names, session
                 # meaning we cant directly use the name of the object, so we have to
                 # again get the "real" field and filter off of that
                 # PENDING: might have issues since there could be multiple fields with same name
-                field, name = utils._get(extractor, param_dct["entity"], param_dct["field"], db)
+                field, name, joins_todo2 = utils._get(extractor, param_dct["entity"], param_dct["field"], db)
+                print("here we are with some joins todo : ", joins_todo2)
+                for item in joins_todo2:
+                    if item not in joins_todo:
+                        joins_todo.append(item)
                 query = query.filter(field != None)
 
-    return query
+    print("inside do_filters --> joins todo is: ", joins_todo)
+    return query, joins_todo
+
+
+
+# PENDING: Do this
+# PNEDING: See if we actually need to do this, not sure if we do
+def _format_results():
+    # make human legible
+
+    '''
+    Do the dictionary mapping if needed (no longer need to query stuff from original db hopefully)
+
+    # TODO PATCH: This is a non sustainable solution for percentage operation
+    # if analysisOpts["operation"] == "percentage":
+        # for idx, x in enumerate(results["results"]):
+            # print(x)
+            # results["results"][idx][-1] *= 10
+    Do anything you need to do for percentage stuff (multiplying by 100 i think)
+
+    Do any unit conversions if needed (e.g. currency, temperatures, distances)
+    '''
+
+    # ordering (if any)
+    pass
+

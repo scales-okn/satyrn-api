@@ -40,7 +40,6 @@ def errorGen(msg):
 
 # a generic filter-prep function
 def organizeFilters(request, searchSpace, targetEntity):
-
     opts = {}
     iterables = searchSpace[None]["attributes"]
 
@@ -53,23 +52,22 @@ def organizeFilters(request, searchSpace, targetEntity):
             elif searchSpace[None]["allowMultiple"]:
                 opts[k] = request.args.getlist(k, None)
             else:
-                opts[k] = setting
+                opts[k] = setting  
     return opts
 
 # new generic filter prep function
 def organizeFilters2(opts, searchSpace):
 
     query = traverseFilters(opts["query"], searchSpace)
+
     opts["query"] = query if query else {}
 
     # TODO: relationship check
     opts["relationships"] = opts["relationships"]
-
     return opts
 
 
 def traverseFilters(opts, searchSpace):
-
     if type(opts) == list:
         # this is just a condition for filtering
         return checkFilter(opts, searchSpace)
@@ -87,7 +85,6 @@ def traverseFilters(opts, searchSpace):
                 return {key: flters}
             else:
                 return None
-
         elif "NOT" in opts:
             flter = traverseFilters(opts["NOT"], searchSpace)
             if flter:

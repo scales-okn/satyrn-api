@@ -19,6 +19,7 @@ cache = app.cache
 @cache.memoize(timeout=1000)
 def cachedAutocomplete(db, theType, searchSpace, opts):
     # TODO: make this work with the new DB setup!
+    print("chachedAutocomplete opts: ", opts)
     return json.dumps(runAutocomplete(db, theType, searchSpace, opts))
 
 # THE ROUTES
@@ -146,7 +147,7 @@ def searchDB(ringId, version, targetEntity):
 
 
     opts = organizeFilters2(opts, searchSpace)
-
+    print("checking views: ", opts)
     # and manage sorting
     sortBy = request.args.get("sortBy", None)
     sortDir = request.args.get("sortDirection", "desc")

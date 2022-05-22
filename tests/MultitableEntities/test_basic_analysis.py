@@ -67,7 +67,7 @@ class TestAnalysis(unittest.TestCase):
         results = json.loads(resp.content.decode('utf-8'))
         self.assertEqual(expected_results, results)
 
-
+    
     def test_median_amount_groupby_recipient(self):
         # ground truth verified
         search_opts = {}
@@ -202,7 +202,7 @@ class TestAnalysis(unittest.TestCase):
         resp = requests.get(urllink, headers=self.headers, json=analysis_opts)
         results = json.loads(resp.content.decode('utf-8'))
         self.assertEqual(expected_results, results)
-    
+
     def test_filter_year_min_amount_json(self):
         # ground truth verified
         search_opts = {}
@@ -252,7 +252,7 @@ class TestAnalysis(unittest.TestCase):
         resp = requests.get(urllink, headers=self.headers, json=analysis_opts)
         results = json.loads(resp.content.decode('utf-8'))
         self.assertEqual(expected_results, results)
-    
+
 
     def test_max_amount_groupby_instate(self):
         # ground truth verified        
@@ -363,7 +363,7 @@ class TestAnalysis(unittest.TestCase):
                 "entity": "Contributor",
                 "field": "area"
             }],
-            "relationships": ["ContribToContributor"]
+            "relationships": ["ContribToContributorInfo"]
         }
         expected_results = {
             "counts": {
@@ -464,7 +464,7 @@ class TestAnalysis(unittest.TestCase):
         results = json.loads(resp.content.decode('utf-8'))
         self.assertEqual(expected_results, results)
 
-
+    
     def test_filter_year_count_contributor(self):
         # ground truth verified
         search_opts = {"electionYear": "2010"}
@@ -474,7 +474,7 @@ class TestAnalysis(unittest.TestCase):
                 "field": "id"
             },
             "op": "count",
-            "relationships": ["ContribToContributor"]
+            "relationships": ["ContribToContributorInfo"]
         }
         expected_results = {
             "counts": {
@@ -504,7 +504,7 @@ class TestAnalysis(unittest.TestCase):
         resp = requests.get(urllink, headers=self.headers, json=analysis_opts)
         results = json.loads(resp.content.decode('utf-8'))
         self.assertEqual(expected_results, results)
-
+    
     def test_filter_year_sum_amount_groupby_contributor(self):
         # ground truth verified
         search_opts = {"electionYear": "2014"}
@@ -518,7 +518,7 @@ class TestAnalysis(unittest.TestCase):
                 "entity": "Contributor",
                 "field": "id"
             }],
-            "relationships": ["ContribToContributor"]
+            "relationships": ["ContribToContributorInfo"]
         }
         expected_results = {
             "counts": {
@@ -791,7 +791,7 @@ class TestAnalysis(unittest.TestCase):
         resp = requests.get(urllink, headers=self.headers, json=analysis_opts)
         results = json.loads(resp.content.decode('utf-8'))
         self.assertEqual(expected_results, results)
-
+    
     def test_averagecount_contribution_contributor(self):
         # ground truth verified
         search_opts = {}
@@ -805,7 +805,7 @@ class TestAnalysis(unittest.TestCase):
                 "field": "id"
             },
             "op": "averageCount",
-            "relationships": ["ContribToContributor"]
+            "relationships": ["ContribToContributorInfo"]
         }
         expected_results = {
             "counts": {
@@ -840,7 +840,7 @@ class TestAnalysis(unittest.TestCase):
         resp = requests.get(urllink, headers=self.headers, json=analysis_opts)
         results = json.loads(resp.content.decode('utf-8'))
         self.assertEqual(expected_results, results)
-
+    
     def test_averagecount_contribution_contributor_groupby_area(self):
         # ground truth verified
         search_opts = {}
@@ -858,7 +858,7 @@ class TestAnalysis(unittest.TestCase):
                 "entity": "Contributor",
                 "field": "area"
             }],
-            "relationships": ["ContribToContributor"]
+            "relationships": ["ContribToContributorInfo"]
         }
         expected_results = {
             "counts": {
@@ -963,7 +963,7 @@ class TestAnalysis(unittest.TestCase):
         resp = requests.get(urllink, headers=self.headers, json=analysis_opts)
         results = json.loads(resp.content.decode('utf-8'))
         self.assertEqual(expected_results, results)
-
+       
     def test_count_contributor_groupby_parentorg(self):
         # ground truth verified
         search_opts = {}
@@ -977,7 +977,7 @@ class TestAnalysis(unittest.TestCase):
                 "entity": "Contributor",
                 "field": "parentOrg"
             }],
-            "relationships": ["ContribToContributor"]
+            "relationships": ["ContribToContributorInfo"]
         }
         expected_results = {
             "counts": {
@@ -1121,7 +1121,7 @@ class TestAnalysis(unittest.TestCase):
         resp = requests.get(urllink, headers=self.headers, json=analysis_opts)
         results = json.loads(resp.content.decode('utf-8'))
         self.assertEqual(expected_results, results)
-
+    
     def test_count_contributor_groupby_parentorg(self):
         # ground truth verified
         search_opts = {}
@@ -1279,7 +1279,7 @@ class TestAnalysis(unittest.TestCase):
         resp = requests.get(urllink, headers=self.headers, json=analysis_opts)
         results = json.loads(resp.content.decode('utf-8'))
         self.assertEqual(expected_results, results)
-
+    
     def test_filter_area_average_amount(self):
 
         search_opts = {}
@@ -1289,7 +1289,7 @@ class TestAnalysis(unittest.TestCase):
                 "field": "amount"
             },
             "op": "average",
-            "relationships": ["ContribToContributor"],
+            "relationships": ["ContribToContributorInfo"],
             "query": {
                 "AND": [
                     [
@@ -1299,7 +1299,7 @@ class TestAnalysis(unittest.TestCase):
                         "exact"
                     ]
                 ]
-            },
+            }
         }
         expected_results = {'counts': {'Contribution//id': 6}, 'fieldNames': [{'entity': 'Contribution', 'field': 'amount', 'op': 'average'}], 
                     'length': 1, 'results': [[1500.0]], 'units': {'results': ['dollar']}}
@@ -1309,7 +1309,7 @@ class TestAnalysis(unittest.TestCase):
         results = json.loads(resp.content.decode('utf-8'))
         self.assertEqual(expected_results, results)
         # pass
-
+    
     def test_filter_area_sum_amount_time_year(self):
         search_opts = {}
         analysis_opts = {
@@ -1322,7 +1322,7 @@ class TestAnalysis(unittest.TestCase):
                 "entity": "Contribution",
                 "field": "electionYear"
             },
-            "relationships": ["ContribToContributor"],
+            "relationships": ["ContribToContributorInfo"],
             "query": {
                 "AND": [
                     [
@@ -1332,7 +1332,7 @@ class TestAnalysis(unittest.TestCase):
                         "exact"
                     ]
                 ]
-            },
+            }
         }
         expected_results = {'counts': {'Contribution//id': 6}, 'fieldNames': [{'entity': 'Contribution', 'field': 'electionYear'}, {'entity': 'Contribution', 'field': 'amount', 'op': 'sum'}], 
                             'length': 2, 'results': [[2010.0, 8000.0], [2014.0, 1000.0]], 'units': {'results': ['Election Year', 'dollar']}}
@@ -1341,8 +1341,7 @@ class TestAnalysis(unittest.TestCase):
         resp = requests.get(urllink, headers=self.headers, json=analysis_opts)
         results = json.loads(resp.content.decode('utf-8'))
         self.assertEqual(expected_results, results)
-
-
+    
     def test_filter_area_average_amount_groupby_instate_time_year(self):
         search_opts = {}
         analysis_opts = {
@@ -1359,7 +1358,7 @@ class TestAnalysis(unittest.TestCase):
                 "entity": "Contribution",
                 "field": "inState"
             }],
-            "relationships": ["ContribToContributor"],
+            "relationships": ["ContribToContributorInfo"],
             "query": {
                 "AND": [
                     [
@@ -1369,7 +1368,7 @@ class TestAnalysis(unittest.TestCase):
                         "contains"
                     ]
                 ]
-            },
+            }
         }
         expected_results = {'counts': {'Contribution//id': 11}, 
                             'fieldNames': [{'entity': 'Contribution', 'field': 'inState'}, {'entity': 'Contribution', 'field': 'electionYear'}, {'entity': 'Contribution', 'field': 'amount', 'op': 'average'}], 
@@ -1380,7 +1379,7 @@ class TestAnalysis(unittest.TestCase):
         resp = requests.get(urllink, headers=self.headers, json=analysis_opts)
         results = json.loads(resp.content.decode('utf-8'))
         self.assertEqual(expected_results, results)
-
+    
 
 if __name__ == '__main__':
     unittest.main()
