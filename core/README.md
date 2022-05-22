@@ -57,6 +57,10 @@ Though we have tests to see if the analysis plugins return the correct results, 
 
 Currently we do not have this implemented nor do we have examples of this. However, we have a general idea of how it work
 
+#### Multi-Table Entities & UniTable Entities
+This is the case where an entity is spanned across multiple tables (Multi-Table Entities), or if multiple entities are in one table (UniTable Entities). Both should work with the current code. 
+The solution for this is not optimal and it might be benificial to restructure how we're doing joins (on-going work). 
+
 ## Plan Verification
 
 ### Search Space Verification
