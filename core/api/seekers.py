@@ -1,12 +1,5 @@
 from flask import current_app as app
 from sqlalchemy import func
-
-# the satyrn configs...
-# db = current_app.satConf.db
-# TARGET_MODEL = current_app.satConf.targetModel
-# SEARCH_SPACE = current_app.satConf.searchSpace
-# formatResult = current_app.satConf.formatResult
-# PREFILTERS = getattr(current_app.satConf, "preFilters")
 from sqlalchemy import and_, or_
 
 from . import utils
@@ -16,8 +9,6 @@ from . import sql_func
 cache = app.cache
 CACHE_TIMEOUT=6000
 
-#
-#
 # Helper functions for searching/results
 @cache.memoize(timeout=CACHE_TIMEOUT)
 def getResults(opts, ring, ringExtractor, targetEntity, page=0, batchSize=10):
@@ -59,75 +50,108 @@ def rawGetResultSet(opts, ring, ringExtractor, targetEntity, targetRange=None, s
     # also takes a ring, ringExtractor and targetEntity name
     # and a range value to memoize a broader set than current page view
     # returns a dict with two keys: results and totalCount
+    joins_todo = []
     if not sess:
         sess = db.Session()
+        ##query = sess.query(targetModel).distinct(targetInfo.id[0]).group_by(targetInfo.id[0])
         query = sess.query(targetModel)
-
+        print("---> targetModel ", targetModel, targetInfo.id[0])
+        ##PROBLEM FOR LATER
+            ##Query and join the 'derived' table for the entity --> multitable entity issue
+                ## Don't rejoin again afterwards! 
     if opts["query"]:
-        query = query.filter(makeFilters(query, ringExtractor, db, opts["query"]))
+        que, joins_todo = makeFilters(query, ringExtractor, db, opts["query"], [])
+        print("inside rawGetResultSet - joins_todo : ", joins_todo)
+        query = query.filter(que)
 
     # DO joins
     if make_joins:
         relationships = opts["relationships"]
-        query = utils._do_joins(query, [targetInfo.table], relationships, ringExtractor, targetEntity, db)
+        query, joined_tables = utils._do_joins(query, [targetInfo.table], relationships, ringExtractor, targetEntity, db, [],joins_todo)
+        print("******** inside rawGetResultSet - joined_tables : ", joined_tables)
+        query, joined_tables = utils.do_multitable_joins(query, joins_todo, ringExtractor, targetEntity, db, joined_tables, [targetInfo.table])
 
     # Do prefilters
     # TODO: bring this back?
     # for field in PREFILTERS:
     #     for filt in PREFILTERS[field]:
     #         query = query.filter(filt)
+    print("made it here without an issue")
+
 
     if "sortBy" in opts and opts["sortBy"] is not None:
         details = searchSpace[opts["sortBy"]]
         query = sortQuery(sess, targetModel, query, opts["sortBy"], opts["sortDir"], details)
     if just_query:
-        return query
+        print("++++++++++++++++++++++++++++++++++++++++++++++++++")
+        return query, joins_todo
+    print("-------------------------------------------------")
+    print (query)
+    print("-------------------------------------------------")
     return bundleQueryResults(query, targetRange, targetEntity, formatResult, simpleResults)
 
-
-
-def makeFilters(query, extractor, db, opts):
+def makeFilters(query, extractor, db, opts, joins_todo):
     # check if just a condition
     if type(opts) == list:
         # this is just a condition for filtering
-        return addFilter(query, extractor, db, opts)
+        query, new_joins = addFilter(query, extractor, db, opts)
+        for item in new_joins:
+            if item not in joins_todo:
+                joins_todo.append(item)
+        return query, joins_todo
 
     else:
         # This is a dictionary, will need to do a boolean
         if len(opts.keys()) != 1:
             print("opts has more than one key or is empty")
-            print(opts.keys())
-            return None
+            return None, joins_todo
 
         if "AND" in opts:
-            flters = [makeFilters(query, extractor, db, opt) for opt in opts["AND"]]
-            return and_(*flters)
+            flters = [] 
+            for opt in opts["AND"]:
+                que, new_joins = makeFilters(query, extractor, db, opt, joins_todo)
+                flters.append(que)
+            for item in new_joins:
+                if item not in joins_todo:
+                    joins_todo.append(item)
+            return and_(*flters), joins_todo
 
         elif "OR" in opts:
-            flters = [makeFilters(query, extractor, db, opt) for opt in opts["OR"]]
-            return or_(*flters)
+            flters = [] 
+            for opt in opts["OR"]:
+                que, new_joins = makeFilters(query, extractor, db, opt, joins_todo)
+                flters.append(que)
+            for item in new_joins:
+                if item not in joins_todo:
+                    joins_todo.append(item)
+            return or_(*flters), joins_todo
 
         elif "NOT" in opts:
-            flter = makeFilters(query, extractor, db, opts["NOT"])
-            return ~flter
+            flter, new_joins = makeFilters(query, extractor, db, opts["NOT"], joins_todo)
+            for item in new_joins:
+                if item not in joins_todo:
+                    joins_todo.append(item)
+            return ~flter, joins_todo
 
         else:
-            print("opts does not have andm or or not")
+            print("opts does not have AND, OR, or NOT")
             print(opts)
-            return None
+            return None, joins_todo
+    '''
+    '''
 
 
 def addFilter(query, extractor, db, opts):
     dct = opts[0]
     vals = opts[1]
     filter_type = opts[2]
-    field, _ = utils._get(extractor, dct["entity"], dct["field"], db)
+    field, _, joins_todo = utils._get(extractor, dct["entity"], dct["field"], db)
     if filter_type == "exact":
-        return field == vals
+        return field == vals, joins_todo
     elif filter_type == "range":
-        return and_(field >= vals[0], field <= vals[1])
+        return and_(field >= vals[0], field <= vals[1]), joins_todo
     elif filter_type == "contains":
-        return func.lower(field).contains(func.lower(vals))
+        return func.lower(field).contains(func.lower(vals)), joins_todo
     elif filter_type in ["lessthan", "greaterthan", "lessthan_eq", "greaterthan_eq"]:
         comparator_dict = {
             "lessthan": lambda a,b: a < b,
@@ -135,81 +159,14 @@ def addFilter(query, extractor, db, opts):
             "lessthan_eq": lambda a,b: a <= b,
             "greaterthan_eq": lambda a,b: a >= b,
         }
-        return comparator_dict[filter_type](field, vals)
+        return comparator_dict[filter_type](field, vals), joins_todo
     else:
-        print(" no other type implemented yet other than exact")
+        print("unacceptable/non-implemented filter type")
         print("technically this hould never be reached bc we checked filters in api")
-        return None
+        return None, joins_todo
 
-    return query
+    return query, joins_todo
 
-
-
-# TODO: repurpose bindQuery so that it does the "unit" thingy for one formed filter
-# might be able to reuse the join functions from engine and just bring it here
-# might be able to reuse the _get functions and whatnot from engine
-# should account for different datatypes and types of searches
-# so far: range, exact, contains
-# range will have the second value of the tuple be a list
-# joins taken out of here, not needed in details i believe
-def bindQuery(sess, targetModel, query, needleType, needle, details):
-    # breakpoint()
-    if details["model"] == targetModel:
-        # don't have to worry about joins on this one...just filter
-        targetField = createTargetFieldSet(details["model"], details["fields"])
-        if details["type"] == "date":
-            if needle[0]: query = query.filter(targetField >= needle[0])
-            if needle[1]: query = query.filter(targetField <= needle[1])
-        else:
-            query = query.filter(func.lower(targetField).contains(func.lower(needle)))
-    # elif "specialCase" not in details:
-    elif type(details["model"]) != list:
-        # TODO: work out the date range thing here too
-        # this is a generic single-join situation
-        targetField = createTargetFieldSet(details["model"], details["fields"])
-        pathToModel = getattr(targetModel, details["fromTargetModel"])
-        query = query.filter(
-            pathToModel.any(func.lower(targetField).contains(func.lower(needle)))
-        )
-    elif type(details["model"]) == list:
-        # TODO: work out the date range thing here too
-        # this currently only supports a double hop
-        # (e.g.: for SCALES, db.Case->db.JudgeOnCase->db.Judge)
-        # TODO: expand this to take arbitrary paths (as necessary)
-        # see "judgeName" in SCALES searchSpace.py for how this works from the config side
-        # (note that details["model"] list and details["fromTargetModel"] are parallel lists off by 1 because of TARGET_MODEL (in SCALES, that's db.Case) being the implicit starter model)
-
-        path_list = []
-        curr_model = targetModel
-        for idx in range(len(details["model"])):
-            path_list.append(getattr(curr_model, details["fromTargetModel"][idx]))
-            curr_model = details["model"][idx]
-
-        terminalModel = curr_model
-
-        # pathStepA = getattr(TARGET_MODEL, details["fromTargetModel"][0])
-        # pathStepB = getattr(details["model"][0], details["fromTargetModel"][1])
-        # terminalModel = details["model"][1]
-        fieldSet = createTargetFieldSet(terminalModel, details["fields"])
-
-        # filter_path = pathStepA.any(pathStepB.any( func.lower(func.concat(fieldSet)).contains(func.lower(needle))  ) )
-
-        filter_path = func.lower(func.concat(fieldSet)).contains(func.lower(needle))
-        for path in reversed(path_list):
-            filter_path = path.any(filter_path)
-
-        query = query.filter(filter_path)
-        # for reference, on the "judgeName" in SCALES config, the above is equivalent to:
-        # query = query.filter(
-        #     db.Case.judges.any(db.JudgeOnCase.judge.any(func.lower(
-        #       func.concat(createTargetFieldSet(db.Judge, details["fields"]))) \
-        #         .contains(func.lower(needle))))
-        # )
-    else:
-        # TODO: there will prob be more here...
-        # perhaps this is the space for plugins?
-        pass
-    return query
 
 def sortQuery(sess, targetModel, query, sortBy, sortDir, details):
     sortKey = "sortField" if "sortField" in details else "fields"
@@ -239,6 +196,7 @@ def bundleQueryResults(query, targetRange, targetEntity, formatResult, simpleRes
             "totalCount": totalCount,
             "resultRange": targetRange
         }
+
     return results
 
 def createTargetFieldSet(model, fields):

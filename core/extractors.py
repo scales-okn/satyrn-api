@@ -53,6 +53,7 @@ class RingConfigExtractor(object):
         ents = self._addAndTraverse_notrecursive(target)
 
         searchSpace = {}
+        print("ents", ents)
 
         for ent_name, rel, rel_type in ents:
             ent, entObj = self.resolveEntity(ent_name)
@@ -69,12 +70,14 @@ class RingConfigExtractor(object):
                                 # "allowMultiple": rel_type == "m2m",
                                 "nicename": att.nicename[0], # TODO: leverage the list for singular+plural
                                 "description": att.description,
-                                "resultFormat": att.resultFormat
+                                "resultFormat": att.resultFormat,
+                                "source_joins": att.source_joins
                             } for att in entObj.attributes if att.searchable
                 }
             }
 
         self.cache[target]["searchSpace"] = searchSpace
+        
         return searchSpace
 
     def getAnalysisSpace(self, target=None):
@@ -236,11 +239,26 @@ class RingConfigExtractor(object):
         renderMap = {
             col["key"]: self.getSearchSpace(target)[None]["attributes"][col["key"]]["fields"] for col in cols
         }
-
-        results = {
-            attr: self.coerceValsToString([getattr(result, field) for field in fields], searchSpace[None]["attributes"][attr]["resultFormat"])
-            for attr, fields in renderMap.items()
-        }
+        results = {}
+        
+        try:
+            results = {
+                        attr: self.coerceValsToString([getattr(result, field) for field in fields], searchSpace[None]["attributes"][attr]["resultFormat"])
+                        for attr, fields in renderMap.items()
+                    }
+        except:
+            results = {}
+        # for attr, fields in renderMap.items():
+        #     for field in fields:
+        #         try:
+        #             results = {
+        #                 attr: self.coerceValsToString([getattr(result, field) for field in fields], searchSpace[None]["attributes"][attr]["resultFormat"])
+        #                 for attr, fields in renderMap.items()
+        #             }
+        #         except:
+        #             # This is bandage I'm putting a the wound. Will need to fix later.
+        #                 # Explained in readme. 
+        #             results = {}
         return results
 
     def coerceValsToString(self, vals, formatting):

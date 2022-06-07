@@ -4,7 +4,6 @@ from flask import Blueprint, current_app, jsonify, request, send_from_directory
 from flask_cors import cross_origin
 from flask_security import login_required
 
-# from .analysisSpace import ANALYSIS_MODEL_SPACE as ANALYSIS_SPACE
 from .engine import run_analysis
 from .seekers import getResults
 from .autocomplete import runAutocomplete
@@ -14,17 +13,15 @@ from .viewHelpers import organizeAnalysis
 # # some "local globals"
 app = current_app # this is now the same app instance as defined in appBundler.py
 api = Blueprint("api", __name__)
-# SATCONF = current_app.satConf
-# db = SATCONF.db
 cache = app.cache
 
 # One cache enabled helper function...
 @cache.memoize(timeout=1000)
 def cachedAutocomplete(db, theType, searchSpace, opts):
     # TODO: make this work with the new DB setup!
+    print("chachedAutocomplete opts: ", opts)
     return json.dumps(runAutocomplete(db, theType, searchSpace, opts))
 
-#
 # THE ROUTES
 # base route as a pseudo health check
 # no login necessary to check this
@@ -152,10 +149,8 @@ def searchDB(ringId, version, targetEntity):
 
 
     opts = organizeFilters2(opts, searchSpace)
-
+    print("checking views: ", opts)
     # and manage sorting
-    # TODO: move this next line to config
-    # TODO2: add judges and other stuff?
     sortBy = request.args.get("sortBy", None)
     sortDir = request.args.get("sortDirection", "desc")
     opts["sortBy"] = sortBy if sortBy in sortables else None
@@ -166,8 +161,6 @@ def searchDB(ringId, version, targetEntity):
     return json.dumps(results, default=str)
 
 
-# PENDING: Add some check here that analysis opts are valid
-# PENDING: Use fieldTypes?
 @api.route("/analysis/<ringId>/<version>/<targetEntity>/", methods=["GET","POST"])
 @cross_origin(supports_credentials=True)
 @apiKeyCheck
@@ -178,13 +171,9 @@ def runAnalysis(ringId, version, targetEntity):
         return json.dumps(ring)
     # takes a list of args that match to top-level keys in SEARCH_SPACE (or None)
     # and keys related to analysis with analysisType defining the "frame" (matching a key in analysisSpace.py)
-    # The analysis parameters come in via a JSON body thingy
 
-    # then get the analysis stuff:
-    # operation = request.args.get("op", None)
+    # The analysis parameters come in via a JSON body
     analysisOpts = request.json
-
-    # print(analysisOpts)
 
     # first, get the search/filter stuff:
     searchSpace = ringExtractor.getSearchSpace(targetEntity)
@@ -195,18 +184,8 @@ def runAnalysis(ringId, version, targetEntity):
     if "query" not in analysisOpts:
         analysisOpts["query"] = {}
 
-
-    # print(analysisOpts)
-
     searchOpts = analysisOpts
     searchOpts = organizeFilters2(searchOpts, searchSpace)
-
-
-    # print(searchOpts)
-
-    # analysisOpts = organizeAnalysis(analysisOpts, ringExtractor.getAnalysisSpace(targetEntity))
-    # NOTE: this is currently commented out bc it is not taking into account potential plans taht can stem from entities
-    # that are not the search target entity but would still be valid
 
     if not analysisOpts:
         print("ill formed analysis opts")

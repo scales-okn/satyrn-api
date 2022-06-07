@@ -16,9 +16,6 @@ def comparisonQuery(s_opts, orig_a_opts, targetEntity):
                             "op": "None",
                         })
         else:
-            # a_opts[targ].update({
-            #                 "extra": {}
-            #             })
             pass
     return s_opts, a_opts, targetEntity
 
@@ -114,90 +111,3 @@ dct = { "comparison": {
       "type": "complex",
   }
 }
-
-# dct = {    
-#     "comparison": {
-#         "fields": {
-#             "target": {
-#                 "types": ["string", "bool", "int", "float", "average", "count"],
-#                 "fieldType": "target",
-#                 "extra": {
-#                     "numerator": {
-#                         "types": ["== target"],
-#                         "required": ["target == bool", "target == string"],             
-#                     }
-#                 }
-#             },
-#             "target2": {
-#                 "types": ["string", "bool", "int", "float", "average", "count"],
-#                 "fieldType": "target",
-#                 "extra": {
-#                     "numerator": {
-#                         "types": ["== target"],
-#                         "required": ["target == bool", "target == string"],             
-#                     }
-#                 }
-#             }
-#         },
-#         "unitsPrep": compareUnits, 
-#         "nicename": "comparison between",
-#         "queryPrep": comparisonQuery,
-#         "pandasFunc": {
-#             "op": pandasComparison,
-#         },
-#         "type": "complex",
-#         "groupingAllowed": {
-#             "groupType": ["groupBy", "timeseries"],
-#             "numberGroups": 2,
-#             "numberRequired": 1
-#         }
-#     },
-
-# }
-
-
-'''
-{
-    "target": {
-        "entity":"Contribution",
-        "field": "amount"
-    },
-    "target2": {
-        "entity":"Contribution",
-        "field": "inState"
-    },
-    "numerator2": [true],
-    "op": "comparison",
-    "groupBy": [{
-        "entity": "Contribution",
-        "field": "id"
-    }],
-    "rings": ["do-i-just-put-anything-here"],
-    "relationships": []
-}
-
-
-{
-    'target': 
-        {
-            'entity': 'Contribution', 
-            'field': 'amount', 
-            'op': 'None', 
-            'extra': {}
-        }, 
-    'target2': 
-        {
-            'entity': 'Contribution', 
-            'field': 'inState', 
-            'op': 'oneHot', 
-            'extra': {
-                'numerator2': [True], 
-            }
-        },
-    'numerator2': [True], 
-    'op': 'comparison', 
-    'groupBy': [{'entity': 'Contribution', 'field': 'id'}], 
-    'rings': ['do-i-just-put-anything-here'], 
-    'relationships': []
-}
-'''

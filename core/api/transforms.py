@@ -1,15 +1,9 @@
 from flask import current_app
 
-# local globals
-# db = current_app.jdb.noacri
-
-# a global constant that is leveraged by the analysis engine/API
-# similar to searchSpace.py -- config-driven analysis interface
-
 from sqlalchemy.sql.expression import case, extract
 from sqlalchemy.sql.functions import concat
 from sqlalchemy import func
-# from .sql_func import sql_percent_rank
+
 
 def make_case_expression(model_field, transform_dict, else_val):
     # print(transform_dict)
@@ -81,56 +75,6 @@ def threshold_processing(model_field, db_type, extra):
             transform_dict[string2] = lambda_func(string1)        
     return make_case_expression(model_field, transform_dict, else_val=extra.get("else_val", None))
 
-# def percentiles_processing(model_field, db_type, extra):
-#     '''
-#     Returns a sqlalchemy case expression for bucketing
-#     int/floats into the percentiles needed
-#     '''
-#     # extra = extra if extra else {}
-#     # transform_dict = {}
-#     # string_list = extra.get("threshold", TRANSFORMS_SPACE["threshold"]["default"])
-#     # if type(string_list[0]) == str:
-#     #     for string in string_list:
-#     #         transform_dict[string] = lambda_func(string)
-#     # else:
-#     #     for string1, string2 in string_list:
-#     #         transform_dict[string2] = lambda_func(string1)        
-#     # return make_case_expression(model_field, transform_dict, else_val=extra.get("else_val", None)) 
-
-#     rank_field = sql_percent_rank(model_field, db_type)
-#     transform_dict = {str(y): lambda x: x < y/100 for y in [0, 25, 50, 100]}
-#     return make_case_expression(rank_field, transform_dict, else_val=None)
-
-
-
-# def percentile_parameters(s_opts, a_opts, ring, extractor, targetEntity, session, db, field_types, field):
-#     # Given all that (might not need it all, we'll see)
-#     # Return a new a_opts that has the needed parameters
-#     '''
-#     e.g.
-#     {Contribution amount percentiles}
-#     to
-#     {Contribution amount percentiles [0, 100, 2345, 100000]}
-
-#     and everything else the same i think
-#     '''
-#     # Make the new query
-
-
-
-#     # Return the new query to run? that way we can do prep query and all that shizz over there
-
-#     # 
-#     pass
-
-
-# def substr_processing(model_field, string_list=None, else_val=None):
-#     return func.substr(model_field, 0, 10)
-
-
-# def substr_processing(model_field, string_list=None, else_val=None):
-#     return func.substr(model_field, 0, (func.length(model_field) - func.instr(model_field, " ")))
-
 TRANSFORMS_SPACE = {
     "threshold": {
         "dataType": ["float", "int"],
@@ -139,28 +83,4 @@ TRANSFORMS_SPACE = {
         "default": ["x < 1000", "1000 <= x"]
 
     },
-    # "percentiles": {
-    #     "dataType": ["float", "int"],
-    #     "newType": "string",
-    #     "processor": percentiles_processing,
-    #     "default": "quartiles"
-
-    # },
-    # "month_transform": {
-    #     "dataType": ["datetime"],
-    #     "newType": "date",
-    #     "processor": month_processing,
-
-    # },
-    # "year_transform": {
-    #     "dataType": ["datetime"],
-    #     "newType": "date",
-    #     "processor": year_processing,
-
-    # },
-    # "substr_transform": {
-    #     "dataType": ["string"],
-    #     "newType": "string",
-    #     "processor": substr_processing,
-    # }
 }

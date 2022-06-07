@@ -8,9 +8,7 @@ import numpy as np
 
 def distributionQuery(s_opts, orig_a_opts, targetEntity):
 
-
     a_opts = deepcopy(orig_a_opts)
-    # a_opts["target"]["extra"] = {}
     return s_opts, a_opts, targetEntity
 
 
@@ -21,9 +19,6 @@ def pandasDistribution(a_opts, results, group_args, field_names, col_names):
 
     # remove the "over" attributes from the group_args
     group_args = [group for group in group_args if not col_names[field_names.index(group)].startswith("over") ]
-    # print(group_args)
-
-    # group_args.pop()
 
     if group_args:
         counts = df.groupby(group_args)[target_arg].sum()
@@ -93,30 +88,3 @@ dct = { "distribution": {
       "type": "complex",
   }
 }
-
-# dct = {
-#     "distribution": {
-#         "fields": {
-#             "target": {
-#                 "types": ["int", "float", "average", "count"],
-#                 "fieldType": "target"
-#             },
-#             "over": {
-#                 "types": ["string", "bool"],
-#                 "fieldType": "group"
-#             }
-#         },
-#         "type": "complex",
-#         "unitsPrep": distributionUnits,
-#         "nicename": "Distribution of",
-#         "queryPrep": distributionQuery,
-#         "pandasFunc": {
-#             "op": pandasDistribution,
-#         },
-#         "groupingAllowed": {
-#             "groupType": ["groupBy", "timeseries"],
-#             "numberGroups": 1,
-#             "numberRequired": 0
-#         }
-#     }
-# }

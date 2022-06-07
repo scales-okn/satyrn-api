@@ -82,3 +82,39 @@ Satyrn is now a multi-service platform, with a Core API (this repo), a frontend 
 __Important note__: the Core API now expects v2.1 ring configs, so earlier (like those in satyrn-templates/basic_v2) are no longer directly supported by current iterations of the platform. See satyrn-templates/basic_v2-1 for a working schema example.
 
 __Important note #2__: The latter method of loading rings from configs on disk at initialization only works when the platform is running in _development_ mode. In a production environment, the system will require all rings to be loaded from the BfF service.
+
+
+## Code Structure
+
+### `core`
+
+The files included at the top level of the directory are:
+
+- `compiler.py`: compiles a ring json into a compiled ring that can be used by the api
+- `extractors.py`: provides methods for utilizing the compiled ring
+- `ring_checker.py`: checks that the given ring configuration is correct
+- `satyrnBundler.py`: sets up the flask app for the api
+- `defaults.json`: contains the default settings for ring configurations (e.g. null handling behavior)
+- `upperOntology.json`: contains an initial stub for a fully-fleshed upper ontology for datatypes
+
+Additionally there is the `sqlite_extensions` folder, which includes some files with sqlite functionality. To ensure that our platform has analytical capabilities for sqlite and for postgres databases, we imported sqlite extensions from https://github.com/nalgeon/sqlean
+
+#### `api`
+
+The bulk of the code is contained in the api folder. The files at the top level directory are:
+
+- `autocomplete.py`: contains autocomplete functionality for searching endpoints
+- `engine.py`: contains functions for running analytics
+- `operations.py`: contains a library of available analytics. It also compiles the analytics defined in the `analysis_plugins` folder
+- `seekers.py`: contains searching functions
+- `sql_func.py`: contains SQL functions that work for both sqlite and postgres
+- `transforms.py`: defines transformations available for different datatypes (e.g. bucketing numeric values into categories)
+- `utils.py`: additional helper functions
+- `viewsHelpers.py`: helper functions for the `views.py`
+- `views.py`: defines the api endpoints that can be used once the flask app is set up
+
+Additionally, we have an `analysis_plugins` folder that allows the creation of new plugins by defining a new file (more details aon this in the `analysis_plugins/__init__.py` file)
+
+### tests
+
+Defines a set of tests that can be run for one of the template rings

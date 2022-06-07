@@ -144,6 +144,7 @@ class Ring_Attribute(Ring_Object):
         self.units = None
         self.source_table = None
         self.source_columns = None
+        self.source_joins = [] 
 
         # a flag to track whether it requires a join
         self.join_required = False
@@ -184,6 +185,7 @@ class Ring_Attribute(Ring_Object):
             self.source_table = source.get('table')
             self.source_columns = source.get('columns')
             self.join_required = self.source_table != self.parent_entity["table"]
+            self.source_joins = source.get('joins',[])
 
         if 'metadata' in info:
             md = info['metadata']
@@ -856,7 +858,7 @@ class Ring_Compiler(object):
             }
             for table in self.config.source.tables
         }
-
+        
         # build the join scaffolding
         # upstream of per-entity stuff
         model_map = self.build_joins(model_map)
@@ -865,6 +867,7 @@ class Ring_Compiler(object):
         for entity in self.config.entities:
             model_map =  self.populate_models_from_entity(entity, model_map)
 
+        
         models = [type(name, (self.config.source.base,), model_info) for name, model_info in model_map.items()]
 
         return models
