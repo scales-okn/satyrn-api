@@ -103,10 +103,12 @@ def getAutocompletes(ringId, version, targetEntity, theType):
     limit = request.args.get("limit", 1000)
     opts = {"query": request.args.get("query", None), "limit": limit}
     searchSpace = ringExtractor.getSearchSpace(targetEntity)
-    if theType in searchSpace \
-      and "autocomplete" in searchSpace[theType] \
-      and searchSpace[theType]["autocomplete"]:
-        return cachedAutocomplete(ring.db, theType, searchSpace[theType], opts)
+    thisEntity = searchSpace.get(None)
+    thisAttrs = thisEntity.get("attributes")
+    if theType in thisAttrs \
+      and "autocomplete" in thisAttrs[theType] \
+      and thisAttrs[theType]["autocomplete"]:
+        return cachedAutocomplete(ring.db, theType, thisAttrs[theType], opts)
     return json.dumps({"success": False, "message": "Unknown autocomplete type"})
 
 
