@@ -999,7 +999,6 @@ class Ring_Compiler(object):
     # If type in it, use that for the underlying data type
     # If not, revert to the just doing normal column stuff
     def column_with_type(self, type_string, primary_key=False, foreign_key=None):
-
         if type_string in self.upperOnt:
             sa_type = getattr(sa, self.upperOnt[type_string].capitalize())
         elif type_string not in ["date", "datetime"]:
@@ -1007,7 +1006,12 @@ class Ring_Compiler(object):
         if primary_key:
             return Column(sa_type, primary_key=True)
         elif foreign_key:
-            return Column(sa_type, ForeignKey(foreign_key))
+            if type_string == "datetime":
+                return Column(DateTime, ForeignKey(foreign_key), default=datetime.datetime.utcnow)
+            elif type_string == "date":
+                return Column(Date, ForeignKey(foreign_key), default=datetime.date.today)
+            else: 
+                return Column(sa_type, ForeignKey(foreign_key))
         elif type_string == "datetime":
             return Column(DateTime, default=datetime.datetime.utcnow)
         elif type_string == "date":

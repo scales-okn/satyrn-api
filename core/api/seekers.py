@@ -55,20 +55,17 @@ def rawGetResultSet(opts, ring, ringExtractor, targetEntity, targetRange=None, s
         sess = db.Session()
         ##query = sess.query(targetModel).distinct(targetInfo.id[0]).group_by(targetInfo.id[0])
         query = sess.query(targetModel)
-        print("---> targetModel ", targetModel, targetInfo.id[0])
         ##PROBLEM FOR LATER
             ##Query and join the 'derived' table for the entity --> multitable entity issue
                 ## Don't rejoin again afterwards! 
     if opts["query"]:
         que, joins_todo = makeFilters(query, ringExtractor, db, opts["query"], [])
-        print("inside rawGetResultSet - joins_todo : ", joins_todo)
         query = query.filter(que)
 
     # DO joins
     if make_joins:
         relationships = opts["relationships"]
         query, joined_tables = utils._do_joins(query, [targetInfo.table], relationships, ringExtractor, targetEntity, db, [],joins_todo)
-        print("******** inside rawGetResultSet - joined_tables : ", joined_tables)
         query, joined_tables = utils.do_multitable_joins(query, joins_todo, ringExtractor, targetEntity, db, joined_tables, [targetInfo.table])
 
     # Do prefilters
@@ -76,18 +73,14 @@ def rawGetResultSet(opts, ring, ringExtractor, targetEntity, targetRange=None, s
     # for field in PREFILTERS:
     #     for filt in PREFILTERS[field]:
     #         query = query.filter(filt)
-    print("made it here without an issue")
 
 
     if "sortBy" in opts and opts["sortBy"] is not None:
         details = searchSpace[opts["sortBy"]]
         query = sortQuery(sess, targetModel, query, opts["sortBy"], opts["sortDir"], details)
     if just_query:
-        print("++++++++++++++++++++++++++++++++++++++++++++++++++")
         return query, joins_todo
-    print("-------------------------------------------------")
-    print (query)
-    print("-------------------------------------------------")
+        
     return bundleQueryResults(query, targetRange, targetEntity, formatResult, simpleResults)
 
 def makeFilters(query, extractor, db, opts, joins_todo):

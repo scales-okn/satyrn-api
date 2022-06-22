@@ -56,7 +56,9 @@ class RingConfigExtractor(object):
         print("ents", ents)
 
         for ent_name, rel, rel_type in ents:
+            print(ent_name, rel, rel_type)
             ent, entObj = self.resolveEntity(ent_name)
+            print("ent and entObj : ", ent, entObj)
             key_name = rel if rel else None
             searchSpace[key_name] = {
                 "entity": ent_name,
@@ -240,26 +242,45 @@ class RingConfigExtractor(object):
             col["key"]: self.getSearchSpace(target)[None]["attributes"][col["key"]]["fields"] for col in cols
         }
         results = {}
-        
-        try:
-            results = {
-                        attr: self.coerceValsToString([getattr(result, field) for field in fields], searchSpace[None]["attributes"][attr]["resultFormat"])
-                        for attr, fields in renderMap.items()
-                    }
-        except:
-            results = {}
-        # for attr, fields in renderMap.items():
-        #     for field in fields:
-        #         try:
-        #             results = {
-        #                 attr: self.coerceValsToString([getattr(result, field) for field in fields], searchSpace[None]["attributes"][attr]["resultFormat"])
-        #                 for attr, fields in renderMap.items()
-        #             }
-        #         except:
-        #             # This is bandage I'm putting a the wound. Will need to fix later.
-        #                 # Explained in readme. 
-        #             results = {}
+        ## FIX THIS!!! 
+        ## If getattr(result, field, DEFAULT=None) <-- set default to none
+            ## if this doesn't exist then it's not in the model --> look through other joins 
+        ## self.resolveJoin(searchSpace[None]['attributes']['ifp_label']['source_joins'][0])[1]
+                ## result --> <core.compiler.Ring_Join object at 0x7fe8b46a09d0> --> 'ifpToCase' compiler object
+        # breakpoint()
+        for attr, fields in renderMap.items():
+            attribute_list = []
+            for field in fields:
+                ## check whether the attribute has a join
+                print("in the loop for ", field)
+                print("the value is: ", searchSpace[None]['attributes'][attr]['source_joins'])
+                if searchSpace[None]['attributes'][attr]['source_joins'] != []:
+                    if len(searchSpace[None]['attributes'][attr]['source_joins']) == 1:
+                        ## FIX THIS --> ONLY DOING ONE HOP JOINS NOW
+                        ## go through the join and get the value. 
+                            ## think about multi joins
+                        print("issue is in attribute: ", searchSpace[None]['attributes'][attr])
+                        target_join_path = (self.resolveJoin(searchSpace[None]['attributes'][attr]['source_joins'][0])[1].path)[0]
+                        if target_join_path[0].split(".")[0] != searchSpace[None]['entity']:
+                            target_table = target_join_path[0].split(".")[0]
+                            print("--------> TARGET TABLE: ", target_table, "for field: ", field)
+                        elif target_join_path[1].split(".")[0] != searchSpace[None]['entity']:
+                            target_table = target_join_path[1].split(".")[0]
+                            print("--------> TARGET TABLE2: ", target_table, "for field: ", field)
+                        else:
+                            raise ValueError("idk. wierd type of join in the extractors causing the issue.")
+                        ''' did not wrok bc the first object will alwayss be cases
+                        attribute_list.append(getattr(searchSpace[None]['attributes']['ifp_label']['model'], searchSpace[None]['attributes']['ifp_label']['fields'][0]))
+                        results[attr] = self.coerceValsToString(attribute_list, searchSpace[None]["attributes"][attr]["resultFormat"])
+                        '''
+                else:
+                    ## doesn't need a join, just grab it! 
+                    print("------------result: ", result, "field: ", field)
+                    attribute_list.append(getattr(result, field))
+                    results[attr] = self.coerceValsToString(attribute_list, searchSpace[None]["attributes"][attr]["resultFormat"])
+
         return results
+
 
     def coerceValsToString(self, vals, formatting):
         # TODO: make this both a) type (leveraging ontology + styling) aware and b) template-compatible

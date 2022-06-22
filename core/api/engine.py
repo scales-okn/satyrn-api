@@ -258,11 +258,9 @@ def simple_query(s_opts, a_opts, ring, extractor, targetEntity, session, db, fie
     for i in joins_todo2:
         if i not in joins_todo:
             joins_todo.append(i)
-    print("************joins_todo: ", joins_todo)
     # Do joins
     query, joined_tables = utils._do_joins(query, tables, a_opts["relationships"] if "relationships" in a_opts else [], extractor, targetEntity, db, entity_names, joins_todo)
     query, joined_tables = utils.do_multitable_joins(query, joins_todo, extractor, targetEntity, db, joined_tables, tables)
-    print("joins todo is: ", joins_todo)
     # ADD THE UNIQUE CONSTRAINT ON THE TUPLES OF THE IMPORTANT FIELDS IDS
     # PENDING: this gives errors. right now will not add entity ids
     # query = query.distinct(*entity_ids)
@@ -273,8 +271,6 @@ def simple_query(s_opts, a_opts, ring, extractor, targetEntity, session, db, fie
              group_args.append(utils._name(a_opts[field]["entity"], a_opts[field]["field"], transform=a_opts[field].get("transform"), date_transform=a_opts[field].get("dateTransform")))
 
      # Modify field_names so that it also return type of field
-    print("back from both joins. This is the tables: ", joined_tables)
-    print("3 query is: ", query)
 
     return query, group_args, field_names, col_names
 
@@ -453,7 +449,6 @@ def _do_filters(query, s_opts, ring, extractor, targetEntity, col_names, session
     joins_todo = []
     # do normal filters
     if s_opts and "query" in s_opts and s_opts["query"]:
-        print("from engine going to rawGetResultSet")
         query, joins_todo = rawGetResultSet(s_opts, ring, extractor, targetEntity, targetRange=None, simpleResults=True, just_query=True, sess=session, query=query, make_joins=False)
 
     # do nan filtering
@@ -473,13 +468,11 @@ def _do_filters(query, s_opts, ring, extractor, targetEntity, col_names, session
                 # again get the "real" field and filter off of that
                 # PENDING: might have issues since there could be multiple fields with same name
                 field, name, joins_todo2 = utils._get(extractor, param_dct["entity"], param_dct["field"], db)
-                print("here we are with some joins todo : ", joins_todo2)
                 for item in joins_todo2:
                     if item not in joins_todo:
                         joins_todo.append(item)
                 query = query.filter(field != None)
 
-    print("inside do_filters --> joins todo is: ", joins_todo)
     return query, joins_todo
 
 
