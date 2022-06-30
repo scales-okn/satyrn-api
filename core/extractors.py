@@ -12,6 +12,7 @@ except:
 
 
 import queue
+from copy import deepcopy
 
 class RingConfigExtractor(object):
     ''' A helper class to extract/prepare the compiled rings to JSON for the API/FE '''
@@ -242,40 +243,53 @@ class RingConfigExtractor(object):
             col["key"]: self.getSearchSpace(target)[None]["attributes"][col["key"]]["fields"] for col in cols
         }
         results = {}
-        ## FIX THIS!!! 
-        ## If getattr(result, field, DEFAULT=None) <-- set default to none
-            ## if this doesn't exist then it's not in the model --> look through other joins 
-        ## self.resolveJoin(searchSpace[None]['attributes']['ifp_label']['source_joins'][0])[1]
-                ## result --> <core.compiler.Ring_Join object at 0x7fe8b46a09d0> --> 'ifpToCase' compiler object
-        # breakpoint()
         for attr, fields in renderMap.items():
             attribute_list = []
             for field in fields:
-                ## check whether the attribute has a join
-                print("in the loop for ", field)
-                print("the value is: ", searchSpace[None]['attributes'][attr]['source_joins'])
-                if searchSpace[None]['attributes'][attr]['source_joins'] != []:
-                    if len(searchSpace[None]['attributes'][attr]['source_joins']) == 1:
-                        ## FIX THIS --> ONLY DOING ONE HOP JOINS NOW
-                        ## go through the join and get the value. 
-                            ## think about multi joins
-                        print("issue is in attribute: ", searchSpace[None]['attributes'][attr])
-                        target_join_path = (self.resolveJoin(searchSpace[None]['attributes'][attr]['source_joins'][0])[1].path)[0]
-                        if target_join_path[0].split(".")[0] != searchSpace[None]['entity']:
-                            target_table = target_join_path[0].split(".")[0]
-                            print("--------> TARGET TABLE: ", target_table, "for field: ", field)
-                        elif target_join_path[1].split(".")[0] != searchSpace[None]['entity']:
-                            target_table = target_join_path[1].split(".")[0]
-                            print("--------> TARGET TABLE2: ", target_table, "for field: ", field)
-                        else:
-                            raise ValueError("idk. wierd type of join in the extractors causing the issue.")
-                        ''' did not wrok bc the first object will alwayss be cases
-                        attribute_list.append(getattr(searchSpace[None]['attributes']['ifp_label']['model'], searchSpace[None]['attributes']['ifp_label']['fields'][0]))
+                if searchSpace[None]['attributes'][attr]['source_joins']:
+                    sess = self.config.db.Session()
+                    # not sure if this is ever a list of more than one?
+                    source_path = deepcopy(searchSpace[None]['attributes'][attr]['source_joins'])
+                    source_path.reverse()
+                    target_model = result
+                    print("-----------------------------------------------------", field)
+                    while source_path:
+                        next_step = source_path.pop()
+                        joiner = deepcopy(self.resolveJoin(next_step)[1].path)
+                        joiner.reverse()
+                        print("joiner: ", joiner)
+                        while joiner:
+                            # get the next model hop
+                            j = joiner.pop()
+                            ## FIX THIS -- DONNA 
+                            next_model_type = getattr(self.config.db, j[1].split(".")[0])
+                            print("next_model_type: ", next_model_type)
+                            next_attr = getattr(next_model_type, j[1].split(".")[1])
+                            print("next_attr: ", next_attr)
+                            id_of_next_model = getattr(target_model, j[0].split(".")[1])
+                            print("id_of_next_model: ", id_of_next_model)
+                            # note: this next thing assumes all joins are by id (getting via .get())
+                            # if that proves untrue, we could also use .filter() instead
+                            target_model = sess.query(next_model_type).filter(next_attr == id_of_next_model)
+                    print("target_model: ", target_model.all())
+                    if len(target_model.all()) == 1:
+                        print("1. ", getattr((target_model.all())[0], field))
+                        attribute_list.append(getattr((target_model.all())[0], field)) 
                         results[attr] = self.coerceValsToString(attribute_list, searchSpace[None]["attributes"][attr]["resultFormat"])
-                        '''
+                        # target_model should now be the end of the join path, so pluck the fields off it
+                    else:
+                        ## unwrap and go through  - DONNA 
+                        for item in target_model.all():
+                            print("2. ", getattr(item, field))
+                            attribute_list.append(getattr(item, field)) 
+                            results[attr] = self.coerceValsToString(attribute_list, searchSpace[None]["attributes"][attr]["resultFormat"])
+                        
+                    ## FOLLOWUP:
+                        ## 1. In Config declare what attributes you want. 
+                        ## 2. SqlAlchemy relationships in the ORM 
+                            ## So it doesn't use filters but rather hops in relationships
                 else:
                     ## doesn't need a join, just grab it! 
-                    print("------------result: ", result, "field: ", field)
                     attribute_list.append(getattr(result, field))
                     results[attr] = self.coerceValsToString(attribute_list, searchSpace[None]["attributes"][attr]["resultFormat"])
 
