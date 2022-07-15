@@ -1,22 +1,14 @@
-# Satyrn API v2.1
+# Satyrn API v0.2.1
 
-[![Build Status](http://198.211.97.126:8080/job/satyrn-platform/badge/icon)](http://198.211.97.126:8080/job/satyrn-platform/)
+This is the core codebase for the Satyrn API. Satyrn is developed by the C3 Lab at Northwestern University and is in pre-release alpha. Details about this work are pending publication, and it will be made open-source with clear licensing terms at a later date.
 
-This is the core codebase for the Satyrn API V2, which sits behind the Satyrn UX (and in conjunction with the Satyrn Deployment and Satyrn Prototype repos). It's been ported over from the Satyrn-Platform repo and has been updated to work with Ring V2.1 configs.
+What follows are notes for those actively iterating on Satyrn towards a public release.
 
-For an example v2.1 config, see the basic_v2-1 directory in the satyrn-templates repo.
+-----------
 
-## Known TODOs for v2.1:
- - Update the documentation to reflect new multi-ring/multi-entity URI endpoints for analysis (the rest are now below)
- - need to have build_joins in compiler.py properly handle all join conditions (multi hops and many-to-one, many-to-many, etc) -- also, make sure config contains all necessary info (pending final analysis v2 design)
-    - this will also effect code in autocomplete + search because assumption is config["model"] is a single model now but will prob be a list in the future
- - leverage the att.nicename (on attributes) list for singular+plural references (currently just selects singular)
- - need to set up support for attribute-level joins (they're being created but not necessarily leveraged)
- - set up entity-as-attribute support in config/search/analysis
- - create a formatResult in extractors.py that takes into account the underlying type (e.g.: if type is currency/USD then render as localized number w/ "$")
- - create a "template" option on entities and attributes in the config and leverage that in formatResults (and in rendering answers) if it exists
- - figure out where to store flatfiles associated with rings
- - introduce pre-aggregated attributes (and anchor dimension to peg that pre-aggregation) in config/analysis
+The code in this repository stands alone in providing a REST API which can sit behind the Satyrn UX repository.
+
+For an example v0.2.1 config, see the basic_v2-1 directory in the satyrn-templates repo.
 
 ## The configuration model: Satyrn and its Rings
 See the documentation below for an example ring. Note that rings can be created to leverage tabular datastores (in dev, we have postgres and sqlite versions) with flat file support (e.g. CSVs) in flight
