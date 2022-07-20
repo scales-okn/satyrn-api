@@ -74,7 +74,7 @@ def rawGetResultSet(opts, ring, ringExtractor, targetEntity, targetRange=None, s
     #     for filt in PREFILTERS[field]:
     #         query = query.filter(filt)
 
-
+    # query = query.order_by(targetInfo.id[0])
     if "sortBy" in opts and opts["sortBy"] is not None:
         details = searchSpace[opts["sortBy"]]
         query = sortQuery(sess, targetModel, query, opts["sortBy"], opts["sortDir"], details)

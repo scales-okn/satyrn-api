@@ -239,7 +239,6 @@ def _do_joins(query, tables, relationships, extractor, targetEntity, db, entity_
     primary_bool = any(table == p_table for table in tables)
     # seond conditino should be true always for filterin join
 
-    print(targetEntity, type(targetEntity), p_table)
     # print(query)
     # print(tables)
     # print(relationships)

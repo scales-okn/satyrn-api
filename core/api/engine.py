@@ -108,7 +108,6 @@ def single_ring_analysis(s_opts, a_opts, ring, extractor, targetEntity, sess, db
         }
     }
     '''
-
     op = a_opts["op"]
     field_types = {
         "group": [field for field, dct in OPS[op]["required"].items() if dct["fieldType"] == "group"],
@@ -143,6 +142,9 @@ def single_ring_analysis(s_opts, a_opts, ring, extractor, targetEntity, sess, db
         else:
             print("Unavailable type of operation")
             return None
+
+        # targetInfo = extractor.resolveEntity(targetEntity)[1]
+        # query = query.order_by(targetInfo.id[0])
         units = get_units(a_opts, extractor, field_types, field_names, col_names)
         results = {"results": [list(q) for q in query.all()], "field_names": field_names, "field_types": col_names, "units": {"results": units}}
         

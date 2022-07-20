@@ -66,6 +66,7 @@ class RingConfigExtractor(object):
                 "rel_type": rel_type,
                 "allowMultiple": rel_type == "m2m",
                 "attributes": { att.name: {
+                                "displayable": att.displayable,
                                 "autocomplete": att.autocomplete,
                                 "type": att.baseIsa,
                                 "model": getattr(self.config.db, entObj.table),
@@ -246,52 +247,63 @@ class RingConfigExtractor(object):
         for attr, fields in renderMap.items():
             attribute_list = []
             for field in fields:
-                if searchSpace[None]['attributes'][attr]['source_joins']:
-                    sess = self.config.db.Session()
-                    # not sure if this is ever a list of more than one?
-                    source_path = deepcopy(searchSpace[None]['attributes'][attr]['source_joins'])
-                    source_path.reverse()
-                    target_model = result
-                    print("-----------------------------------------------------", field)
-                    while source_path:
-                        next_step = source_path.pop()
-                        joiner = deepcopy(self.resolveJoin(next_step)[1].path)
-                        joiner.reverse()
-                        print("joiner: ", joiner)
-                        while joiner:
-                            # get the next model hop
-                            j = joiner.pop()
-                            ## FIX THIS -- DONNA 
-                            next_model_type = getattr(self.config.db, j[1].split(".")[0])
-                            print("next_model_type: ", next_model_type)
-                            next_attr = getattr(next_model_type, j[1].split(".")[1])
-                            print("next_attr: ", next_attr)
-                            id_of_next_model = getattr(target_model, j[0].split(".")[1])
-                            print("id_of_next_model: ", id_of_next_model)
-                            # note: this next thing assumes all joins are by id (getting via .get())
-                            # if that proves untrue, we could also use .filter() instead
-                            target_model = sess.query(next_model_type).filter(next_attr == id_of_next_model)
-                    print("target_model: ", target_model.all())
-                    if len(target_model.all()) == 1:
-                        print("1. ", getattr((target_model.all())[0], field))
-                        attribute_list.append(getattr((target_model.all())[0], field)) 
-                        results[attr] = self.coerceValsToString(attribute_list, searchSpace[None]["attributes"][attr]["resultFormat"])
-                        # target_model should now be the end of the join path, so pluck the fields off it
-                    else:
-                        ## unwrap and go through  - DONNA 
-                        for item in target_model.all():
-                            print("2. ", getattr(item, field))
-                            attribute_list.append(getattr(item, field)) 
-                            results[attr] = self.coerceValsToString(attribute_list, searchSpace[None]["attributes"][attr]["resultFormat"])
-                        
-                    ## FOLLOWUP:
-                        ## 1. In Config declare what attributes you want. 
-                        ## 2. SqlAlchemy relationships in the ORM 
-                            ## So it doesn't use filters but rather hops in relationships
+                if searchSpace[None]['attributes'][attr]['displayable'] == False:
+                    pass
                 else:
-                    ## doesn't need a join, just grab it! 
-                    attribute_list.append(getattr(result, field))
-                    results[attr] = self.coerceValsToString(attribute_list, searchSpace[None]["attributes"][attr]["resultFormat"])
+                    if searchSpace[None]['attributes'][attr]['source_joins']:
+                        sess = self.config.db.Session()
+                        # not sure if this is ever a list of more than one?
+                        source_path = deepcopy(searchSpace[None]['attributes'][attr]['source_joins'])
+                        source_path.reverse()
+                        target_model = result
+                        # target_model_list = []
+                        print("-----------------------------------------------------", field)
+                        while source_path:
+                            next_step = source_path.pop()
+                            joiner = deepcopy(self.resolveJoin(next_step)[1].path)
+                            joiner.reverse() 
+                            print("joiner: ", joiner)
+                            while joiner:
+                                # get the next model hop
+                                j = joiner.pop()
+                                ## check whether the join is in order targetEntity -> Other attribute
+                                if j[0].split(".")[0] != targetEnt.table:
+                                    temp = j[0]
+                                    j[0] = j[1]
+                                    j[1] = temp
+                                next_model_type = getattr(self.config.db, j[1].split(".")[0])
+                                print("next_model_type: ", next_model_type)
+                                next_attr = getattr(next_model_type, j[1].split(".")[1])
+                                print("next_attr: ", next_attr)
+                                id_of_next_model = getattr(target_model, j[0].split(".")[1])
+                                print("id_of_next_model: ", id_of_next_model)
+                                # note: this next thing assumes all joins are by id (getting via .get())
+                                # if that proves untrue, we could also use .filter() instead
+                                target_model = sess.query(next_model_type).filter(next_attr == id_of_next_model)
+                                # target_model_list.append(target_model)
+                        print("target_model: ", target_model)
+                        if len(target_model.all()) == 1:
+                            print("1. ", getattr((target_model.all())[0], field))
+                            attribute_list.append(getattr((target_model.all())[0], field)) 
+                            results[attr] = self.coerceValsToString(attribute_list, searchSpace[None]["attributes"][attr]["resultFormat"])
+                            # target_model should now be the end of the join path, so pluck the fields off it
+                        ## SKIPPING IN FIRST PASS
+                        # else:
+                        #     ## unwrap and go through  - DONNA 
+                        #     for item in target_model_list:
+                        #         print("===> ", item)
+                        #         print("2. ", getattr(item, field))
+                        #         attribute_list.append(getattr(item, field)) 
+                        #         results[attr] = self.coerceValsToString(attribute_list, searchSpace[None]["attributes"][attr]["resultFormat"])
+                            
+                        ## FOLLOWUP:
+                            ## 1. In Config declare what attributes you want. 
+                            ## 2. SqlAlchemy relationships in the ORM 
+                                ## So it doesn't use filters but rather hops in relationships
+                    else:
+                        ## doesn't need a join, just grab it! 
+                        attribute_list.append(getattr(result, field))
+                        results[attr] = self.coerceValsToString(attribute_list, searchSpace[None]["attributes"][attr]["resultFormat"])
 
         return results
 

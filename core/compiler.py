@@ -134,6 +134,7 @@ class Ring_Attribute(Ring_Object):
         self.allow_multiple = False
         self.analyzable = True
         self.resultFormat = [False,False]
+        self.displayable = True
 
         # Initialize other properties
         self.search_style = None
@@ -195,6 +196,7 @@ class Ring_Attribute(Ring_Object):
             self.analyzable = md.get('analyzable', False)
             self.autocomplete = md.get('autocomplete', True if self.searchable else False)
             self.description = md.get('description')
+            self.displayable = md.get('displayable', True)
             self.resultFormat = md.get('resultFormat', [False,False])
             self.threshold = md.get("threshold", None)
 
@@ -231,7 +233,6 @@ class Ring_Attribute(Ring_Object):
                     granularity = defaults.get("date_defaults")[self.baseIsa]
                 self.dateMaxGranularity = granularity [1]
                 self.dateMinGranularity = granularity [0]
-
 
 
     def construct(self):
