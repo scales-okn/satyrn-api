@@ -76,7 +76,7 @@ def rawGetResultSet(opts, ring, ringExtractor, targetEntity, targetRange=None, s
 
     # query = query.order_by(targetInfo.id[0])
     if "sortBy" in opts and opts["sortBy"] is not None:
-        details = searchSpace[opts["sortBy"]]
+        details = searchSpace[None]["attributes"][opts["sortBy"]]
         query = sortQuery(sess, targetModel, query, opts["sortBy"], opts["sortDir"], details)
     if just_query:
         return query, joins_todo
@@ -169,7 +169,7 @@ def sortQuery(sess, targetModel, query, sortBy, sortDir, details):
         # targetField = targetField if sortDir == "asc" else targetField.desc()
         if sortDir == "desc":
             return query.order_by(targetField.desc())
-        return query.order_by(targetField)
+        return query.order_by(targetField.asc()) 
     else:
         # TODO: set it up so that the system can sort by relationships
         return query

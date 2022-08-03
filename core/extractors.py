@@ -54,12 +54,10 @@ class RingConfigExtractor(object):
         ents = self._addAndTraverse_notrecursive(target)
 
         searchSpace = {}
-        print("ents", ents)
 
         for ent_name, rel, rel_type in ents:
             print(ent_name, rel, rel_type)
             ent, entObj = self.resolveEntity(ent_name)
-            print("ent and entObj : ", ent, entObj)
             key_name = rel if rel else None
             searchSpace[key_name] = {
                 "entity": ent_name,
@@ -209,16 +207,28 @@ class RingConfigExtractor(object):
         target, targetEnt = self.resolveEntity(target)
 
         if "searchSpace" not in self.cache[target]:
-            self.getSearchSpace(target)
+            searchSpace = self.getSearchSpace(target)
+        else: 
+            searchSpace = self.cache[target]["searchSpace"]
         if "columns" in self.cache[target]:
             return self.cache[target]["columns"]
-
         columns = [{
             "key": att.name,
             "nicename": att.nicename[0],
             "width": "{}%".format(100/len(targetEnt.attributes)),
             "sortable": True
-        } for att in targetEnt.attributes]
+        } for att in targetEnt.attributes if searchSpace[None]['attributes'][att.name]['displayable']]
+        # columns = [] 
+        # for att in targetEnt.attributes: 
+        #     if searchSpace[None]['attributes'][att]['displayable']:
+        #         column = {
+        #         "key": att.name,
+        #         "nicename": att.nicename[0],
+        #         "width": "{}%".format(100/len(targetEnt.attributes)),
+        #         "sortable": True
+        #         }
+        #         columns.append(column)
+
 
         self.cache[target]["columns"] = columns
         return columns

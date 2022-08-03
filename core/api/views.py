@@ -150,9 +150,9 @@ def searchDB(ringId, version, targetEntity):
 
     opts = organizeFilters2(opts, searchSpace)
     # and manage sorting
-    # targetInfo = ringExtractor.resolveEntity(targetEntity)[1]
-    # sortBy = request.args.get("sortBy", targetInfo.id[0])
-    sortBy = request.args.get("sortBy", None)
+    targetInfo = ringExtractor.resolveEntity(targetEntity)[1]
+    sortBy = request.args.get("sortBy", targetInfo.id[0])
+    # sortBy = request.args.get("sortBy", None)
     sortDir = request.args.get("sortDirection", "desc")
     opts["sortBy"] = sortBy if sortBy in sortables else None
     opts["sortDir"] = sortDir if sortDir in ["asc", "desc"] else "desc"
