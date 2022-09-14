@@ -136,7 +136,7 @@ def searchDB(ringId, version, targetEntity):
     # left in case there is stuff in the request
     opts = organizeFilters(request, searchSpace, targetEntity)
     if not opts:
-        opts = request.json if request.json else {"query": {}, "relationships": []}
+        opts = request.json if request.content_type == "application/json" else {"query": {}, "relationships": []}
         if "page" in opts:
             page = int(opts["page"])
         if "batchSize" in opts:
