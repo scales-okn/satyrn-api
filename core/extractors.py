@@ -51,11 +51,11 @@ class RingConfigExtractor(object):
         if "searchSpace" in self.cache[target]:
             return self.cache[target]["searchSpace"]
 
-        ents = self._addAndTraverse_notrecursive(target)
+        ents = self._addAndTraverse_notrecursive(target) #has the relationships in the list(given in json)
 
         searchSpace = {}
 
-        for ent_name, rel, rel_type in ents:
+        for ent_name, rel, rel_type in ents: #each of these relation ship is added in the searchspace
             print(ent_name, rel, rel_type)
             ent, entObj = self.resolveEntity(ent_name)
             key_name = rel if rel else None
@@ -134,7 +134,7 @@ class RingConfigExtractor(object):
             target = self.defaultEntity
         entities = []
 
-        for rel in self.config.relationships:
+        for rel in self.config.relationships:    #relationship in the config (given in th json) is added here in entities
             connected_ent = None
             if rel.fro == target:
                 entities.append((rel.to, rel.name, rel.relation))
@@ -245,8 +245,16 @@ class RingConfigExtractor(object):
         defSort =  {"key": self.getColumns(target)[0]["key"], "direction": "desc"}
         self.cache[target]["defaultSort"] = defSort
         return defSort
+    
+    def get_primarykey(self,table):
+        for each in self.config.source.tables:
+            eachlist = list(each.values())
+            if table in eachlist:
+                return eachlist[1]
+        #add error message if the name is not found in the table
 
-    def formatResult(self, result, target=None):
+
+    def formatResult(self, result,sess,target=None):
         target, targetEnt = self.resolveEntity(target)
         cols = self.getColumns(target)
         searchSpace = self.getSearchSpace(target)
@@ -261,51 +269,29 @@ class RingConfigExtractor(object):
                     pass
                 else:
                     if searchSpace[None]['attributes'][attr]['source_joins']:
-                        sess = self.config.db.Session()
                         # not sure if this is ever a list of more than one?
                         source_path = deepcopy(searchSpace[None]['attributes'][attr]['source_joins'])
-                        source_path.reverse()
-                        target_model = result
-                        # target_model_list = []
-                        print("-----------------------------------------------------", field)
-                        while source_path:
-                            next_step = source_path.pop()
-                            joiner = deepcopy(self.resolveJoin(next_step)[1].path)
-                            joiner.reverse() 
-                            print("joiner: ", joiner)
-                            while joiner:
-                                # get the next model hop
-                                j = joiner.pop()
-                                ## check whether the join is in order targetEntity -> Other attribute
-                                if j[0].split(".")[0] != targetEnt.table:
-                                    temp = j[0]
-                                    j[0] = j[1]
-                                    j[1] = temp
-                                next_model_type = getattr(self.config.db, j[1].split(".")[0])
-                                print("next_model_type: ", next_model_type)
-                                next_attr = getattr(next_model_type, j[1].split(".")[1])
-                                print("next_attr: ", next_attr)
-                                id_of_next_model = getattr(target_model, j[0].split(".")[1])
-                                print("id_of_next_model: ", id_of_next_model)
-                                # note: this next thing assumes all joins are by id (getting via .get())
-                                # if that proves untrue, we could also use .filter() instead
-                                target_model = sess.query(next_model_type).filter(next_attr == id_of_next_model)
-                                # target_model_list.append(target_model)
-                        print("target_model: ", target_model)
-                        if len(target_model.all()) == 1:
-                            print("1. ", getattr((target_model.all())[0], field))
-                            attribute_list.append(getattr((target_model.all())[0], field)) 
-                            results[attr] = self.coerceValsToString(attribute_list, searchSpace[None]["attributes"][attr]["resultFormat"])
-                            # target_model should now be the end of the join path, so pluck the fields off it
-                        ## SKIPPING IN FIRST PASS
-                        # else:
-                        #     ## unwrap and go through  - DONNA 
-                        #     for item in target_model_list:
-                        #         print("===> ", item)
-                        #         print("2. ", getattr(item, field))
-                        #         attribute_list.append(getattr(item, field)) 
-                        #         results[attr] = self.coerceValsToString(attribute_list, searchSpace[None]["attributes"][attr]["resultFormat"])
-                            
+                        next_step = source_path.pop()
+                        joiner = deepcopy(self.resolveJoin(next_step)[1].path)
+
+                        #get the to and from tables from the path
+                        from_= joiner[0][0]
+                        to_ = joiner[0][1]
+                        from_table, from_col = from_.split('.')
+                        to_table, to_col = to_.split('.')
+                        from_entity = getattr(self.config.db,from_table)
+                        to_entity = getattr(self.config.db,to_table)
+                        
+                        #fetching primary keys for the result table and the from_table
+                        result_pkey = self.get_primarykey(result.__tablename__)
+                        from_table_pkey = self.get_primarykey(from_table)
+
+                        #runquery to create the join for relationship
+                        target_model = sess.query(from_entity,getattr(to_entity,field)).join(getattr(from_entity,next_step)).where(getattr(result,result_pkey)== getattr(from_entity,from_table_pkey))
+
+                        attribute_list.append(getattr((target_model.all())[0], field)) 
+                        results[attr] = self.coerceValsToString(attribute_list, searchSpace[None]["attributes"][attr]["resultFormat"])
+
                         ## FOLLOWUP:
                             ## 1. In Config declare what attributes you want. 
                             ## 2. SqlAlchemy relationships in the ORM 

@@ -1,12 +1,14 @@
 import datetime
 from functools import reduce
+from gc import get_objects
 import json
 import os
 
 import sqlalchemy as sa
+from sqlalchemy import inspect
 from sqlalchemy import Boolean, Column, ForeignKey, Integer, Float, String, DateTime, Date
 from sqlalchemy.ext.declarative import declarative_base
-from sqlalchemy.orm import relationship, sessionmaker
+from sqlalchemy.orm import relationship, sessionmaker, backref
 from sqlalchemy.orm import column_property
 from sqlalchemy import create_engine
 from sqlalchemy.sql.expression import case, extract, cast
@@ -836,11 +838,16 @@ class Ring_Compiler(object):
 
     def build_ORM(self):
         self.db = DB_Wrapper()
-        models = self.build_models()
+        models, relationship_list = self.build_models()
         for model in models:
             setattr(self.db, model.__name__, model)
         self.db.eng, self.db.Session = self.config.source.make_connection(self.db) # PENDING: Maybe pass model here or check if corresponding csv
         self.config.source.base.metadata.create_all(self.db.eng)
+        # breakpoint()
+        self.build_relationship(relationship_list)
+        # temp_insp = sa.inspect(self.db.cases)
+        # temp_insp.relationships.items()
+
         return self.db
 
     def build_models(self):
@@ -862,7 +869,7 @@ class Ring_Compiler(object):
         
         # build the join scaffolding
         # upstream of per-entity stuff
-        model_map = self.build_joins(model_map)
+        model_map, relationship_list = self.build_joins(model_map)
 
         # populate models from entities/attrs
         for entity in self.config.entities:
@@ -871,7 +878,7 @@ class Ring_Compiler(object):
         
         models = [type(name, (self.config.source.base,), model_info) for name, model_info in model_map.items()]
 
-        return models
+        return models, relationship_list
 
     def populate_models_from_entity(self, entity, model_map):
 
@@ -894,8 +901,28 @@ class Ring_Compiler(object):
 
         return model_map
 
+    def build_relationship(self,relationship_list):
+
+        for rel_name,from_, to_ in relationship_list:
+            from_table, from_col = from_.split('.')
+            to_table, to_col = to_.split('.')
+            from_entity = getattr(self.db,from_table)
+            to_entity = getattr(self.db,to_table)
+            # temp_insp = sa.inspect(self.db.cases)
+            # temp_insp.relationships.items()
+            temp = from_table+from_col
+
+            #setting relationship: from_table->to_table
+            relation = relationship(to_table, backref = temp, primaryjoin= f'{from_}=={to_}', uselist=True)
+            setattr(from_entity,rel_name,relation)
+            #setting relationship: to_table -> from_table
+            # relation = relationship(from_table, back_populates = to_table, primaryjoin= f'{to_}=={from_}', uselist=True)
+            # setattr(to_entity,rel_name,relation)
+
+
+
     def datetime_path(self, model_map, attribute, base_type):
-        '''
+        ''' 
         PENDING: when defining these, it might be good to have info from the entity attribute
         about the granularity we wanna go to, as well as defaults for granularity
         PENDING: what happens if value is Null? Everything returns null? RN seems to automatically cast it to now()
@@ -975,25 +1002,50 @@ class Ring_Compiler(object):
         # TODO: make this fully handle multi-hops and all one-to-many, many-to-many, etc conditions
 
         # do the join wiring
+        #to get a list of the tables and the corresponding pkey
+        primarykey_list = {}
+        for each in self.config.source.tables:
+            for ele, value in each.items():
+                if ele == 'name':
+                    new_key = value
+                if ele == 'primaryKey':
+                    primek = value
+            primarykey_list[new_key]=primek
+            
+        relationship_list = []
         for join in self.config.source.joins:
+            rel_name = join.name
             for hop in join.path:
                 try:
                     from_, to, key_type = hop
                     from_table, from_key = from_.split('.')
                     to_table, to_key = to.split('.')
+                    relationship_list.append([rel_name,from_,to])
                 except:
                     print(f'ERROR: Failed to parse join path with invalid format: {hop}')
 
                 if from_key not in model_map[join.from_]:
-                    model_map[join.from_][from_key] = self.column_with_type(key_type, foreign_key=to)
+                        model_map[join.from_][from_key] = self.column_with_type(key_type,foreign_key=to)
+                
+                if primarykey_list[from_table] == from_key:
+                    if from_key in model_map[from_table].keys():
+                        new_col = self.column_with_type(key_type,primary_key=True,foreign_key=to)
+                        model_map[from_table][from_key] = new_col
+
+                    #model_map[join.from_][from_key] = self.column_with_type(key_type,primary_key=True,foreign_key=to)
+                    pass
+                       
+                    #if key exist already as a primary key then update the column to be primary key and fkey
                     # model_map[join.from_][to_table] = relationship(to_table, back_populates=from_table, uselist=True)
 
                 if from_table not in model_map[join.to] and join.bidirectional:
+                    # model_map[join.to][from_table] = self.column_with_type(key_type,foreign_key=from_)
                     # model_map[join.to][from_table] = relationship(from_table, back_populates=to_table, uselist=True)
                     pass
 
-        return model_map
+        return model_map, relationship_list
 
+    
 
     # TODO: Modify this method to be able to deal with different kinds of data types
     # grab the upper ontology (maybe in the init it exists and we have it as a class attr)
@@ -1004,8 +1056,10 @@ class Ring_Compiler(object):
             sa_type = getattr(sa, self.upperOnt[type_string].capitalize())
         elif type_string not in ["date", "datetime"]:
             sa_type = getattr(sa, type_string.capitalize())
-        if primary_key:
+        if primary_key and foreign_key == None:
             return Column(sa_type, primary_key=True)
+        if primary_key and foreign_key!=None:
+            return Column(sa_type, ForeignKey(foreign_key), primary_key=True)
         elif foreign_key:
             if type_string == "datetime":
                 return Column(DateTime, ForeignKey(foreign_key), default=datetime.datetime.utcnow)

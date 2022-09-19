@@ -1,6 +1,7 @@
 from flask import current_app as app
 from sqlalchemy import func
 from sqlalchemy import and_, or_
+from sqlalchemy.orm import Session
 
 from . import utils
 from . import sql_func
@@ -45,7 +46,7 @@ def rawGetResultSet(opts, ring, ringExtractor, targetEntity, targetRange=None, s
     targetInfo = ringExtractor.resolveEntity(targetEntity)[1]
     targetModel = getattr(db, targetInfo.table)
     searchSpace = ringExtractor.getSearchSpace(targetEntity)
-    formatResult = ringExtractor.formatResult
+    #formatResult = ringExtractor.formatResult
     # takes a dictionary of key->vals that power a set of searchs downstream...
     # also takes a ring, ringExtractor and targetEntity name
     # and a range value to memoize a broader set than current page view
@@ -81,7 +82,7 @@ def rawGetResultSet(opts, ring, ringExtractor, targetEntity, targetRange=None, s
     if just_query:
         return query, joins_todo
         
-    return bundleQueryResults(query, targetRange, targetEntity, formatResult, simpleResults)
+    return bundleQueryResults(query, targetRange, targetEntity, ringExtractor, simpleResults)
 
 def makeFilters(query, extractor, db, opts, joins_todo):
     # check if just a condition
@@ -174,15 +175,17 @@ def sortQuery(sess, targetModel, query, sortBy, sortDir, details):
         # TODO: set it up so that the system can sort by relationships
         return query
 
-def bundleQueryResults(query, targetRange, targetEntity, formatResult, simpleResults=True):
+def bundleQueryResults(query, targetRange, targetEntity, ringExtractor, simpleResults=True):
     totalCount = query.count()
+    formatResult = ringExtractor.formatResult
+    sess = ringExtractor.config.db.Session()
     if targetRange is not None:
         results = query.slice(targetRange[0], targetRange[1]).all()
     else:
         results = query.all()
 
     if simpleResults:
-        results = [formatResult(result, targetEntity) for result in results]
+        results = [formatResult(result,sess,targetEntity) for result in results]
 
         return {
             "results": results,
