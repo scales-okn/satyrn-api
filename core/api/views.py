@@ -10,6 +10,9 @@ from .autocomplete import runAutocomplete
 
 from .viewHelpers import CLEAN_OPS, apiKeyCheck, errorGen, organizeFilters, cleanDate, getOrCreateRing, getRing, getRingFromService, convertFilters, organizeFilters2
 from .viewHelpers import organizeAnalysis
+
+from copy import deepcopy
+
 # # some "local globals"
 app = current_app # this is now the same app instance as defined in appBundler.py
 api = Blueprint("api", __name__)
@@ -211,15 +214,38 @@ def runAnalysis(ringId, version, targetEntity):
     return jsonify(results)
 
 
-@api.route("/result/<id>/")
+@api.route("/document/<ringId>/<version>/<targetEntity>/<entityId>")
 @apiKeyCheck
-def getResultHTML(id):
-    sess = db.Session()
-    target = sess.query(SATCONF.targetModel).get(id)
-    extraStuff = "<script type='application/javascript' src='/static/highlighter.js'></script>"
-    extraStuff += "<link href='/static/highlighter.css' rel='stylesheet'>"
-    caseHTML = target.get_clean_html() \
-                   .replace("</body></html>", extraStuff+"</body></html>")
+def getResultHTML(ringId, version, targetEntity, entityId):
+    ring, ringExtractor = getOrCreateRing(ringId, version)
+    searchSpace = ringExtractor.getSearchSpace(targetEntity)
+    sess = ring.db.Session()
+    resolved_targetEnt = ringExtractor.resolveEntity(targetEntity)
+    target = resolved_targetEnt[1].renderDefault
+    target_renderAS = resolved_targetEnt[1].renderAs
+    # -------------------
+    targetEnt_tableName = getattr(resolved_targetEnt[1], 'table')
+    ## get compiler object
+    targetEnt_compilerObj = getattr(ring.db, targetEnt_tableName)
+    ## if the renderAs attribute is in another table: 
+    if searchSpace[None]['attributes'][target_renderAS['attribute']]['source_joins']:
+        source_join = searchSpace[None]['attributes'][target_renderAS['attribute']]['source_joins']
+        # ------------------- get join info 
+        source_path = deepcopy(searchSpace[None]['attributes'][target_renderAS['attribute']]['source_joins'])
+        next_step = source_path.pop()
+        joiner = deepcopy(ringExtractor.resolveJoin(source_join[0])[1].path)
+        from_= joiner[0][0]
+        to_ = joiner[0][1]
+        from_table, from_col = from_.split('.')
+        to_table, to_col = to_.split('.')
+        from_entity = getattr(ring.db,from_table)
+        to_entity = getattr(ring.db,to_table)
+        field = searchSpace[None]['attributes'][target_renderAS['attribute']]["fields"][0]
+        target_model = sess.query(from_entity,getattr(to_entity,field)).join(getattr(from_entity,next_step)).where(getattr(targetEnt_compilerObj,ringExtractor.get_primarykey(targetEnt_tableName))== entityId)
+        caseHTML = target_model.all()[0][1]
+    # html_text = sess.query(ring.db.docket_html.html).join(ring.db.docket_html.htmlToCase).where(ring.db.cases.ucid == entityId)
+    # res = sess.query(ring.db.cases, ring.db.docket_html.html).join(ring.db.cases.docket_htmlucid).where(ring.db.cases.ucid == entityId)
+    # caseHTML = target.get_clean_html()
     return caseHTML
 
 @api.route("/download/<payloadName>/")

@@ -304,9 +304,13 @@ class Ring_Entity(Ring_Object):
         self.reference = None
         self.attributes = []
 
-        ## Donna's trying to do some error handling
+        ## Error handling
         self.errorSet = set()
         self.attribute_name = []
+
+        ##renderAs - stuff
+        self.renderDefault = None
+        self.renderAs = {None: None, None: None}
 
     def parse(self, entity):
         self.name = entity.get('name')
@@ -316,7 +320,13 @@ class Ring_Entity(Ring_Object):
         self.id = self.safe_extract_list('id', entity)
         self.id_type = self.safe_extract_list('idType', entity)
         self.renderable = entity.get('renderable', False)
+        if self.renderable:
+            self.renderDefault = entity.get('renderDefault')
+            self.renderAs = entity.get('renderAs')
+            if self.renderDefault is None or self.renderAs["attribute"] is None or self.renderAs["type"] is None:
+                raise ValueError("The render values you have entered are invalid. renderDefault should be an attribute of the entity, and renderAs should be a dictionary of the form: {'attribute': <attribute name>, 'type': <html/text/etc>}")
         self.parse_attributes(entity)
+
 
     def parse_attributes(self, entity):
         if 'attributes' in entity:
@@ -1037,7 +1047,6 @@ class Ring_Compiler(object):
                        
                     #if key exist already as a primary key then update the column to be primary key and fkey
                     # model_map[join.from_][to_table] = relationship(to_table, back_populates=from_table, uselist=True)
-
                 if from_table not in model_map[join.to] and join.bidirectional:
                     # model_map[join.to][from_table] = self.column_with_type(key_type,foreign_key=from_)
                     # model_map[join.to][from_table] = relationship(from_table, back_populates=to_table, uselist=True)
