@@ -9,3 +9,4 @@ geoalchemy2
 IPython
 pandas
 requests
+psycopg2

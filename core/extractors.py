@@ -212,12 +212,15 @@ class RingConfigExtractor(object):
             searchSpace = self.cache[target]["searchSpace"]
         if "columns" in self.cache[target]:
             return self.cache[target]["columns"]
+
+        displayableSet = [att for att in targetEnt.attributes if att.displayable]
         columns = [{
             "key": att.name,
             "nicename": att.nicename[0],
-            "width": "{}%".format(100/len(targetEnt.attributes)),
+            "width": "{}%".format(100/len(displayableSet)),
             "sortable": True
-        } for att in targetEnt.attributes if searchSpace[None]['attributes'][att.name]['displayable']]
+        } for att in displayableSet]
+
         # columns = [] 
         # for att in targetEnt.attributes: 
         #     if searchSpace[None]['attributes'][att]['displayable']:

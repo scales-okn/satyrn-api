@@ -345,11 +345,12 @@ def getRingFromService(ringId, version=None):
     else:
         # get the latest...
         request = requests.get(os.path.join(app.uxServiceAPI, "rings", ringId), headers=headers)
-    requestJSON = request.json()
-    ringConfig = requestJSON["data"]["ring"]
-
     print("getting ring", flush=True)
-    print("ring not found", flush=True)
+    try:
+        requestJSON = request.json()
+        ringConfig = requestJSON["data"]["ring"]
+    except:
+        print("Issue loading ring...", flush=True)
 
     if type(ringConfig) == str:
         ringConfig = json.loads(ringConfig)
