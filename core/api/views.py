@@ -221,7 +221,6 @@ def getResultHTML(ringId, version, targetEntity, entityId):
     searchSpace = ringExtractor.getSearchSpace(targetEntity)
     sess = ring.db.Session()
     resolved_targetEnt = ringExtractor.resolveEntity(targetEntity)
-    target = resolved_targetEnt[1].renderDefault
     target_renderAS = resolved_targetEnt[1].renderAs
     # -------------------
     targetEnt_tableName = getattr(resolved_targetEnt[1], 'table')

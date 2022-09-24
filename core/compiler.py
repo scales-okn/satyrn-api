@@ -309,7 +309,6 @@ class Ring_Entity(Ring_Object):
         self.attribute_name = []
 
         ##renderAs - stuff
-        self.renderDefault = None
         self.renderAs = {None: None, None: None}
 
     def parse(self, entity):
@@ -321,9 +320,8 @@ class Ring_Entity(Ring_Object):
         self.id_type = self.safe_extract_list('idType', entity)
         self.renderable = entity.get('renderable', False)
         if self.renderable:
-            self.renderDefault = entity.get('renderDefault')
             self.renderAs = entity.get('renderAs')
-            if self.renderDefault is None or self.renderAs["attribute"] is None or self.renderAs["type"] is None:
+            if self.renderAs["attribute"] is None or self.renderAs["type"] is None:
                 raise ValueError("The render values you have entered are invalid. renderDefault should be an attribute of the entity, and renderAs should be a dictionary of the form: {'attribute': <attribute name>, 'type': <html/text/etc>}")
         self.parse_attributes(entity)
 
