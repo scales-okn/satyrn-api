@@ -301,7 +301,7 @@ class RingConfigExtractor(object):
                         from_table_pkey = self.get_primarykey(from_table)
 
                         #runquery to create the join for relationship
-                        target_model = sess.query(from_entity,getattr(to_entity,field)).join(getattr(from_entity,next_step)).where(getattr(result,result_pkey)== getattr(from_entity,from_table_pkey))
+                        target_model = sess.query(from_entity,getattr(to_entity,field)).join(getattr(from_entity,next_step),full = True).where(getattr(result,result_pkey)== getattr(from_entity,from_table_pkey))
 
                         attribute_list.append(getattr((target_model.all())[0], field)) 
                         results[attr] = self.coerceValsToString(attribute_list, searchSpace[None]["attributes"][attr]["resultFormat"])
