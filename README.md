@@ -43,20 +43,136 @@ flask run
 
 ## API Spec
 
-/api/rings/
- - Rings loaded into memory at the current api instance
+The API currently supports the following primary views:
 
-/api/rings/20e114c2-ef05-490c-bdd8-f6f271a6733f/
-  - The "info" endpoint for the latest available version of ring with id 20e114c2-ef05-490c-bdd8-f6f271a6733f
+1. __/api/__
 
-/api/rings/20e114c2-ef05-490c-bdd8-f6f271a6733f/1
-- The "info" endpoint for version # 1 of ring with id 20e114c2-ef05-490c-bdd8-f6f271a6733f
+This is just a basic health check to see if the API is running
 
-/api/autocomplete/20e114c2-ef05-490c-bdd8-f6f271a6733f/1/Contribution/contributionRecipient/?query=il
- - The autocomplete endpoint for version # 1 of ring with id 20e114c2-ef05-490c-bdd8-f6f271a6733f with autocompletion on the Contribution entity's contributionRecipient attribute w/ query "il"
+2. __/api/rings/__
 
-/api/results/20e114c2-ef05-490c-bdd8-f6f271a6733f/1/Contribution/?contributionRecipient=illinois
-  - The search endpoint for version # 1 of ring with id 20e114c2-ef05-490c-bdd8-f6f271a6733f with a search on the Contribution entity's contributionRecipient attribute with query "illinois"
+This call will return the rings (and the versions) loaded into memory at the current api instance. It should closely mirror the rings that are listed in the `site.json` file that the site utilizes (determined by the environment variable +++)
+
+3. __/api/rings/{RING_ID}/__
+
+This endpoint returns an object that details the needed information to render the site for `satyrn`. It includes informations on the potential target entities (main searcahble entities for displaying results), the default entity (the searchable entity that will be set by default in case none is explicitly provided), the available filters, the analyzable entities and attributes, and the available operation/analytics space.
+
+Note that similar to this API call, we have `/api/rings/{RING_ID}/{VERSION}/` and `/rings/{RING_ID}/{VERSION}/{TARGET_ENTITY}/`. These allow you to explicitly set a ring version number as well as a searchable entity. If the `VERSION` or the `TARGET_ENTITY` are not provided, then the defaults are utilized.
+
+4. __/autocomplete/{RING_ID}/{VERSION}/{TARGET_ENTITY}/{ATTRIBUTE}/__
+
+An autocomplete endpoint. It takes an `ATTRIBUTE` (a relevant attribute for the `TARGET_ENTITY`) and an optional `query` (a partial string to be shown options for). The query param only works on functions that have implemented support for it. See `autocomplete.py` for the autocomplete functions themselves.
+
+Example:
+- `/api/autocomplete/20e114c2-ef05-490c-bdd8-f6f271a6733f/1/Contribution/contributionRecipient/?query=il`
+  - The autocomplete endpoint for version # 1 of ring with id 20e114c2-ef05-490c-bdd8-f6f271a6733f with autocompletion on the Contribution entity's contributionRecipient attribute w/ query "il"
+
+5. __/results/{RING_ID}/{VERSION}/{TARGET_ENTITY}/__
+
+This is the primary search endpoint, and it takes a JSON body with a properly formed search query (or an empty JSON body to review all entities). The available search space is defined by the config (as noted above, see satyrn-templates for examples and docs).
+
+In addition to the search params, this also takes optional `page=[int]` and `batchSize=[int]` params that define the size of the slice of results and the "page" of that size to be returned (supporting pagination on the UI). If left off, these default to page=0 and batchSize=10
+
+This will return objects that look like:
+```
+{"totalCount": {int}, # the total count of all results for the query
+"page": {int}, # the page of results returned
+"batchSize": {int}, # the max size of the batch returned
+"activeCacheRange": [{int}, {int}], # the cache range this result is within on the server
+"results": [...} # the list of results where each result is a dictionary and each key is a column for that entry
+```
+Example:
+- `/api/results/20e114c2-ef05-490c-bdd8-f6f271a6733f/1/Contribution/` with the following JSON body:
+```
+{
+    "query": {
+        "AND": [
+            [
+                {"entity": "Contribution",
+                "field": "contributionRecipient"},
+                "Satyrn Org",
+                "contains"
+            ]            
+        ]
+    },
+    "relationships": []
+}
+```
+  - The search endpoint for version # 1 of ring with id 20e114c2-ef05-490c-bdd8-f6f271a6733f with a search on the Contribution entity's contributionRecipient attribute with query "Satyrn Org"
+
+Note that to support backwards compatibility with previous version of the endpoint, we also support a version of URL get parameters.
+
+6. __/document/{RING_ID}/{VERSION}/{TARGET_ENTITY}/{ENTITY_ID}/__
+
+An endpoint to view results that have a document view defined in their ring specification. Takes the same set of get parameters as `/results/` (with an added `{ENTITY_ID}` to view a specific entry in the results).
+
+7. __/analysis/{RING_ID}/{VERSION}/{TARGET_ENTITY}/__
+
+The main endpoint utilized to request analyses to the Satyrn API. Similar to `/results/`, it takes in a JSON  body with a properly formed analytic query (which can itself include the search query utilized in `/results/`) and returns the results of the analysis as well as any metadata about the attributes (e.g. the attribute type, units, formatting template).
+
+This will return objects that look like:
+```
+{
+    "counts": {
+        "Contribution//id": 3212697 # the count of each entity that was utilized in the analysis
+    },
+    "fieldNames": [
+        {
+            "entity": "Contribution",
+            "field": "amount",
+            "op": "average"
+        }
+    ], # A list of dictionaries that specify the origin of the results. The order of these mirrors that of each result tuple
+    "length": 1, # The number of result entries. This will be equal to 1 unless there was a groupby, timeseries, or similar groupin involved
+    "results": [
+        [
+            "1507.66"
+        ]
+    ], # a list of results of length "length", each result will be a tuple of the same length as "fieldNames"
+    "units": {
+        "results": [
+            "dollar"
+        ]
+    } # The units for each of the entries in "fieldNames" (has the same order as "fieldNames")
+}
+```
+
+Example:
+- `/api/analysis/20e114c2-ef05-490c-bdd8-f6f271a6733f/1/Contribution/` with the following JSON body:
+```
+{
+    "target": {
+        "entity": "Contribution",
+        "field": "amount"
+    },
+    "op": "average",
+    "relationships": []
+}
+```
+  - The analysis endpoint for version # 1 of ring with id 20e114c2-ef05-490c-bdd8-f6f271a6733f, looking at the average Contribution's amount over the entire dataset
+- `/api/analysis/20e114c2-ef05-490c-bdd8-f6f271a6733f/1/Contribution/` with the following JSON body:
+```
+{
+    "target": {
+        "entity": "Contribution",
+        "field": "amount"
+    },
+    "op": "sum",
+    "relationships": [],
+    "query": {
+            "AND": [
+            [
+                {"entity": "Contribution",
+                "field": "amount"},
+                200,
+                "exact"
+            ]
+        ]
+    }
+
+}
+```
+  - The analysis endpoint for version # 1 of ring with id 20e114c2-ef05-490c-bdd8-f6f271a6733f, looking at the sum of Contribution's amount over contributions that have an amount of 200
 
 ## Bootstrapping Configs in v2.1
 
