@@ -182,15 +182,25 @@ def convertFilters(targetEntity, searchSpace, filter_dct):
     return query
 
 
-def _createSearchTuple(targetEntity, searchSpace, key, val, tpe="exact"):
+def _createSearchTuple(targetEntity, searchSpace, key, val, tpe=None):
 
     att_dct = searchSpace[None]["attributes"]
     if att_dct[key]["type"]  == "float":
         val = float(val)
+        if not tpe:
+            tpe = "exact"
     elif att_dct[key]["type"]  == "integer":
         val = int(val)
+        if not tpe:
+            tpe = "exact"
+    elif att_dct[key]["type"] == "string":
+        if not tpe:
+            tpe = "contains"
+    else:
+        if not tpe:
+            tpe = "exact"
     return [{"entity": targetEntity,
-                    "field": key}, val, "exact"]
+                    "field": key}, val, tpe]
 
 
 def cleanDate(dte):
