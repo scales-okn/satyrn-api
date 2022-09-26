@@ -241,8 +241,13 @@ def getResultHTML(ringId, version, targetEntity, entityId):
         from_entity = getattr(ring.db,from_table)
         to_entity = getattr(ring.db,to_table)
         field = searchSpace[None]['attributes'][target_renderAS['attribute']]["fields"][0]
-        target_model = sess.query(from_entity,getattr(to_entity,field)).join(getattr(from_entity,next_step)).where(getattr(targetEnt_compilerObj,ringExtractor.get_primarykey(targetEnt_tableName))== entityId)
-        caseHTML = target_model.all()[0][1]
+        if hasattr(to_entity,field):
+            target_model = sess.query(from_entity,getattr(to_entity,field)).join(getattr(from_entity,next_step)).where(getattr(targetEnt_compilerObj,ringExtractor.get_primarykey(targetEnt_tableName))== entityId)
+            caseHTML = target_model.all()[0][1]
+        else:
+            target_model = sess.query(to_entity,getattr(from_entity,field)).join(getattr(from_entity,next_step)).where(getattr(targetEnt_compilerObj,ringExtractor.get_primarykey(targetEnt_tableName))== entityId)
+            caseHTML = target_model.all()[0][1]
+
     # html_text = sess.query(ring.db.docket_html.html).join(ring.db.docket_html.htmlToCase).where(ring.db.cases.ucid == entityId)
     # res = sess.query(ring.db.cases, ring.db.docket_html.html).join(ring.db.cases.docket_htmlucid).where(ring.db.cases.ucid == entityId)
     # caseHTML = target.get_clean_html()

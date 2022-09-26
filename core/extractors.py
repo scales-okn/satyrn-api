@@ -256,6 +256,16 @@ class RingConfigExtractor(object):
                 return eachlist[1]
         #add error message if the name is not found in the table
 
+# To find the backref of a given relationship in the table
+# rel_name: name f the relationship
+# table_name: name of the tabe, the rel_name exists
+# returns a dictionary with the backref and the primary join path 
+
+    def get_related_relationship(self, rel_name,table_name):
+        entity = getattr(self.config.db,table_name)
+        rel = getattr(entity,rel_name)
+        return {'join':rel.property.primaryjoin,'back_ref':rel.property.back_populates}
+
 
     def formatResult(self, result,sess,target=None):
         target, targetEnt = self.resolveEntity(target)
@@ -265,6 +275,7 @@ class RingConfigExtractor(object):
             col["key"]: self.getSearchSpace(target)[None]["attributes"][col["key"]]["fields"] for col in cols
         }
         results = {}
+        #related_relation = self.get_related_relationship('caseToType','cases')
         for attr, fields in renderMap.items():
             attribute_list = []
             for field in fields:

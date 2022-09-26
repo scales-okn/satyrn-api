@@ -920,15 +920,14 @@ class Ring_Compiler(object):
             to_entity = getattr(self.db,to_table)
             # temp_insp = sa.inspect(self.db.cases)
             # temp_insp.relationships.items()
-            temp = from_table+from_col
+            back_ref_name = from_table+'_'+from_col # the back refrence relationship will be created by this name, table name and col names are used to keep the name unique
 
             #setting relationship: from_table->to_table
-            relation = relationship(to_table, backref = temp, primaryjoin= f'{from_}=={to_}', uselist=True)
+            relation = relationship(to_table, back_populates = back_ref_name, primaryjoin= f'{from_}=={to_}', uselist=True)
             setattr(from_entity,rel_name,relation)
             #setting relationship: to_table -> from_table
-            # relation = relationship(from_table, back_populates = to_table, primaryjoin= f'{to_}=={from_}', uselist=True)
-            # setattr(to_entity,rel_name,relation)
-
+            relation = relationship(from_table, back_populates = rel_name, primaryjoin= f'{to_}=={from_}', uselist=True)
+            setattr(to_entity,back_ref_name,relation)
 
 
     def datetime_path(self, model_map, attribute, base_type):
