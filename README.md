@@ -1,13 +1,17 @@
-# Satyrn API
+# Satyrn API v0.2.1
 
-[![Build Status](http://198.211.97.126:8080/job/satyrn-platform/badge/icon)](http://198.211.97.126:8080/job/satyrn-platform/)
+This is the core codebase for the Satyrn API. Satyrn is developed by the C3 Lab at Northwestern University and is in pre-release alpha. Details about this work are pending publication, and it will be made open-source with clear licensing terms at a later date.
 
-This is the core codebase for the Satyrn API, which sites behind the Satyrn UX (and in conjunction with the Satyrn Deployment and Satyrn Prototype repos). It's been ported over from the Satyrn-Platform.
+What follows are notes for those actively iterating on Satyrn towards a public release.
+
+-----------
+
+The code in this repository stands alone in providing a REST API which can sit behind the Satyrn UX repository.
+
+For an example v0.2.1 config, see the basic_v2-1 directory in the satyrn-templates repo.
 
 ## The configuration model: Satyrn and its Rings
-The core platform itself is dataset agnostic -- as long as the data itself is tabular, Satyrn can be configured to work with it. New datasets can be brought in by following a few steps: 1) loading data into a SQL-friendly database, 2) defining an ORM in [SQLAlchemy](https://www.sqlalchemy.org) for the relevant tables, 3) defining an accompanying satconf configuration ([examples and documentation can be found in satyrn-templates](https://www.github.com/nu-c3lab/satyrn-templates)), and 4) updating an environment variable so Satyrn knows where to locate the config and ORM. That's it -- the platform does the rest, from providing filter mechanics and rendering the paginating table view over to generating the analysis statements.
-
-Note that there are two repos for these satconfs at present. One is [satyrn-rings](https://www.github.com/nu-c3lab/satyrn-rings), which is the blessed set of configs being worked on within C3 (with corresponding ORMs in [c3-JumboDB](https://github.com/nu-c3lab/c3-JumboDB)). The other is [satyrn-templates](https://www.github.com/nu-c3lab/satyrn-templates), which is a place for simplified satconf+ORM+dataset packages for reference when building a new ring. Config documentation is also available in the satyrn-templates README.
+See the documentation below for an example ring. Note that rings can be created to leverage tabular datastores (in dev, we have postgres and sqlite versions) with flat file support (e.g. CSVs) in flight
 
 # Satyrn API: Getting Set Up
 ## Setting up the app environment + Running the App
@@ -39,123 +43,186 @@ flask run
 
 ## API Spec
 
-The API currently supports five primary views:
+The API currently supports the following primary views:
 
 1. __/api/__
 
-This is just a basic health check, though we can repurpose as necessary.
+This is just a basic health check to see if the API is running
 
- ----
+2. __/api/rings/__
 
-2. __/api/info/__
+This call will return the rings (and the versions) loaded into memory at the current api instance. It should closely mirror the rings that are listed in the `site.json` file that the site utilizes (determined by the environment variable +++)
 
-This is an endpoint for passing metadata about how the UI should be built/behave on init. The contents are automatically generated from the contents of the satconf file. Includes: 1) the available filters and their types, 2) the column names/order/widths as well as which ones are sortable and the default sort, and 3) the analysis space components (for dynamic generation of analysis statements on the frontend). Additional documentation TBD.
+3. __/api/rings/{RING_ID}/__
 
-An example follows:
+This endpoint returns an object that details the needed information to render the site for `satyrn`. It includes informations on the potential target entities (main searcahble entities for displaying results), the default entity (the searchable entity that will be set by default in case none is explicitly provided), the available filters, the analyzable entities and attributes, and the available operation/analytics space.
 
-```javascript
-{
-  "filters": [ // <-- a list of tuples (lists), each entry defining an available data filter
-    [
-      "causeOfAction", // <-- name for building url strings/code-level representation
-      {
-          autocomplete: false, // <-- whether auto-completable or not (via ac endpoint)
-          type: "text", // <-- type is currently text or date, need to introduce int/range
-          allowMultiple: false, // <-- does it make sense to allow multiple filters of this type?
-          nicename: "Cause of Action", // <-- name for the UI
-          desc: "Reason for lawsuit" // <-- annotation for UI description
-      }
-    ], ...
-  ],
-  "columns": [ // <-- list of objects, each one defining a column to display on UI
-    {
-      key: "caseName", // <-- key in the results payload (see results endpoint)
-      nicename: "Case Name", // <-- column header name on UI
-      width: "34%", // <-- display width of column
-      sortable: true // <-- whether column should be sortable on UI (see results endpoint)
-    }, ...
-  ],
-  "defaultSort": { // <-- object that defines which col is sorted by default + direction
-    key: "dateFiled",
-    direction: "desc"
-  },
-  "operations": { // <-- the available operations space for generating statements
-    average: { // <-- operation entry
-      dataTypes: [ // <-- datatypes this operates on
-        "float",
-        "int"
-      ],
-      neededFields: [ // <-- requirements for analysis, here "what is the targetField?"
-        "targetField"
-      ],
-        units: "unchanged", // <-- does this analysis change the nature of the targetField's units?
-        nicename: "Average" // <-- name for UI
-    },
-  },
-  "analysisSpace": [ // <-- list of objects defining features of data that analysis can run on
-    {
-      type: "float", // <-- datatype of this entry
-      fieldName: [ // <-- nicename of fields for UI in [singular, plural]
-        "Case Duration",
-        "Case Durations"
-      ],
-      unit: [ // <-- units of this field in [singular, plural]
-        "day",
-        "days"
-      ],
-      targetField: "caseDuration" // <-- the field(s) under the hood associated with this entry
-    },
-  ],
-  "fieldUnits": { // <-- maps fields in the analysisSpace to their units, makes lookup easier
-    caseDuration: [
-      "day", // <-- singular
-      "days" // <-- plural
-    ],
-  },
-  "includesRenderer": true, // <-- tells frontend if items in the results view should be clickable
-  "targetModelName" // <-- for UI to reference the type of results
-}
-```
+Note that similar to this API call, we have `/api/rings/{RING_ID}/{VERSION}/` and `/rings/{RING_ID}/{VERSION}/{TARGET_ENTITY}/`. These allow you to explicitly set a ring version number as well as a searchable entity. If the `VERSION` or the `TARGET_ENTITY` are not provided, then the defaults are utilized.
 
- ----
+4. __/autocomplete/{RING_ID}/{VERSION}/{TARGET_ENTITY}/{ATTRIBUTE}/__
 
-3. __/api/results/__
+An autocomplete endpoint. It takes an `ATTRIBUTE` (a relevant attribute for the `TARGET_ENTITY`) and an optional `query` (a partial string to be shown options for). The query param only works on functions that have implemented support for it. See `autocomplete.py` for the autocomplete functions themselves.
 
-This is the primary search endpoint, and it takes a list of search params (or none to browse all available cases). The available search space is defined by the config (as noted above, see satyrn-templates for examples and docs).
+Example:
+- `/api/autocomplete/20e114c2-ef05-490c-bdd8-f6f271a6733f/1/Contribution/contributionRecipient/?query=il`
+  - The autocomplete endpoint for version # 1 of ring with id 20e114c2-ef05-490c-bdd8-f6f271a6733f with autocompletion on the Contribution entity's contributionRecipient attribute w/ query "il"
+
+5. __/results/{RING_ID}/{VERSION}/{TARGET_ENTITY}/__
+
+This is the primary search endpoint, and it takes a JSON body with a properly formed search query (or an empty JSON body to review all entities). The available search space is defined by the config (as noted above, see satyrn-templates for examples and docs).
 
 In addition to the search params, this also takes optional `page=[int]` and `batchSize=[int]` params that define the size of the slice of results and the "page" of that size to be returned (supporting pagination on the UI). If left off, these default to page=0 and batchSize=10
 
 This will return objects that look like:
-
-```python
+```
+{"totalCount": {int}, # the total count of all results for the query
+"page": {int}, # the page of results returned
+"batchSize": {int}, # the max size of the batch returned
+"activeCacheRange": [{int}, {int}], # the cache range this result is within on the server
+"results": [...} # the list of results where each result is a dictionary and each key is a column for that entry
+```
+Example:
+- `/api/results/20e114c2-ef05-490c-bdd8-f6f271a6733f/1/Contribution/` with the following JSON body:
+```
 {
-  "totalCount": {int}, # <-- the total count of all results for the query
-  "page": {int}, # <-- the page of results returned
-  "batchSize": {int}, # <-- the max size of the batch returned
-  "activeCacheRange": [{int}, {int}], # <-- the cache range this result is within on the server
-  "results": [] # <-- the actual list of cases that matched this search
+    "query": {
+        "AND": [
+            [
+                {"entity": "Contribution",
+                "field": "contributionRecipient"},
+                "Satyrn Org",
+                "contains"
+            ]            
+        ]
+    },
+    "relationships": []
+}
+```
+  - The search endpoint for version # 1 of ring with id 20e114c2-ef05-490c-bdd8-f6f271a6733f with a search on the Contribution entity's contributionRecipient attribute with query "Satyrn Org"
+
+Note that to support backwards compatibility with previous version of the endpoint, we also support a version of URL get parameters.
+
+6. __/document/{RING_ID}/{VERSION}/{TARGET_ENTITY}/{ENTITY_ID}/__
+
+An endpoint to view results that have a document view defined in their ring specification. Takes the same set of get parameters as `/results/` (with an added `{ENTITY_ID}` to view a specific entry in the results).
+
+7. __/analysis/{RING_ID}/{VERSION}/{TARGET_ENTITY}/__
+
+The main endpoint utilized to request analyses to the Satyrn API. Similar to `/results/`, it takes in a JSON  body with a properly formed analytic query (which can itself include the search query utilized in `/results/`) and returns the results of the analysis as well as any metadata about the attributes (e.g. the attribute type, units, formatting template).
+
+This will return objects that look like:
+```
+{
+    "counts": {
+        "Contribution//id": 3212697 # the count of each entity that was utilized in the analysis
+    },
+    "fieldNames": [
+        {
+            "entity": "Contribution",
+            "field": "amount",
+            "op": "average"
+        }
+    ], # A list of dictionaries that specify the origin of the results. The order of these mirrors that of each result tuple
+    "length": 1, # The number of result entries. This will be equal to 1 unless there was a groupby, timeseries, or similar groupin involved
+    "results": [
+        [
+            "1507.66"
+        ]
+    ], # a list of results of length "length", each result will be a tuple of the same length as "fieldNames"
+    "units": {
+        "results": [
+            "dollar"
+        ]
+    } # The units for each of the entries in "fieldNames" (has the same order as "fieldNames")
 }
 ```
 
-Examples (which work with the SCALES ring, but are included for reference):
- - `/api/results/?dateFiled=[2013-10-10,2013-12-15]`
- - `/api/results/?judgeName=Gotsch&caseName=Moton&sortBy=caseName&sortDir=asc`
- - `/api/results/?attorneys=Baldwin&attorneys=Dana&caseName=National%20Mutual`
+Example:
+- `/api/analysis/20e114c2-ef05-490c-bdd8-f6f271a6733f/1/Contribution/` with the following JSON body:
+```
+{
+    "target": {
+        "entity": "Contribution",
+        "field": "amount"
+    },
+    "op": "average",
+    "relationships": []
+}
+```
+  - The analysis endpoint for version # 1 of ring with id 20e114c2-ef05-490c-bdd8-f6f271a6733f, looking at the average Contribution's amount over the entire dataset
+- `/api/analysis/20e114c2-ef05-490c-bdd8-f6f271a6733f/1/Contribution/` with the following JSON body:
+```
+{
+    "target": {
+        "entity": "Contribution",
+        "field": "amount"
+    },
+    "op": "sum",
+    "relationships": [],
+    "query": {
+            "AND": [
+            [
+                {"entity": "Contribution",
+                "field": "amount"},
+                200,
+                "exact"
+            ]
+        ]
+    }
 
- ----
+}
+```
+  - The analysis endpoint for version # 1 of ring with id 20e114c2-ef05-490c-bdd8-f6f271a6733f, looking at the sum of Contribution's amount over contributions that have an amount of 200
 
-4. __/api/autocomplete/__
+## Bootstrapping Configs in v2.1
 
-An autocomplete endpoint. It takes a `type=[relevant key from config]` and an optional `query=[partial string to be shown options for]`. The query param only works on functions that have implemented support for it. See `searchSpace.py` for how they're mapped to types, and then `autocompleters.py` for the functions themselves.
+Satyrn is now a multi-service platform, with a Core API (this repo), a frontend UX, and a "backend-for-frontend"/user service for storing users/rings/notebooks (both in the satyrn-ux repo). While doing development on the platform, you have two setup options:
 
-Examples (from the SCALES ring):
- - `/api/autocomplete/?type=districts` (note: no query param supported at this endpoint)
- - `/api/autocomplete/?type=judgeName&query=abr`
+1. Pull both satyrn-api and satyrn-ux repos, set up both codebases, and run three services that point at each other (Core API, frontend, and "backend-for-frontend" or "BfF" service). In this configuration, the BfF will provide rings to the Core API based on the ring id or _rid_ (e.g. 20e114c2-ef05-490c-bdd8-f6f271a6733f) and you can leverage the frontend for testing (or Postman/similar for communication with the API directly). If you follow instructions to set up environments as described above and in the satyrn-ux repo, this configuration should *just work* (but bug reports are always accepted).
 
- ----
+2. Pull only the satyrn-api repo, set it up, and run just the one Core API service. In this configuration, you will have to leverage Postman/similar to communicate with the API, and the recommend settings for your environment are:
 
-5. __/api/result/<item_id>__
+ - FLASK_ENV = development (should be the case during development anyway, as this means an API key isn't required which would be bad news for prod, but it also means that bootstrapping rings directly is allowed on platform init)
+ - SATYRN_SITE_CONFIG = <relevant pointer to a local site.json configured like the one in satyrn-templates/basic_v2-1 which should include references to ring config JSON files to bootstrap at platform initialization>
 
-An endpoint to view results that have a `get_clean_html` method on their target model. Takes the same set of get parameters as /results/, and highlights elements on page accordingly.
+ If those environment variables are set, the Core API will support loading rings at init, and you can specify the rings to load via the site.json config (again, see satyrn-templates/basic_v2-1 for a working example).
 
-Example (from SCALES ring): `/api/result/1-13-cv-07293%7C%7C%7C1:13-cv-07293?caseName=Nationwide%20Mutual&attorneys=Baldwin&attorneys=Kanellakes`
+__Important note__: the Core API now expects v2.1 ring configs, so earlier (like those in satyrn-templates/basic_v2) are no longer directly supported by current iterations of the platform. See satyrn-templates/basic_v2-1 for a working schema example.
+
+__Important note #2__: The latter method of loading rings from configs on disk at initialization only works when the platform is running in _development_ mode. In a production environment, the system will require all rings to be loaded from the BfF service.
+
+
+## Code Structure
+
+### `core`
+
+The files included at the top level of the directory are:
+
+- `compiler.py`: compiles a ring json into a compiled ring that can be used by the api
+- `extractors.py`: provides methods for utilizing the compiled ring
+- `ring_checker.py`: checks that the given ring configuration is correct
+- `satyrnBundler.py`: sets up the flask app for the api
+- `defaults.json`: contains the default settings for ring configurations (e.g. null handling behavior)
+- `upperOntology.json`: contains an initial stub for a fully-fleshed upper ontology for datatypes
+
+Additionally there is the `sqlite_extensions` folder, which includes some files with sqlite functionality. To ensure that our platform has analytical capabilities for sqlite and for postgres databases, we imported sqlite extensions from https://github.com/nalgeon/sqlean
+
+#### `api`
+
+The bulk of the code is contained in the api folder. The files at the top level directory are:
+
+- `autocomplete.py`: contains autocomplete functionality for searching endpoints
+- `engine.py`: contains functions for running analytics
+- `operations.py`: contains a library of available analytics. It also compiles the analytics defined in the `analysis_plugins` folder
+- `seekers.py`: contains searching functions
+- `sql_func.py`: contains SQL functions that work for both sqlite and postgres
+- `transforms.py`: defines transformations available for different datatypes (e.g. bucketing numeric values into categories)
+- `utils.py`: additional helper functions
+- `viewsHelpers.py`: helper functions for the `views.py`
+- `views.py`: defines the api endpoints that can be used once the flask app is set up
+
+Additionally, we have an `analysis_plugins` folder that allows the creation of new plugins by defining a new file (more details aon this in the `analysis_plugins/__init__.py` file)
+
+### tests
+
+Defines a set of tests that can be run for one of the template rings

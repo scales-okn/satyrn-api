@@ -11,21 +11,31 @@ export SATYRN_ROOT_DIR=/<abs path to your clone of the repo base dir>/satyrn-pla
 # And which configs should we use on instantiation?
 # FOR NOW, this should map to a directory in a local clone of satyrn-rings or satyrn-templates repo
 # the directory needs to contain a file called "satconf.py" in the expected format (see satyrn-templates for details)
-export SATYRN_SITE_CONFIG=/<abs path to your satyrn-configs repo>/<config dir>/
+# V1:
+export SATYRN_CONFIG=/<abs path to your satyrn-configs repo>/<config dir>/
+export SATYRN_CONFIG_VERSION=1
+# V2:
+export SATYRN_SITE_CONFIG=/<abs path to your repo>/satyrn-templates/basic_v2/site.json
+export SATYRN_CONFIG_VERSION=2
 
-# API key for this version (TODO: move to per-account in DB)
-# The API key that has to be passed in the headers for the API to not throw auth errors
-# (proxy services in both Satyrn Prototype and Satyrn UX will have to pass whatever this key is set to)
+# API key for *this* API (on inbound requests)
+# The API key that has to be passed in the headers for this Analysis/Core API to not throw auth errors
+# (proxy services in both Satyrn Prototype and Satyrn UX will have to pass whatever this key is set to when calling it)
 export API_KEY=<insert string here>
+
+# Now for crosstalk with the FE/user/asset service (that contains the rings representations -- now stored with users in the db)
+# First, where is the user/asset service hosted? (this path needs to include /api/ to point to the base API endpoint, not just server)
+export UX_SERVICE_API='http://localhost/api/'
+
+# Second, is there a separate API key for the user/asset service? Both services can use the same for crosstalk or have separate ones set in their own configs. If this next export isn't set, this system will default to using the API_KEY above in both directions (inbounds/outbounds)
+# However, importantly, this one has to be set to whatever the running FE/user/asset service expects as this is inbound auth on that side
+export UX_SERVICE_API_KEY=<insert string here>
+
+# Lastly, now that ring configs are hosted elsewhere, the local filesystem will still need to have the flat files (sqlite, csv, etc) locally. Where are they?
+# TODO: maybe move into DB for portability?
+export FLAT_FILE_LOC='/Users/andrewpaley/Dropbox/c3/satyrn-templates/basic_v2'
 
 # OPTIONAL
 # creds for jumbo -- only if using jumbo (note: satyrn-templates examples don't require jumbo)
 # see here for details: https://github.com/nu-c3lab/c3-JumboDB#credentials-file
 export c3creds=/<abs path to your creds.json>/creds.json
-
-# DEPRECATED
-# Generate a good key with 'import secrets; secrets.token_urlsafe()' in a python repl and copy/paste it here
-# export SATYRN_SECRET_KEY=<insert string here>
-
-# Then, generate a good salt with 'secrets.SystemRandom().getrandbits(128)' and copy/paste it here
-# export SATYRN_SECURITY_SALT=<insert string here>

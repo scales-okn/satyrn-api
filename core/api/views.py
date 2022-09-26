@@ -1,133 +1,125 @@
-from datetime import datetime
-from functools import wraps
 import json
-import secrets
 
-from flask import current_app, Blueprint, request, send_file, send_from_directory
+from flask import Blueprint, current_app, jsonify, request, send_from_directory
+from flask_cors import cross_origin
 from flask_security import login_required
-from sqlalchemy import func
 
-# from .analysisSpace import ANALYSIS_MODEL_SPACE as ANALYSIS_SPACE
-from .engine import AnalyticsEngine
-from .operations import OPERATION_SPACE
+from .engine import run_analysis
 from .seekers import getResults
 from .autocomplete import runAutocomplete
 
-# from the satyrn configs...
-SEARCH_SPACE = current_app.satConf.searchSpace
-ANALYSIS_SPACE = current_app.satConf.analysisSpace
+from .viewHelpers import CLEAN_OPS, apiKeyCheck, errorGen, organizeFilters, cleanDate, getOrCreateRing, getRing, getRingFromService, convertFilters, organizeFilters2
+from .viewHelpers import organizeAnalysis
 
-# static globals for /info/ endpoint
-COLUMNS_INFO = current_app.satConf.columns
-SORT_INFO = current_app.satConf.defaultSort
-SORTABLES = [col["key"] for col in COLUMNS_INFO if col["sortable"] is True]
-CLEAN_OPS = {k: {k1: v1 for k1, v1 in v.items() if type(v1) in [int, float, str, list, dict]} for k, v in OPERATION_SPACE.items()}
+from copy import deepcopy
 
-TARGET_MODEL_NAME = current_app.satConf.targetName
-
-# a few helper functions
-def generateCleanASpace():
-    output = []
-    for k, v in ANALYSIS_SPACE.items():
-        subout = {k1: v1 for k1, v1 in v.items() if k1 in ["type", "fieldName", "unit", "desc"]}
-        if "transform" in v:
-            subout["transform"] = {"type": v["transform"]["type"]}
-        subout["targetField"] = k
-        output.append(subout)
-    return output
-CLEAN_AS = generateCleanASpace()
-
-# a decorator for checking API keys
-# API key set flatfootedly via env in appBundler.py for now
-# requires that every call to the API has a get param of key=(apikey) appended to it
-# basic implementation -- most use cases will require this is updated to pass via request header
-def apiKeyCheck(innerfunc):
-    @wraps(innerfunc)
-    def decfunc(*args, **kwargs):
-        if "ENV" in app.config and app.config["ENV"] in ["development", "dev"]:
-            # we can bypass when running locally for ease of dev
-            pass
-        if not request.headers.get("x-api-key"):
-            return errorGen("API key required")
-        elif request.headers.get("x-api-key") != app.config["API_KEY"]:
-            return errorGen("Incorrect API key")
-        return innerfunc(*args, **kwargs)
-    return decfunc
-
-
-# a simple error messenger for standardized updates
-# augment as necessary
-def errorGen(msg):
-    return json.dumps({
-        "success": False,
-        "message": str(msg)
-    })
-
-FIELD_UNITS = {k: v["unit"] for k, v in current_app.satConf.analysisSpace.items() if "unit" in v}
-
-# some "local globals"
+# # some "local globals"
 app = current_app # this is now the same app instance as defined in appBundler.py
 api = Blueprint("api", __name__)
-SATCONF = current_app.satConf
-db = SATCONF.db
 cache = app.cache
 
-# prepare the FE filter/autocomplete data (served from /api/info)
-FE_FILTER_INFO = [(k, {
-    "autocomplete": ("autocomplete" in v and v["autocomplete"]),
-    "type": v["type"],
-    "allowMultiple": v["allowMultiple"],
-    "nicename": v["nicename"],
-    "desc": v["desc"] if "desc" in v else None
-}) for k, v in SEARCH_SPACE.items()]
+# One cache enabled helper function...
+@cache.memoize(timeout=1000)
+def cachedAutocomplete(db, theType, searchSpace, opts):
+    # TODO: make this work with the new DB setup!
+    print("chachedAutocomplete opts: ", opts)
+    return json.dumps(runAutocomplete(db, theType, searchSpace, opts))
 
-# a generic filter-prep function
-def organizeFilters(request):
-    opts = {}
-    for k in SEARCH_SPACE.keys():
-        setting = request.args.get(k, None)
-        if setting:
-            if SEARCH_SPACE[k]["type"] == "date":
-                dateRange = setting.strip('][').split(",")
-                opts[k] = [cleanDate(dte) for dte in dateRange]
-            elif SEARCH_SPACE[k]["allowMultiple"]:
-                opts[k] = request.args.getlist(k, None)
-            else:
-                opts[k] = setting
-    return opts
-
-def cleanDate(dte):
-    return datetime.strptime(dte, '%Y-%m-%d') if dte != "null" else None
-
-
-#
 # THE ROUTES
 # base route as a pseudo health check
 # no login necessary to check this
 @api.route("/")
 @apiKeyCheck
 def base():
-    return "API is up and running"
+    return json.dumps({
+        "status": "API is up and running"
+    })
 
-@cache.memoize(timeout=1000)
-def cachedAutocomplete(theType, opts):
-    return json.dumps(runAutocomplete(db, theType, SEARCH_SPACE[theType], opts))
-
-@api.route("/autocomplete/")
+@api.route("/rings/", methods=["GET"]) #, "POST"])
 @apiKeyCheck
-def getAutocompletes():
-    theType = request.args.get("type", None)
+def getAPIInfo():
+    return json.dumps({
+        # "success": success,
+        # "message": msg,
+        "rings": [{
+            "id": rid,
+            "versions": {
+                version: {
+                    "name": ringInfo.name,
+                    "description": ringInfo.description
+                }
+                for version, ringInfo in app.rings.get(rid).items()
+            }
+        }
+        for rid in app.rings.keys()]
+    })
+
+
+@api.route("/rings/<ringId>/", methods=["GET"])
+@apiKeyCheck
+def getRingInfo(ringId):
+    # THIS IS GOING TO ASSUME THE REQUESTING PROXY
+    # IS MANAGING WHETHER THE USER HAS THE RIGHT TO DO THIS OR NOT
+    # Also, if no version set, "latest" is implied (see next endpoint for explicitly set version)
+    ring, ringExtractor = getOrCreateRing(ringId)
+    if ringExtractor is None:
+        # ring will now be an error message
+        return json.dumps(ring)
+    ringInfo = ringExtractor.generateInfo()
+    ringInfo["operations"] = CLEAN_OPS
+    return json.dumps(ringInfo)
+
+@api.route("/rings/<ringId>/<version>/", methods=["GET"])
+@apiKeyCheck
+def getRingInfoWithVersion(ringId, version):
+    # THIS IS GOING TO ASSUME THE REQUESTING PROXY
+    # IS MANAGING WHETHER THE USER HAS THE RIGHT TO DO THIS OR NOT
+    ring, ringExtractor = getOrCreateRing(ringId, version=version)
+    if ringExtractor is None:
+        # ring will now be an error message
+        return json.dumps(ring)
+    ringInfo = ringExtractor.generateInfo()
+    ringInfo["operations"] = CLEAN_OPS
+    return json.dumps(ringInfo)
+
+@api.route("/rings/<ringId>/<version>/<targetEntity>/")
+@apiKeyCheck
+def getEntityInfo(ringId, version, targetEntity):
+    ring, ringExtractor = getOrCreateRing(ringId, version)
+    if ringExtractor is None:
+        # ring will now be an error message
+        return json.dumps(ring)
+    ringInfo = ringExtractor.generateInfo(targetEntity)
+    ringInfo["operations"] = CLEAN_OPS
+    return json.dumps(ringInfo)
+
+@api.route("/autocomplete/<ringId>/<version>/<targetEntity>/<theType>/")
+@apiKeyCheck
+def getAutocompletes(ringId, version, targetEntity, theType):
+    ring, ringExtractor = getOrCreateRing(ringId, version)
+    if ringExtractor is None:
+        # ring will now be an error message
+        return json.dumps(ring)
     limit = request.args.get("limit", 1000)
     opts = {"query": request.args.get("query", None), "limit": limit}
-    if theType in SEARCH_SPACE \
-      and "autocomplete" in SEARCH_SPACE[theType] \
-      and SEARCH_SPACE[theType]["autocomplete"]:
-        return cachedAutocomplete(theType, opts)
+    searchSpace = ringExtractor.getSearchSpace(targetEntity)
+    thisEntity = searchSpace.get(None)
+    thisAttrs = thisEntity.get("attributes")
+    if theType in thisAttrs \
+      and "autocomplete" in thisAttrs[theType] \
+      and thisAttrs[theType]["autocomplete"]:
+        return cachedAutocomplete(ring.db, theType, thisAttrs[theType], opts)
     return json.dumps({"success": False, "message": "Unknown autocomplete type"})
 
-@api.route("/results/")
+
+@api.route("/results/<ringId>/<version>/<targetEntity>/", methods=["GET","POST"])
+@cross_origin(supports_credentials=True)
 @apiKeyCheck
-def searchDB():
+def searchDB(ringId, version, targetEntity):
+    ring, ringExtractor = getOrCreateRing(ringId, version)
+    if ringExtractor is None:
+        # ring will now be an error message
+        return json.dumps(ring)
     # takes a list of args that match to top-level keys in SEARCH_SPACE
     # or None and it'll return the full set (in batches of limit)
     # set up some args
@@ -141,93 +133,126 @@ def searchDB():
     batchSize = int(request.args.get("batchSize", 10))
     page = int(request.args.get("page", 0))
     # bundle search terms
-    opts = organizeFilters(request)
+    searchSpace = ringExtractor.getSearchSpace(targetEntity)
+    sortables = ringExtractor.getSortables(targetEntity)
+
+    # left in case there is stuff in the request
+    opts = organizeFilters(request, searchSpace, targetEntity)
+    if not opts:
+        opts = request.json if request.content_type == "application/json" else {"query": {}, "relationships": []}
+        if "page" in opts:
+            page = int(opts["page"])
+        if "batchSize" in opts:
+            batchSize = int(opts["batchSize"])
+
+    else:
+        # we will use the filters in the url/get rather than in the json
+        query = convertFilters(targetEntity, searchSpace, opts)
+        opts = {"query": query, "relationships": []}
+
+
+    opts = organizeFilters2(opts, searchSpace)
     # and manage sorting
-    # TODO: move this next line to config
-    # TODO2: add judges and other stuff?
-    sortBy = request.args.get("sortBy", None)
+    targetInfo = ringExtractor.resolveEntity(targetEntity)[1]
+    sortBy = request.args.get("sortBy", targetInfo.id[0])
+    # sortBy = request.args.get("sortBy", None)
     sortDir = request.args.get("sortDirection", "desc")
-    opts["sortBy"] = sortBy if sortBy in SORTABLES else None
+    opts["sortBy"] = sortBy if sortBy in sortables else None
     opts["sortDir"] = sortDir if sortDir in ["asc", "desc"] else "desc"
+
     # now go hunting
-    results = getResults(opts=opts, page=page, batchSize=batchSize)
+    results = getResults(opts, ring, ringExtractor, targetEntity, page=page, batchSize=batchSize)
     return json.dumps(results, default=str)
 
-@api.route("/analysis/")
+
+@api.route("/analysis/<ringId>/<version>/<targetEntity>/", methods=["GET","POST"])
+@cross_origin(supports_credentials=True)
 @apiKeyCheck
-def runAnalysis():
+def runAnalysis(ringId, version, targetEntity):
+    ring, ringExtractor = getOrCreateRing(ringId, version)
+    if ringExtractor is None:
+        # ring will now be an error message
+        return json.dumps(ring)
     # takes a list of args that match to top-level keys in SEARCH_SPACE (or None)
     # and keys related to analysis with analysisType defining the "frame" (matching a key in analysisSpace.py)
 
-    # this sort of url works: /api/analysis/?operation=count&groupBy=judge&targetField=case&timeSeries=year
+    # The analysis parameters come in via a JSON body
+    analysisOpts = request.json
 
     # first, get the search/filter stuff:
-    searchOpts = organizeFilters(request)
+    searchSpace = ringExtractor.getSearchSpace(targetEntity)
+    searchOpts = organizeFilters(request, searchSpace, targetEntity)
+    if searchOpts:
+        query = convertFilters(targetEntity, searchSpace, searchOpts)
+        analysisOpts["query"] = query
+    if "query" not in analysisOpts:
+        analysisOpts["query"] = {}
 
-    # then get the analysis stuff:
-    analysisOpts = {}
-    operation = request.args.get("operation", None)
-    if operation in OPERATION_SPACE.keys():
-        analysisOpts["operation"] = operation
-    for entry in ["groupBy", "targetField", "perField", "timeSeries"]:
-        entryVal = request.args.get(entry, None)
-        if entryVal in ANALYSIS_SPACE.keys():
-            analysisOpts[entry] = entryVal
+    searchOpts = analysisOpts
+    searchOpts = organizeFilters2(searchOpts, searchSpace)
 
-    if analysisOpts["operation"] == "percentage":
-        # PATCH: This is a non sustainable solution for percentage operation
-        if analysisOpts["targetField"] == "feeWaiver":
-            analysisOpts["numeratorField"] = ["grant", "term"]
+    if not analysisOpts:
+        print("ill formed analysis opts")
+        return jsonify({})
 
-        elif analysisOpts["targetField"] == "proSe":
-            analysisOpts["numeratorField"] = [True]
+    # searchOpts = organizeFilters(request, searchSpace)
+    raw_results = run_analysis(s_opts=searchOpts, a_opts=analysisOpts, targetEntity=targetEntity, ring=ring, extractor=ringExtractor)
 
-
-    ae = AnalyticsEngine(searchOpts=searchOpts, analysisOpts=analysisOpts)
-    results = ae.run()
-
-    # TODO PATCH: This is a non sustainable solution for percentage operation
-    if analysisOpts["operation"] == "percentage":
-        for idx, x in enumerate(results["results"]):
-            print(x)
-            # results["results"][idx][-1] *= 10
     results = {
-        "length": len(results["results"]),
-        "results": results["results"],
-        "units": results["units"],
-        "counts": results["counts"] if "counts" in results else []
+        "length": len(raw_results["results"]),
+        "results": raw_results["results"],
+        "units": raw_results["units"],
+        "counts": raw_results["entity_counts"] if "entity_counts" in raw_results else {},
+        "fieldNames": raw_results["field_names"],
     }
-    return json.dumps(results, default=str)
+    if "score" in raw_results:
+        results["score"] = raw_results["score"]
+    # this next line is a bit of a hack to deal with un-jsonable things by coercing them
+    # to strings without having to write quick managers for every possible type (date, datetime, int64, etc)
+    results = json.loads(json.dumps(results, default=str))
+    # doing jsonify here manages the mimetype
+    return jsonify(results)
 
-@api.route("/result/<id>")
+
+@api.route("/document/<ringId>/<version>/<targetEntity>/<entityId>")
 @apiKeyCheck
-def getResultHTML(id):
-    sess = db.Session()
-    target = sess.query(SATCONF.targetModel).get(id)
-    extraStuff = "<script type='application/javascript' src='/static/highlighter.js'></script>"
-    extraStuff += "<link href='/static/highlighter.css' rel='stylesheet'>"
-    caseHTML = target.get_clean_html() \
-                   .replace("</body></html>", extraStuff+"</body></html>")
+def getResultHTML(ringId, version, targetEntity, entityId):
+    ring, ringExtractor = getOrCreateRing(ringId, version)
+    searchSpace = ringExtractor.getSearchSpace(targetEntity)
+    sess = ring.db.Session()
+    resolved_targetEnt = ringExtractor.resolveEntity(targetEntity)
+    target_renderAS = resolved_targetEnt[1].renderAs
+    # -------------------
+    targetEnt_tableName = getattr(resolved_targetEnt[1], 'table')
+    ## get compiler object
+    targetEnt_compilerObj = getattr(ring.db, targetEnt_tableName)
+    ## if the renderAs attribute is in another table: 
+    if searchSpace[None]['attributes'][target_renderAS['attribute']]['source_joins']:
+        source_join = searchSpace[None]['attributes'][target_renderAS['attribute']]['source_joins']
+        # ------------------- get join info 
+        source_path = deepcopy(searchSpace[None]['attributes'][target_renderAS['attribute']]['source_joins'])
+        next_step = source_path.pop()
+        joiner = deepcopy(ringExtractor.resolveJoin(source_join[0])[1].path)
+        from_= joiner[0][0]
+        to_ = joiner[0][1]
+        from_table, from_col = from_.split('.')
+        to_table, to_col = to_.split('.')
+        from_entity = getattr(ring.db,from_table)
+        to_entity = getattr(ring.db,to_table)
+        field = searchSpace[None]['attributes'][target_renderAS['attribute']]["fields"][0]
+        if hasattr(to_entity,field):
+            target_model = sess.query(from_entity,getattr(to_entity,field)).join(getattr(from_entity,next_step)).where(getattr(targetEnt_compilerObj,ringExtractor.get_primarykey(targetEnt_tableName))== entityId)
+            caseHTML = target_model.all()[0][1]
+        else:
+            target_model = sess.query(to_entity,getattr(from_entity,field)).join(getattr(from_entity,next_step)).where(getattr(targetEnt_compilerObj,ringExtractor.get_primarykey(targetEnt_tableName))== entityId)
+            caseHTML = target_model.all()[0][1]
+
+    # html_text = sess.query(ring.db.docket_html.html).join(ring.db.docket_html.htmlToCase).where(ring.db.cases.ucid == entityId)
+    # res = sess.query(ring.db.cases, ring.db.docket_html.html).join(ring.db.cases.docket_htmlucid).where(ring.db.cases.ucid == entityId)
+    # caseHTML = target.get_clean_html()
     return caseHTML
 
-@api.route("/info/")
-@apiKeyCheck
-def getAPIInfo():
-    sess = db.Session()
-    exampleTarget = sess.query(SATCONF.targetModel).first()
-    includesRenderer = hasattr(exampleTarget, "get_clean_html")
-    return json.dumps({
-        "filters": FE_FILTER_INFO,
-        "columns": COLUMNS_INFO,
-        "defaultSort": SORT_INFO,
-        "fieldUnits": FIELD_UNITS,
-        "operations": CLEAN_OPS,
-        "analysisSpace": CLEAN_AS,
-        "includesRenderer": includesRenderer,
-        "targetModelName": TARGET_MODEL_NAME
-    })
-
-@api.route("/download/<payloadName>")
+@api.route("/download/<payloadName>/")
 @apiKeyCheck
 def downloadDocketSet(payloadName):
     # TODO: this is just a demo stub -- in the future, this needs to take a GET param

@@ -4,6 +4,9 @@ Flask-Caching
 Flask-Migrate
 Flask-Security-Too==3.4.5
 Flask-SQLAlchemy
+flask_cors
 geoalchemy2
 IPython
 pandas
+requests
+psycopg2

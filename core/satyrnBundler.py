@@ -1,11 +1,26 @@
+import json
 import os
 import sys
 
 from flask import Flask
 from flask_caching import Cache
+from flask_cors import CORS
 from flask_sqlalchemy import SQLAlchemy
 
 app = Flask(__name__)
+CORS(app, supports_credentials=True)
+
+configVersion = os.environ.get("SATYRN_CONFIG_VERSION", "1")
+
+if configVersion == "1":
+    raise Exception("This is a V1 Config and won't work with this version of Satyrn.")
+
+try:
+    from compiler import compile_rings
+    # from extractors import RingConfigExtractor
+except:
+    from .compiler import compile_rings
+    # from .extractors import RingConfigExtractor
 
 # get the root of this repo locally -- used for static dir, user db and downloads dir location downstream
 app.config["BASE_ROOT_DIR"] = os.environ.get("SATYRN_ROOT_DIR", os.getcwd())
@@ -17,33 +32,41 @@ app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
 app.config["CACHE_TYPE"] = "simple"
 app.config["CACHE_DEFAULT_TIMEOUT"] = 300
 
-# set the location of the downloads folder
-app.downloadDir = os.path.join(app.config["BASE_ROOT_DIR"], "bundledDockets")
+# env
+app.config["ENV"] = os.environ.get("FLASK_ENV", "development")
 
-# and some stuff for sessions and password salting
-# app.config["SECRET_KEY"] = os.environ.get("SATYRN_SECRET_KEY")
-# app.config["SECURITY_PASSWORD_SALT"] = os.environ.get("SATYRN_SECURITY_SALT")
+# set the location of the UX_API for ring requests
+app.uxServiceAPI = os.environ.get("UX_SERVICE_API", "http://localhost/api/")
 
-# and the api key
+# and the api keys
 app.config["API_KEY"] = os.environ.get("API_KEY")
 
-# and layer on some sqla
-# app.db = SQLAlchemy(app)
+# next one can be different if set in env vars but defaults to the same
+app.config["UX_SERVICE_API_KEY"] = os.environ.get("UX_SERVICE_API_KEY", app.config["API_KEY"])
 
 # and set up the cache
 app.cache = Cache(app)
 
-# import the config via the SATYRN_CONFIG env var
-configDir = os.environ.get("SATYRN_CONFIG", None)
-if not os.path.exists(configDir):
-    raise ValueError("SATYRN_CONFIG env var appears to point to an non-existent folder.")
-if not os.path.exists(os.path.join(configDir, "satconf.py")):
-    raise ValueError("SATYRN_CONFIG env var appears to point to a folder without a satconf.py file.")
+# bootstrap the site info and rings from the config json
+if os.environ.get("SATYRN_SITE_CONFIG"):
+    with open(os.environ.get("SATYRN_SITE_CONFIG")) as f:
+        siteConf = json.load(f)
+    app.satMetadata = siteConf
+else:
+    # boilerplate default site config
+    app.satMetadata = {
+        "name": "Satyrn Platform",
+        "icon": "",
+        "description": "",
+        "rings": []
+    }
 
-# load and generate the config object
-# this path.append is hacky af -- we should figure out a better approach
-sys.path.append(configDir)
-import satconf
-satConf, metadata = satconf.build()
-app.satConf = satConf
-app.satMetadata = metadata
+app.rings = {}
+app.ringExtractors = {}
+
+# if we're in local dev, we can bootstrap rings through the site config
+# any additional ones will still assume a running version of the FE
+if app.config["ENV"].lower() in ["dev", "development"]:
+    rings, extractors = compile_rings(app.satMetadata.get("rings", []))
+    app.rings = rings
+    app.ringExtractors = extractors

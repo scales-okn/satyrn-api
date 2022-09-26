@@ -1,7 +1,9 @@
 from sqlalchemy import func
 
 def runAutocomplete(db, theType, config, opts={"query": None}):
-    opts["type"] = config["acType"] if "acType" in config else theType
+    # opts["type"] = config["acType"] if "acType" in config else theType
+    # TODO: come back and make this work with multi hop joins
+    opts["model"] = config["model"]
     opts["vals"] = config["fields"] if "fields" in config else None
     if not opts["query"] or not opts["vals"]:
         return None
@@ -15,7 +17,8 @@ def runAutocomplete(db, theType, config, opts={"query": None}):
 def getDedupedBundle(db, opts={"query": None}, sess=None):
     if not sess:
         return None
-    targetModel = getattr(db, opts["type"])
+    # targetModel = getattr(db, opts["type"])
+    targetModel = opts["model"]
     # put together the query
     theSet = sess.query(targetModel)
     targetVals = [getattr(targetModel, val) for val in opts["vals"]]

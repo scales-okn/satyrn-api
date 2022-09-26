@@ -1,14 +1,9 @@
 from flask import current_app
 
-# local globals
-# db = current_app.jdb.noacri
-
-# a global constant that is leveraged by the analysis engine/API
-# similar to searchSpace.py -- config-driven analysis interface
-
 from sqlalchemy.sql.expression import case, extract
 from sqlalchemy.sql.functions import concat
 from sqlalchemy import func
+
 
 def make_case_expression(model_field, transform_dict, else_val):
     # print(transform_dict)
@@ -42,7 +37,7 @@ def lambda_func(string):
     return lambda x: (comp_1(value_1, x)) & (comp_2(x, value_2))
 
 
-def inequalities_processing(model_field, string_list, else_val=None):
+def threshold_processing(model_field, db_type, extra):
     '''
     Returns a sqlalchemy case expression for building the string_list
     Examples:
@@ -61,63 +56,31 @@ def inequalities_processing(model_field, string_list, else_val=None):
     There is also an option of having a list of tuples, where the first string is 
     the same as above, and the second string is the "user-friendly" reading of that
     string
+    "transformCases": [
+        ("x <= 5", "< 5 years"),
+        ("5 < x <= 10", "5 to 10 years"),
+        ("10 < x <= 15", "10 to 15 years"),
+        ("15 < x <= 20", "15 to 20 years"),
+        ("x > 20", "> 20 years")
+    ],
     '''
+    # extra = extra if extra else {}
     transform_dict = {}
-    if len(string_list[0]) == 1:
+    string_list = extra.get("threshold", TRANSFORMS_SPACE["threshold"]["default"])
+    if type(string_list[0]) == str:
         for string in string_list:
             transform_dict[string] = lambda_func(string)
     else:
         for string1, string2 in string_list:
             transform_dict[string2] = lambda_func(string1)        
-    return make_case_expression(model_field, transform_dict, else_val)
-
-
-
-def month_processing(model_field, string_list=None, else_val=None):
-    '''
-    obtains a datetime and then from that, maps them to datetime
-
-    '''
-    return concat(extract('year', model_field), "/", extract('month', model_field))
-
-
-def year_processing(model_field, string_list=None, else_val=None):
-    '''
-    obtains a datetime and then from that, maps them to datetime
-
-    '''
-    return extract('year', model_field)
-
-
-# def substr_processing(model_field, string_list=None, else_val=None):
-#     return func.substr(model_field, 0, 10)
-
-
-# def substr_processing(model_field, string_list=None, else_val=None):
-#     return func.substr(model_field, 0, (func.length(model_field) - func.instr(model_field, " ")))
+    return make_case_expression(model_field, transform_dict, else_val=extra.get("else_val", None))
 
 TRANSFORMS_SPACE = {
-    "inequalities": {
+    "threshold": {
         "dataType": ["float", "int"],
         "newType": "string",
-        "processor": inequalities_processing,
+        "processor": threshold_processing,
+        "default": ["x < 1000", "1000 <= x"]
 
     },
-    "month_transform": {
-        "dataType": ["datetime"],
-        "newType": "date",
-        "processor": month_processing,
-
-    },
-    "year_transform": {
-        "dataType": ["datetime"],
-        "newType": "date",
-        "processor": year_processing,
-
-    },
-    # "substr_transform": {
-    #     "dataType": ["string"],
-    #     "newType": "string",
-    #     "processor": substr_processing,
-    # }
 }
