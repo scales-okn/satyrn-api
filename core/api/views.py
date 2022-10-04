@@ -242,21 +242,9 @@ def getResultHTML(ringId, version, targetEntity, entityId):
         field = searchSpace[None]['attributes'][target_renderAS['attribute']]["fields"][0]
         if hasattr(to_entity,field):
             target_model = sess.query(from_entity,getattr(to_entity,field)).join(getattr(from_entity,next_step)).where(getattr(targetEnt_compilerObj,ringExtractor.get_primarykey(targetEnt_tableName))== entityId)
-            caseHTML = target_model.all()[0][1]
+            document = target_model.all()[0][1]
         else:
             target_model = sess.query(to_entity,getattr(from_entity,field)).join(getattr(from_entity,next_step)).where(getattr(targetEnt_compilerObj,ringExtractor.get_primarykey(targetEnt_tableName))== entityId)
-            caseHTML = target_model.all()[0][1]
+            document = target_model.all()[0][1]
 
-    # html_text = sess.query(ring.db.docket_html.html).join(ring.db.docket_html.htmlToCase).where(ring.db.cases.ucid == entityId)
-    # res = sess.query(ring.db.cases, ring.db.docket_html.html).join(ring.db.cases.docket_htmlucid).where(ring.db.cases.ucid == entityId)
-    # caseHTML = target.get_clean_html()
-    return caseHTML
-
-@api.route("/download/<payloadName>/")
-@apiKeyCheck
-def downloadDocketSet(payloadName):
-    # TODO: this is just a demo stub -- in the future, this needs to take a GET param
-    # and bundle the results from the db, zip them and return the resulting file
-    # maybe also store the file locally for subsequent downloads for a period of time?
-    # return json.dumps({"testo": 1})
-    return send_from_directory(app.downloadDir, "DocketCollection.zip", as_attachment=True)
+    return document

@@ -261,13 +261,13 @@ class RingConfigExtractor(object):
 # table_name: name of the tabe, the rel_name exists
 # returns a dictionary with the backref and the primary join path 
 
-    def get_related_relationship(self, rel_name,table_name):
+    def get_related_relationship(self, rel_name, table_name):
         entity = getattr(self.config.db,table_name)
         rel = getattr(entity,rel_name)
         return {'join':rel.property.primaryjoin,'back_ref':rel.property.back_populates}
 
 
-    def formatResult(self, result,sess,target=None):
+    def formatResult(self, result, sess, target=None):
         target, targetEnt = self.resolveEntity(target)
         cols = self.getColumns(target)
         searchSpace = self.getSearchSpace(target)
@@ -275,7 +275,7 @@ class RingConfigExtractor(object):
             col["key"]: self.getSearchSpace(target)[None]["attributes"][col["key"]]["fields"] for col in cols
         }
         results = {}
-        #related_relation = self.get_related_relationship('caseToType','cases')
+
         for attr, fields in renderMap.items():
             attribute_list = []
             for field in fields:
@@ -306,14 +306,17 @@ class RingConfigExtractor(object):
                         attribute_list.append(getattr((target_model.all())[0], field)) 
                         results[attr] = self.coerceValsToString(attribute_list, searchSpace[None]["attributes"][attr]["resultFormat"])
 
-                        ## FOLLOWUP:
-                            ## 1. In Config declare what attributes you want. 
-                            ## 2. SqlAlchemy relationships in the ORM 
-                                ## So it doesn't use filters but rather hops in relationships
                     else:
                         ## doesn't need a join, just grab it! 
                         attribute_list.append(getattr(result, field))
                         results[attr] = self.coerceValsToString(attribute_list, searchSpace[None]["attributes"][attr]["resultFormat"])
+       
+        # now add the unique id(s) under a special key
+        # currently used for document opening (if applicable from ring)
+        results["__uniqueId"] = {}
+        for idPart in targetEnt.id:
+           results["__uniqueId"][idPart] = getattr(result, idPart) 
+        results["__entType"] = targetEnt.name
 
         return results
 
