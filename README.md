@@ -1,8 +1,18 @@
 # Satyrn API v0.2.1
 
-This is the core codebase for the Satyrn API. Satyrn is developed by the C3 Lab at Northwestern University and is in pre-release alpha. Details about this work are pending publication, and it will be made open-source with clear licensing terms at a later date.
+This is the core codebase for the Satyrn API. Satyrn is developed by the C3 Lab at Northwestern University and is in pre-release alpha. Details about this work are pending publication
 
-What follows are notes for those actively iterating on Satyrn towards a public release.
+### License
+
+This file is part of Satyrn.
+Satyrn is free software: you can redistribute it and/or modify it under 
+the terms of the GNU General Public License as published by the Free Software Foundation, 
+either version 3 of the License, or (at your option) any later version.
+Satyrn is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; 
+without even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. 
+See the GNU General Public License for more details.
+You should have received a copy of the GNU General Public License along with Satyrn. 
+If not, see <https://www.gnu.org/licenses/>.
 
 -----------
 
