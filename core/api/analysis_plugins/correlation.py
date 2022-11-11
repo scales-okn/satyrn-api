@@ -43,12 +43,17 @@ def correlationQuery(s_opts, orig_a_opts, targetEntity):
 def pandasCorrelation(a_opts, results, group_args, field_names, col_names):
 
     df = pd.DataFrame(results, columns=field_names)
-    corr_matrix = df.corr("pearson")
-
-    df_unique = df.nunique()
 
     col_1 = _name(a_opts["target1"]["entity"], a_opts["target1"]["field"], a_opts["target1"]["op"])
     col_2 = _name(a_opts["target2"]["entity"], a_opts["target2"]["field"], a_opts["target2"]["op"])
+
+    df = df[[col_1, col_2]]
+    df[col_1] = pd.to_numeric(df[col_1])
+    df[col_2] = pd.to_numeric(df[col_2])
+
+    corr_matrix = df.corr("pearson")
+
+    df_unique = df.nunique()
 
     if len(results):
         corr_val = corr_matrix[col_1][col_2]

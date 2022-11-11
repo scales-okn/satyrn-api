@@ -51,7 +51,7 @@ def pandasDistribution(a_opts, results, group_args, field_names, col_names):
 
 def distributionUnits(a_opts, field_names, col_names, init_units):
     idx = col_names.index("target")
-    init_units[idx] = "percentage of " + init_units[idx]
+    init_units[idx] = ["percentage of " + init_units[idx][0], "percentages of " + init_units[idx][0]]
 
     return {"results": init_units}
 

@@ -333,9 +333,10 @@ def get_units(a_opts, extractor, field_types, field_names, col_names):
         entity_dict = extractor.resolveEntity(entity)[1]
         if attribute not in ["id", "reference"]:
             attr_obj = [attr for attr in entity_dict.attributes if attr.name == attribute][0]
-            unit = attr_obj.units[0] if attr_obj.units else attr_obj.nicename[0]
+            unit = attr_obj.units if attr_obj.units else attr_obj.nicename
         else:
-            unit = entity
+            # breakpoint()
+            unit = entity_dict.nicename
         return unit
 
     def _apply_op_units(target_unit, op):
@@ -343,10 +344,10 @@ def get_units(a_opts, extractor, field_types, field_names, col_names):
         if op_units == "unchanged":
             return target_unit
         elif op_units == "percentage":
-            return "percent"
+            return ["percent" ,"percents"]
         elif op_units == "undefined":
-            return "undefined"
-        return "unknown"
+            return ["undefined", "undefined"]
+        return ["unknown", "unknown"]
 
 
     # Get units for each field type
@@ -370,7 +371,10 @@ def get_units(a_opts, extractor, field_types, field_names, col_names):
     units_lst = []
     for col in col_names:
         if col == "target/per":
-            units_lst.append(units_dict["target"] + '/' + units_dict["per"])
+            lst = []
+            lst.append(units_dict["target"][0] + "/" + units_dict["per"][0])
+            lst.append(units_dict["target"][1] + "/" + units_dict["per"][0])
+            units_lst.append(lst)
         elif col[0:7] == "groupBy" and col[-3:] != "ref":
             idx = int(col[7:])
             units_lst.append(units_dict["groupBy"][idx])
