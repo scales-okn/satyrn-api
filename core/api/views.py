@@ -31,11 +31,11 @@ api = Blueprint("api", __name__)
 cache = app.cache
 
 # One cache enabled helper function...
-@cache.memoize(timeout=1000)
-def cachedAutocomplete(db, theType, searchSpace, opts):
+# @cache.memoize(timeout=1000)
+def cachedAutocomplete(db, theType, searchSpace, opts, extractor, targetEntity):
     # TODO: make this work with the new DB setup!
     print("chachedAutocomplete opts: ", opts)
-    return json.dumps(runAutocomplete(db, theType, searchSpace, opts))
+    return json.dumps(runAutocomplete(db, theType, searchSpace, extractor, targetEntity, opts))
 
 # THE ROUTES
 # base route as a pseudo health check
@@ -120,7 +120,7 @@ def getAutocompletes(ringId, version, targetEntity, theType):
     if theType in thisAttrs \
       and "autocomplete" in thisAttrs[theType] \
       and thisAttrs[theType]["autocomplete"]:
-        return cachedAutocomplete(ring.db, theType, thisAttrs[theType], opts)
+        return cachedAutocomplete(ring.db, theType, thisAttrs[theType], opts, ringExtractor, targetEntity)
     return json.dumps({"success": False, "message": "Unknown autocomplete type"})
 
 
