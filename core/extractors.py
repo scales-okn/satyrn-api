@@ -116,7 +116,7 @@ class RingConfigExtractor(object):
                                 "fields": att.source_columns,
                                 "nicename": att.nicename,
                                 "unit": att.units,
-                            } for att in entObj.attributes if att.searchable
+                            } for att in entObj.attributes if att.analyzable
                 }
             }
             analysisSpace[key_name]["attributes"]["id"] = {
