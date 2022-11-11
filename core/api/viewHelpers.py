@@ -59,8 +59,10 @@ def organizeFilters(request, searchSpace, targetEntity):
         setting = request.args.get(k, None)
         if setting:
             if iterables[k]["type"] == "date":
-                dateRange = setting.strip('][').split(",")
-                opts[k] = [cleanDate(dte) for dte in dateRange]
+                dateRanges = setting.split(",")
+                opts[k] = [cleanUglyDate(dte) for dte in dateRanges]
+                # dateRange = setting.strip('][').split(",")
+                # opts[k] = [cleanDate(dte) for dte in dateRange]
             elif searchSpace[None]["allowMultiple"]:
                 opts[k] = request.args.getlist(k, None)
             else:
@@ -181,7 +183,8 @@ def convertFilters(targetEntity, searchSpace, filter_dct):
     query = {"AND": []}
     for key, val in filter_dct.items():
         if type(val) == list:
-            if searchSpace[key]["type"] == "date":
+            attrs = searchSpace.get(None).get("attributes")
+            if attrs.get(key) and attrs.get(key).get("type") == "date":
                 tpl = _createSearchTuple(targetEntity, searchSpace, key, val, "range")
                 query["AND"].append(tpl)
             else:
@@ -214,9 +217,18 @@ def _createSearchTuple(targetEntity, searchSpace, key, val, tpe=None):
     return [{"entity": targetEntity,
                     "field": key}, val, tpe]
 
+def cleanUglyDate(dte):
+    # Fri Oct 29 2021 00:00:00 GMT-0500 (Central Daylight Time)
+    dte = dte.split("-")[0]
+    return datetime.strptime(dte, '%a %b %d %Y %H:%M:%S %Z') if dte != "null" else None
 
 def cleanDate(dte):
-    return datetime.strptime(dte, '%Y-%m-%d') if dte != "null" else None
+    if type(dte) == datetime:
+        return dte
+    elif dte.find("(") != -1:
+        return cleanUglyDate(dte)
+    else:
+        return datetime.strptime(dte, '%Y-%m-%d') if dte != "null" else None
 
 def cleanFloat(num):
     try:
