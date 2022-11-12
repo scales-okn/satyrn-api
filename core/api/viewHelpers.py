@@ -71,9 +71,7 @@ def organizeFilters(request, searchSpace, targetEntity):
 
 # new generic filter prep function
 def organizeFilters2(opts, searchSpace):
-
     query = traverseFilters(opts["query"], searchSpace)
-
     opts["query"] = query if query else {}
 
     # TODO: relationship check
@@ -228,6 +226,8 @@ def cleanDate(dte):
     elif dte.find("(") != -1:
         return cleanUglyDate(dte)
     else:
+        if "T" in dte:
+            dte = dte.split("T")[0]
         return datetime.strptime(dte, '%Y-%m-%d') if dte != "null" else None
 
 def cleanFloat(num):
