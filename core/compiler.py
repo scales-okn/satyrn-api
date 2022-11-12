@@ -978,6 +978,7 @@ class Ring_Compiler(object):
                 # extr = cast(extr, String)
             else:
                 extr = cast(extr, String)
+            # breakpoint()
             model_map[table][col_name + gran_name] = column_property(extr)
             extr_dct[field] = extr
 
@@ -986,13 +987,13 @@ class Ring_Compiler(object):
             # do year month day
             # model_map[table][col_name + "_date"] = column_property(concat(extr_dct["year"], "/", extr_dct["month"], "/", extr_dct["day"]))
             # model_map[table][col_name + "_date"] = column_property(concat(extr_dct["year"], extr_dct["month"],  extr_dct["day"]))
-            model_map[table][col_name + "_date"] = column_property(extr_dct["year"] + "/" + extr_dct["month"] +  "/" + extr_dct["day"])
+            model_map[table][col_name + "_day"] = column_property(extr_dct["year"] + "/" + extr_dct["month"] +  "/" + extr_dct["day"])
             # do day of week
             model_map[table][col_name + "_dayofweek"] = column_property(cast(extract("dow", model_map[attribute.source_table][col_name]), String))
 
         # check if year month valid
-        # if minID > 0 and maxID == 0:
-        #     model_map[table][col_name + "_month"] = column_property(concat(extr_dct["year"], "/", extr_dct["month"]))
+        if minID > 0 and maxID == 0:
+            model_map[table][col_name + "_month"] = column_property(concat(extr_dct["year"], "/", extr_dct["month"]))
 
         # # check if month day valid
         # if minID > 1 and maxID < 2:
