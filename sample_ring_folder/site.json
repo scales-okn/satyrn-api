@@ -1,0 +1,6 @@
+{
+    "name": "Sample Ring",
+    "icon": "",
+    "description": "A simple political contributions app leveraging the 2.1 config schema.",
+    "rings": ["/Users/scottdaniel/Desktop/Non-music/SCALES/scales-satyrn/satyrn-api/sample_ring_folder/ring.json"]
+}

@@ -1,0 +1,240 @@
+{
+  "id": 1,
+  "userId": 1,
+  "rid": "20e114c2-ef05-490c-bdd8-f6f271a6733f",
+  "name": "Basic Ring",
+  "description": "A simple ring for testing and development based on the political contributions data.",
+  "version": 1,
+  "schemaVersion": 2.1,
+  "dataSource": {
+    "type": "sqlite",
+    "connectionString": "/Users/scottdaniel/Desktop/Non-music/SCALES/scales-satyrn/satyrn-api/sample_ring_folder/basic.db",
+    "tables": [
+      {
+        "name": "contribution",
+        "primaryKey": "id",
+        "pkType": "integer"
+      },
+      {
+        "name": "contributor",
+        "primaryKey": "id",
+        "pkType": "integer"
+      }
+    ],
+    "joins": [
+      {
+        "name": "contributor",
+        "from": "contribution",
+        "to": "contributor",
+        "path": [
+          [
+            "contribution.contributor_id",
+            "contributor.id",
+            "integer"
+          ]
+        ],
+        "bidirectional": true
+      }
+    ]
+  },
+  "ontology": {
+    "defaultTargetEntity": "Contribution",
+    "relationships": [
+      {
+        "name": "ContribToContributor",
+        "from": "Contribution",
+        "to": "Contributor",
+        "join": "contributor",
+        "relation": "m2o",
+        "bidirectional": true
+      }
+    ],
+    "entities": [
+      {
+        "name": "Contribution",
+        "table": "contribution",
+        "id": "id",
+        "idType": "integer",
+        "renderable": false,
+        "reference": "${amount}",
+        "attributes": {
+          "amount": {
+            "nicename": [
+              "Contribution Amount",
+              "Contribution Amounts"
+            ],
+            "units": [
+              "dollar",
+              "dollars"
+            ],
+            "isa": "float",
+            "source": {
+              "table": "contribution",
+              "columns": [
+                "amount"
+              ]
+            },
+            "metadata": {
+              "searchable": true,
+              "allowMultiple": false,
+              "searchStyle": "range",
+              "analyzable": true,
+              "threshold": ["x <= 250", "250 < x <= 500", "500 < x <= 1000", "1000 < x"]
+            }
+          },
+          "inState": {
+            "nicename": [
+              "In State Contribution Status",
+              "In State Contribution Statuses"
+            ],
+            "isa": "boolean",
+            "source": {
+              "table": "contribution",
+              "columns": [
+                "in_state"
+              ]
+            },
+            "metadata": {
+              "searchable": true,
+              "allowMultiple": false,
+              "searchStyle": "range",
+              "analyzable": true
+            }
+          },
+          "electionYear": {
+            "nicename": [
+              "Election Year",
+              "Election Years"
+            ],
+            "isa": "date:year",
+            "source": {
+              "table": "contribution",
+              "columns": [
+                "election_year"
+              ]
+            },
+            "metadata": {
+              "searchable": true,
+              "allowMultiple": false,
+              "searchStyle": "range",
+              "analyzable": true,
+              "description": "The year of this election."
+            }
+          },
+          "contributionRecipient": {
+            "nicename": [
+              "Recipient",
+              "Recipients"
+            ],
+            "isa": "string",
+            "source": {
+              "table": "contribution",
+              "columns": [
+                "contribution_recipient"
+              ]
+            },
+            "metadata": {
+              "searchable": true,
+              "allowMultiple": false,
+              "searchStyle": "range",
+              "analyzable": true,
+              "autocomplete": true
+            }
+          },
+          "contributionDate": {
+            "nicename": [
+              "Contribution Date",
+              "Contribution Dates"
+            ],
+            "isa": "datetime",
+            "source": {
+              "table": "contribution",
+              "columns": [
+                "contribution_date"
+              ]
+            },
+            "metadata": {
+              "searchable": true,
+              "allowMultiple": false,
+              "searchStyle": "range",
+              "analyzable": true,
+              "autocomplete": true
+            }
+          }
+        }
+      },
+      {
+        "name": "Contributor",
+        "table": "contributor",
+        "id": "id",
+        "idType": "integer",
+        "renderable": false,
+        "reference": "${name} from ${parentOrg}",
+        "attributes": {
+          "name": {
+            "nicename": [
+              "Contributor",
+              "Contributor"
+            ],
+            "isa": "string",
+            "source": {
+              "table": "contributor",
+              "columns": [
+                "name"
+              ]
+            },
+            "metadata": {
+              "searchable": true,
+              "allowMultiple": false,
+              "searchStyle": "range",
+              "analyzable": true,
+              "autocomplete": true
+            }
+          },
+          "parentOrg": {
+            "nicename": [
+              "Contributor Parent Organization",
+              "Contributor Parent Organizations"
+            ],
+            "isa": "string",
+            "source": {
+              "table": "contributor",
+              "columns": [
+                "parent_org"
+              ]
+            },
+            "metadata": {
+              "searchable": true,
+              "allowMultiple": false,
+              "searchStyle": "range",
+              "analyzable": true,
+              "description": "The organization this contributor is associated with."
+            }
+          },
+          "area": {
+            "nicename": [
+              "Contributor Sector",
+              "Contributor Sectors"
+            ],
+            "isa": "string",
+            "source": {
+              "table": "contributor",
+              "columns": [
+                "area"
+              ]
+            },
+            "metadata": {
+              "searchable": true,
+              "allowMultiple": false,
+              "searchStyle": "range",
+              "analyzable": true
+            }
+          }
+        }
+      }
+    ]
+  },
+  "visibility": "public",
+  "createdAt": "2021-11-18T01:07:54.696Z",
+  "updatedAt": "2021-11-18T01:07:54.696Z"
+}
