@@ -993,7 +993,7 @@ class Ring_Compiler(object):
 
         # check if year month valid
         if minID > 0 and maxID == 0:
-            model_map[table][col_name + "_month"] = column_property(concat(extr_dct["year"], "/", extr_dct["month"]))
+            model_map[table][col_name + "_month"] = column_property(cast(extr_dct["year"], String) + "/" + cast(extr_dct["month"], String))
 
         # # check if month day valid
         # if minID > 1 and maxID < 2:

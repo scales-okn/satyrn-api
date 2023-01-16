@@ -153,7 +153,8 @@ def _get_helper(extractor, entity, attribute, db, transform, date_transform, op,
         ##go back to business as usual
         model_name = attr_obj.source_table
         field_name = attr_obj.source_columns[0]
-        if date_transform:
+        # "year_year" bug; date_transform probably shouldn't be passed at all in this case, but it seems easier to do a downstream patch here
+        if date_transform and date_transform not in field_name:
             field_name = field_name + "_" + date_transform
     else:
         model_name = entity_dict.table
