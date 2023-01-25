@@ -44,7 +44,7 @@ def cachedAutocomplete(db, theType, searchSpace, opts, extractor, targetEntity):
 @apiKeyCheck
 def base():
     return json.dumps({
-        "status": "API is up and running"
+        "status": "API is up and running hohoho"
     })
 
 @api.route("/rings/", methods=["GET"]) #, "POST"])
