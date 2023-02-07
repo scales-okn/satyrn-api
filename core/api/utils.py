@@ -192,7 +192,7 @@ def _get_helper(extractor, entity, attribute, db, transform, date_transform, op,
             attr_obj = [attr for attr in entity_dict.attributes if attr.name == attribute][0]
             extra["threshold"] = extra.get("threshold", attr_obj.threshold)
         field = TRS[transform]["processor"](field, extractor.getDBType(), extra)
-    print(joins_todo)
+    # print(joins_todo)
     return field, name, joins_todo
 
 
@@ -225,7 +225,7 @@ def do_join_helper(query, path, db, added_tables=set()):
             the_table = path[1].split(".")[0]
             indices = [1,0]
         else:
-            print(f"path {path} already joined")
+            # print(f"path {path} already joined")
             return query, None
         # print(path)
         # print("table to join")

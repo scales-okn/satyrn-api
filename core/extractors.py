@@ -68,7 +68,7 @@ class RingConfigExtractor(object):
         searchSpace = {}
 
         for ent_name, rel, rel_type in ents: #each of these relation ship is added in the searchspace
-            print(ent_name, rel, rel_type)
+            # print(ent_name, rel, rel_type)
             ent, entObj = self.resolveEntity(ent_name)
             key_name = rel if rel else None
             searchSpace[key_name] = {
