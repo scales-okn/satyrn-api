@@ -52,11 +52,11 @@ def count_entities(query, entity_ids, field_names, db_type):
         for entity in entity_ids:
             entity_counts[entity] = int(df[entity])
     elif db_type == "postgres":
-        print("========== entity_ids: ", entity_ids)
+        # print("========== entity_ids: ", entity_ids)
         for entity in entity_ids:
             entity_counts[entity] = query.distinct(entity).count()
     elif db_type == "postgresql":
-        print("++++++++ entity_ids: ", entity_ids)
+        # print("++++++++ entity_ids: ", entity_ids)
         for entity in entity_ids:
             entity_counts[entity] = query.distinct(entity).count()
     return entity_counts
