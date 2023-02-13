@@ -1051,12 +1051,16 @@ class Ring_Compiler(object):
                     if from_key in model_map[from_table].keys():
                         new_col = self.column_with_type(key_type,primary_key=True,foreign_key=to)
                         model_map[from_table][from_key] = new_col
-
                     #model_map[join.from_][from_key] = self.column_with_type(key_type,primary_key=True,foreign_key=to)
-                    pass
-                       
                     #if key exist already as a primary key then update the column to be primary key and fkey
                     # model_map[join.from_][to_table] = relationship(to_table, back_populates=from_table, uselist=True)
+                    pass
+
+                # to_key may not yet have been created in to_table (e.g. judges.sjid -> cases.sjid)
+                # weird that this isn't accounted for; am i misreading? even if so, can't hurt to create an extra column (--scott)
+                if to_key not in model_map[to_table].keys():
+                    model_map[to_table][to_key] = self.column_with_type(key_type)
+
                 if from_table not in model_map[join.to] and join.bidirectional:
                     # model_map[join.to][from_table] = self.column_with_type(key_type,foreign_key=from_)
                     # model_map[join.to][from_table] = relationship(from_table, back_populates=to_table, uselist=True)

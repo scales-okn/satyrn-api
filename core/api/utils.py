@@ -230,10 +230,10 @@ def do_join_helper(query, path, db, added_tables=set()):
         # print(path)
         # print("table to join")
         # print(the_table)
-        return query.join(getattr(db, the_table),
-                            _get_join_field(path[indices[0]], db) == _get_join_field(path[indices[1]], db),
-                            isouter=True
-                            ), the_table
+
+        # isouter no longer used bc it resulted in a null entity being assigned a count & included in the avg...hopefully no legit reason for it
+        query_new = query.join(getattr(db,the_table), _get_join_field(path[indices[0]],db)==_get_join_field(path[indices[1]],db))#,isouter=True)
+        return query_new, the_table
 # PENDING: Should be stress tested, tested more
 # PENDING: Should try to share this with seekers as much as possible
 # PENDING: have yet to test the case where single entity across multiple tables
@@ -339,6 +339,7 @@ def _do_joins(query, tables, relationships, extractor, targetEntity, db, entity_
             for join_item in rel_item.join:
                 join = extractor.resolveJoin(join_item)[1]
                 for path in join.path: #in case we have multiple joins in the path
+                    # for >1 join, might need to change this to ensure the joins happen in the right order
                     query, add_table = do_join_helper(query, path, db,joined_tables)
                     if add_table:
                         joined_tables.add(add_table)

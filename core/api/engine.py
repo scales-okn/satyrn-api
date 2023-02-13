@@ -159,6 +159,7 @@ def single_ring_analysis(s_opts, a_opts, ring, extractor, targetEntity, sess, db
         # query = query.order_by(targetInfo.id[0])
         units = get_units(a_opts, extractor, field_types, field_names, col_names)
         results = {"results": [list(q) for q in query.all()], "field_names": field_names, "field_types": col_names, "units": {"results": units}}
+        # results = {"results":[1,1], "field_names":field_names, "field_types":col_names, "units":{"results":units}} # dummy results for debugs
         
     results.update({
         "entity_counts": row_count_query(s_opts, a_opts, ring, extractor, targetEntity, sess, db, field_types),

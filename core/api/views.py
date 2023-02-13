@@ -34,7 +34,7 @@ cache = app.cache
 # @cache.memoize(timeout=1000)
 def cachedAutocomplete(db, theType, searchSpace, opts, extractor, targetEntity):
     # TODO: make this work with the new DB setup!
-    print("chachedAutocomplete opts: ", opts)
+    # print("chachedAutocomplete opts: ", opts)
     return json.dumps(runAutocomplete(db, theType, searchSpace, extractor, targetEntity, opts))
 
 # THE ROUTES
