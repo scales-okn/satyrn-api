@@ -94,7 +94,8 @@ def rawGetResultSet(opts, ring, ringExtractor, targetEntity, targetRange=None, s
     if just_query:
         return query, joins_todo
         
-    return bundleQueryResults(query, targetRange, targetEntity, ringExtractor, simpleResults)
+    targetPK = getattr(targetModel, targetInfo.id[0])
+    return bundleQueryResults(query, targetRange, targetEntity, targetPK, ringExtractor, simpleResults)
 
 def makeFilters(query, extractor, db, opts, joins_todo):
     # check if just a condition
@@ -187,8 +188,8 @@ def sortQuery(sess, targetModel, query, sortBy, sortDir, details):
         # TODO: set it up so that the system can sort by relationships
         return query
 
-def bundleQueryResults(query, targetRange, targetEntity, ringExtractor, simpleResults=True):
-    totalCount = query.count()
+def bundleQueryResults(query, targetRange, targetEntity, targetPK, ringExtractor, simpleResults=True):
+    totalCount = query.distinct(targetPK).count() # count() w/o distinct() double-counts when returning multiple docket lines from a single case
     formatResult = ringExtractor.formatResult
     sess = ringExtractor.config.db.Session()
     if targetRange is not None:
