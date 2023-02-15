@@ -116,7 +116,11 @@ class RingConfigExtractor(object):
                                 "fields": att.source_columns,
                                 "nicename": att.nicename,
                                 "unit": att.units,
-                            } for att in entObj.attributes if att.analyzable
+                            } for att in entObj.attributes # if att.analyzable
+                            # whether the intended meaning of {"analyzable": False} was "don't let the user analyze datasets produced when
+                            # filtering on this attribute" or "don't let this attribute get involved in analysis options" (or both), this
+                            # implementation created nicename problems in the PlanManager and seemed not to have any effects beyond that,
+                            # so i took it out --scott
                 }
             }
             analysisSpace[key_name]["attributes"]["id"] = {
