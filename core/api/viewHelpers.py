@@ -63,8 +63,11 @@ def organizeFilters(request, searchSpace, targetEntity):
                 opts[k] = [cleanUglyDate(dte) for dte in dateRanges]
                 # dateRange = setting.strip('][').split(",")
                 # opts[k] = [cleanDate(dte) for dte in dateRange]
-            elif searchSpace[None]["allowMultiple"]:
-                opts[k] = request.args.getlist(k, None)
+
+            ### the below elif didn't seem to be supported in the SQL layer (the list was getting thrown right into lower() as a parameter)
+            # elif searchSpace[None]["attributes"][k]["allowMultiple"]:
+            #     opts[k] = request.args.getlist(k, None)
+
             else:
                 opts[k] = setting  
     return opts

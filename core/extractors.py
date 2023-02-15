@@ -74,14 +74,14 @@ class RingConfigExtractor(object):
             searchSpace[key_name] = {
                 "entity": ent_name,
                 "rel_type": rel_type,
-                "allowMultiple": rel_type == "m2m",
+                # "allowMultiple": rel_type == "m2m",
                 "attributes": { att.name: {
                                 "displayable": att.displayable,
                                 "autocomplete": att.autocomplete,
                                 "type": att.baseIsa,
                                 "model": getattr(self.config.db, entObj.table),
                                 "fields": att.source_columns,
-                                # "allowMultiple": rel_type == "m2m",
+                                "allowMultiple": att.allow_multiple,
                                 "nicename": att.nicename[0], # TODO: leverage the list for singular+plural
                                 "description": att.description,
                                 "resultFormat": att.resultFormat,
@@ -374,7 +374,7 @@ class RingConfigExtractor(object):
         return [(k, {
             "autocomplete": ("autocomplete" in v and v["autocomplete"]),
             "type": v["type"],
-            "allowMultiple": searchSpace[None]["allowMultiple"],
+            "allowMultiple": v["allowMultiple"], # searchSpace[None]["allowMultiple"],
             "nicename": v["nicename"],
             "desc": v["description"] if "description" in v else None
         }) for k, v in searchSpace[None]["attributes"].items()]
