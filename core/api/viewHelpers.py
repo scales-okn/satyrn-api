@@ -354,13 +354,15 @@ def getOrCreateRing(ringId, version=None, forceRefresh=False):
     # breakpoint()
     version = int(version) if version else version
     if (ringId not in app.rings) or (version and version not in app.rings.get(ringId, {})) or forceRefresh:
-        try:
-            getRingFromService(ringId, version)
-        except:
-            msg = "Ring with id {} ".format(ringId)
-            msg += "and version number {} ".format(version) if version is not None else "at any version number "
-            msg += "could not be loaded from service. This is likely either because a ring with this ID/version number can't be found or because the asset service is down."
-            return {"success": False, "message": msg}, None
+        # this try-catch block obscured flask's error info while not providing much more than the normal "Failed to get ring info!" (plus,
+        # its potential explanations were usually incorrect), so i took it out --scott
+        # try:
+        getRingFromService(ringId, version)
+        # except:
+        #     msg = "Ring with id {} ".format(ringId)
+        #     msg += "and version number {} ".format(version) if version is not None else "at any version number "
+        #     msg += "could not be loaded from service. This is likely either because a ring with this ID/version number can't be found or because the asset service is down."
+        #     return {"success": False, "message": msg}, None
     if not version:
         # get the highest version number available (mirrors behavior of the get)
         versions = sorted(app.rings[ringId].keys())
