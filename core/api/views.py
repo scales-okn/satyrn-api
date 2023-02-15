@@ -148,17 +148,23 @@ def searchDB(ringId, version, targetEntity):
     searchSpace = ringExtractor.getSearchSpace(targetEntity)
     sortables = ringExtractor.getSortables(targetEntity)
 
-    # left in case there is stuff in the request
-    opts = organizeFilters(request, searchSpace, targetEntity)
-    if not opts:
-        opts = request.json if request.content_type == "application/json" else {"query": {}, "relationships": []}
+
+    opts_first_try = organizeFilters(request, searchSpace, targetEntity)
+    opts = opts_first_try or request.json or {"query": {}, "relationships": []}
+
+    # hardcoded rule for ontology_labels searches
+    if "ontology_labels" in opts:
+        opts["ontology_labels"] = '|'+opts["ontology_labels"]+'|'
+
+    # left in case the filters came in the request body
+    if not opts_first_try:
         if "page" in opts:
             page = int(opts["page"])
         if "batchSize" in opts:
             batchSize = int(opts["batchSize"])
 
-    else:
-        # we will use the filters in the url/get rather than in the json
+    # otherwise, we will use the filters in the url/get rather than in the json
+    else:    
         query = convertFilters(targetEntity, searchSpace, opts)
         opts = {"query": query, "relationships": []}
 
