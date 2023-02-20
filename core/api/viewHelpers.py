@@ -56,18 +56,12 @@ def organizeFilters(request, searchSpace, targetEntity):
     iterables = searchSpace[None]["attributes"]
 
     for k in iterables.keys():
-        setting = request.args.get(k, None)
+        setting = request.args.getlist(k)
+        if not searchSpace[None]["attributes"][k]["allowMultiple"]:
+            setting = setting[:1] # might want to warn that the rest is being chopped off (although this is no worse than what was here before)
         if setting:
             if iterables[k]["type"] == "date":
-                dateRanges = setting.split(",")
-                opts[k] = [cleanUglyDate(dte) for dte in dateRanges]
-                # dateRange = setting.strip('][').split(",")
-                # opts[k] = [cleanDate(dte) for dte in dateRange]
-
-            ### the below elif didn't seem to be supported in the SQL layer (the list was getting thrown right into lower() as a parameter)
-            # elif searchSpace[None]["attributes"][k]["allowMultiple"]:
-            #     opts[k] = request.args.getlist(k, None)
-
+                dateRanges = setting[0].split(",") # doesn't allow multiple ranges to be passed, but we'll cross that bridge when we get to it
             else:
                 opts[k] = setting  
     return opts
@@ -183,18 +177,14 @@ def checkFilter(filt, searchSpace):
 def convertFilters(targetEntity, searchSpace, filter_dct):
     query = {"AND": []}
     for key, val in filter_dct.items():
-        if type(val) == list:
-            attrs = searchSpace.get(None).get("attributes")
-            if attrs.get(key) and attrs.get(key).get("type") == "date":
-                tpl = _createSearchTuple(targetEntity, searchSpace, key, val, "range")
-                query["AND"].append(tpl)
-            else:
-                for v in val:
-                    tpl = _createSearchTuple(targetEntity, searchSpace, key, val)
-                    query["AND"].append(tpl)
-        else:
-            tpl = _createSearchTuple(targetEntity, searchSpace, key, val)
+        attrs = searchSpace.get(None).get("attributes")
+        if attrs.get(key) and attrs.get(key).get("type") == "date":
+            tpl = _createSearchTuple(targetEntity, searchSpace, key, val, "range")
             query["AND"].append(tpl)
+        else:
+            for v in val:
+                tpl = _createSearchTuple(targetEntity, searchSpace, key, v)
+                query["AND"].append(tpl)
     return query
 
 

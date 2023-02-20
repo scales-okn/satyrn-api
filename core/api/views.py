@@ -154,9 +154,10 @@ def searchDB(ringId, version, targetEntity):
 
     # hardcoded rule for ontology_labels searches
     if "ontology_labels" in opts:
-        opts["ontology_labels"] = '|'+opts["ontology_labels"]+'|'
+        opts["ontology_labels"] = ['|'+x+'|' for x in opts["ontology_labels"]]
 
     # left in case the filters came in the request body
+    # note from scott (only relevant if this block is used at all): this block naively trusts that the sender knows the correct query format
     if not opts_first_try:
         if "page" in opts:
             page = int(opts["page"])
