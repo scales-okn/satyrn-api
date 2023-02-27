@@ -150,7 +150,7 @@ def searchDB(ringId, version, targetEntity):
 
 
     opts_first_try = organizeFilters(request, searchSpace, targetEntity)
-    opts = opts_first_try or request.json or {"query": {}, "relationships": []}
+    opts = opts_first_try or (request.json if request.content_type=='application/json' else {"query": {}, "relationships": []})
 
     # hardcoded rule for ontology_labels searches
     if "ontology_labels" in opts:
