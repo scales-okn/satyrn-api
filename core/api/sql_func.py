@@ -63,7 +63,7 @@ def count_entities(query, entity_ids, field_names, db_type):
 
 def _nan_cast(field, cast_val):
     # Casts a field in case it is a null value
-    return case([(field == None, cast_val)], else_=field)
+    return case((field == None, cast_val), else_=field)
 
 
 
