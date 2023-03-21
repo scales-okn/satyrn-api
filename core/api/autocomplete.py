@@ -10,7 +10,8 @@ You should have received a copy of the GNU General Public License along with Sat
 If not, see <https://www.gnu.org/licenses/>.
 '''
 
-from sqlalchemy import func
+from sqlalchemy import func, String
+from sqlalchemy.sql.expression import cast
 from . import utils
 
 def runAutocomplete(db, theType, config, extractor, targetEntity, opts={"query": None}):
@@ -39,13 +40,10 @@ def getDedupedBundle(db, extractor, targetEntity, theType, opts={"query": None},
 
     query = sess.query(field)
     if opts["query"]:
-        query = query.filter(field.contains(func.lower(opts["query"]))).limit(opts["limit"])
+        query = query.filter(cast(field, String).ilike(f'%{opts["query"].lower()}%')).limit(opts["limit"])
 
-    # TODO: deal with the fact that stuff gets GORY when you just blindly join the strings in a result set
-    # Need some representation of how to format each result/entity (like judge name formatting, but in a template string format)
-    # in the meantime, just return the first item in the list for the sake of keeping the demo path good
-    # later, come back and improve this next line with the template string:
-    # output = list(set([" ".join(item) for item in theSet.all()]))
+    # at one point, a comment suggested that rules would be needed to join the potential multiple values in each tuple in query.all;
+    # however, as of commit 9b9b7e, sess.query only ever pulls a single field, so the below line should be fine
     output = list(set([item[0] for item in query.all()]))
     output.sort()
     return output
