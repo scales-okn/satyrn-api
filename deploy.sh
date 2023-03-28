@@ -9,4 +9,4 @@ else
     exit 2
 fi
 	
-ssh root@$ip "/bin/bash -c 'cd scales-satyrn && sh docker_scripts/refresh_api.sh && docker builder prune -f'"
+ssh root@$ip "/bin/bash -c 'cd scales-satyrn && sh docker_scripts/refresh_api.sh && docker system prune --filter until=24h --all --force && docker builder prune --all --force'"
