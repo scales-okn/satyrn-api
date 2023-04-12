@@ -61,7 +61,8 @@ def organizeFilters(request, searchSpace, targetEntity):
             setting = setting[:1] # might want to warn that the rest is being chopped off (although this is no worse than what was here before)
         if setting:
             if iterables[k]["type"] == "date":
-                dateRanges = setting[0].split(",") # doesn't allow multiple ranges to be passed, but we'll cross that bridge when we get to it
+                dateRange = setting[0].split(",") # doesn't allow multiple ranges to be passed, but we'll cross that bridge when we get to it
+                opts[k] = [cleanDate(dte) for dte in dateRange] # used to be cleanUglyDate at one point; unsure why
             else:
                 opts[k] = setting  
     return opts
