@@ -166,6 +166,15 @@ def single_ring_analysis(s_opts, a_opts, ring, extractor, targetEntity, sess, db
     })
     results["field_names"] = [utils._entity_from_name(col_name) for col_name in results["field_names"]]
 
+    # display day/month names instead of numbers
+    day_names = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
+    month_names = ['', 'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'] # month indices are 1-12 lol
+    if "timeSeries" in results["field_types"]:
+        i = results["field_types"].index("timeSeries")
+        date_transform = results["field_names"][i].get("dateTransform")
+        if date_transform in ("dayofweek", "onlymonth"):
+            names_list = day_names if date_transform=="dayofweek" else month_names
+            results["results"] = [x[:i] + [names_list[int(x[i])]] + x[i+1:] for x in results["results"]]
     return results
 
 
