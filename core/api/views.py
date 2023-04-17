@@ -21,7 +21,6 @@ from .seekers import getResults
 from .autocomplete import runAutocomplete
 
 from .viewHelpers import CLEAN_OPS, apiKeyCheck, errorGen, organizeFilters, cleanDate, getOrCreateRing, getRing, getRingFromService, convertFilters, organizeFilters2
-from .viewHelpers import organizeAnalysis
 
 from copy import deepcopy
 

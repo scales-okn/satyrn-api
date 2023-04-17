@@ -237,111 +237,8 @@ def cleanInt(num):
         return None
 
 
-def organizeAnalysis(opts, analysisSpace):
-    '''
-    Process:
-    0: Check if "op", and "relationships" in dct
-    1. Grab requirements for operation
-    2. See if we have all the fields that are required
-    3. See if we all the fields are proper types and whatno
-    4. if any of the required fields are missing, return indication that
-    operation cannot go thru
-
-    PENDING: check relationships, check parameters
-    '''
-
-    new_opts = {}
-    # check if op is valid
-    if "op" not in opts or opts["op"] not in CLEAN_OPS:
-        print("op key missing or not in operation space")
-        return {}
-    else:
-        new_opts["op"] = opts["op"]
-
-    # check if relationships exist
-    # TODO: check if relationshisp valid
-    new_opts["relationships"] = opts.get("relationships", [])
-
-    op_dct = CLEAN_OPS[opts["op"]]
-    for req_field, req_dct in op_dct["required"].items():
-
-        if req_field not in opts:
-            print(f"field {req_field} not in opts")
-            return {}
-
-        new_opt = _checkAnalysisField(opts[req_field], req_dct, analysisSpace)
-        if not new_opt:
-            print(f"invalid opts for field {req_field}")
-            return {}
-        else:
-            new_opts[req_field] = new_opt
 
 
-    for opt_field, opt_dct in op_dct.get("optional", {}).items():
-        if opt_field not in opts:
-            print(f"field {opt_field} not in opts")
-            continue
-
-        if opt_field == "groupBy" or opt_dct["maxDepth"] > 1:
-
-
-            if type(opts[opt_field]) == dict:
-                opts[opt_field] = [opts[opt_field]]
-            elif type(opts[opt_field]) != list:
-                print(f"wrong type, shouldve been list")
-                continue
-
-            if len(opts[opt_field]) > opt_dct["maxDepth"]:
-                print(f"too many arguments for groupBy")
-                return {}
-
-            for opt in opts[opt_field]:
-                new_opt = _checkAnalysisField(opt, opt_dct, analysisSpace)
-                if not new_opt:
-                    print(f"invalid opts for field {opt_field}")
-                    return {}
-                else:
-                    if opt_field not in new_opts:
-                        new_opts[opt_field] = []
-                    new_opts[opt_field].append(new_opt)
-        else:
-            new_opt = _checkAnalysisField(opts[opt_field], opt_dct, analysisSpace)
-            if not new_opt:
-                print(f"invalid opts for field {opt_field}")
-                return {}
-            else:
-                new_opts[opt_field] = new_opt
-
-    return new_opts
-
-
-def _checkAnalysisField(opt_dct, req_dct, analysisSpace):
-    if type(opt_dct) != dict:
-        return {}
-    if "entity" not in opt_dct or "field" not in opt_dct:
-        return {}
-    ent = opt_dct["entity"]
-    field = opt_dct["field"]
-    ent_lst = [val for key, val in analysisSpace.items() if val["entity"] == ent and field in val["attributes"]]
-
-    if not ent_lst:
-        print(f"field {ent}, {field} not in analysis space")
-        return {}
-
-    else:
-        datatype = ent_lst[0]["attributes"][field]["type"]
-        if datatype not in req_dct["validInputs"]:
-            print(f"field {ent},{field} datatype {datatype} does not match required datatype")
-            return {}
-
-        # parameter check: see if they meet requirements
-        params = req_dct.get("parameters")
-        # PENDING: check if parameters properly done
-
-    return opt_dct
-
-
-#
 # RING HELPERS
 # to get or create ring as necessary
 def getOrCreateRing(ringId, version=None, forceRefresh=False):
@@ -392,3 +289,111 @@ def getRingFromService(ringId, version=None):
         version = ring.version
     app.rings[ring.id][version] = ring
     app.ringExtractors[ring.id][version] = RingConfigExtractor(ring)
+
+
+
+
+# # as of the c3-to-scales handoff, the below functions don't seem to be used anywhere
+
+# def organizeAnalysis(opts, analysisSpace):
+#     '''
+#     Process:
+#     0: Check if "op", and "relationships" in dct
+#     1. Grab requirements for operation
+#     2. See if we have all the fields that are required
+#     3. See if we all the fields are proper types and whatno
+#     4. if any of the required fields are missing, return indication that
+#     operation cannot go thru
+
+#     PENDING: check relationships, check parameters
+#     '''
+
+#     new_opts = {}
+#     # check if op is valid
+#     if "op" not in opts or opts["op"] not in CLEAN_OPS:
+#         print("op key missing or not in operation space")
+#         return {}
+#     else:
+#         new_opts["op"] = opts["op"]
+
+#     # check if relationships exist
+#     # TODO: check if relationshisp valid
+#     new_opts["relationships"] = opts.get("relationships", [])
+
+#     op_dct = CLEAN_OPS[opts["op"]]
+#     for req_field, req_dct in op_dct["required"].items():
+
+#         if req_field not in opts:
+#             print(f"field {req_field} not in opts")
+#             return {}
+
+#         new_opt = _checkAnalysisField(opts[req_field], req_dct, analysisSpace)
+#         if not new_opt:
+#             print(f"invalid opts for field {req_field}")
+#             return {}
+#         else:
+#             new_opts[req_field] = new_opt
+
+
+#     for opt_field, opt_dct in op_dct.get("optional", {}).items():
+#         if opt_field not in opts:
+#             print(f"field {opt_field} not in opts")
+#             continue
+
+#         if opt_field == "groupBy" or opt_dct["maxDepth"] > 1:
+
+
+#             if type(opts[opt_field]) == dict:
+#                 opts[opt_field] = [opts[opt_field]]
+#             elif type(opts[opt_field]) != list:
+#                 print(f"wrong type, shouldve been list")
+#                 continue
+
+#             if len(opts[opt_field]) > opt_dct["maxDepth"]:
+#                 print(f"too many arguments for groupBy")
+#                 return {}
+
+#             for opt in opts[opt_field]:
+#                 new_opt = _checkAnalysisField(opt, opt_dct, analysisSpace)
+#                 if not new_opt:
+#                     print(f"invalid opts for field {opt_field}")
+#                     return {}
+#                 else:
+#                     if opt_field not in new_opts:
+#                         new_opts[opt_field] = []
+#                     new_opts[opt_field].append(new_opt)
+#         else:
+#             new_opt = _checkAnalysisField(opts[opt_field], opt_dct, analysisSpace)
+#             if not new_opt:
+#                 print(f"invalid opts for field {opt_field}")
+#                 return {}
+#             else:
+#                 new_opts[opt_field] = new_opt
+
+#     return new_opts
+
+
+# def _checkAnalysisField(opt_dct, req_dct, analysisSpace):
+#     if type(opt_dct) != dict:
+#         return {}
+#     if "entity" not in opt_dct or "field" not in opt_dct:
+#         return {}
+#     ent = opt_dct["entity"]
+#     field = opt_dct["field"]
+#     ent_lst = [val for key, val in analysisSpace.items() if val["entity"] == ent and field in val["attributes"]]
+
+#     if not ent_lst:
+#         print(f"field {ent}, {field} not in analysis space")
+#         return {}
+
+#     else:
+#         datatype = ent_lst[0]["attributes"][field]["type"]
+#         if datatype not in req_dct["validInputs"]:
+#             print(f"field {ent},{field} datatype {datatype} does not match required datatype")
+#             return {}
+
+#         # parameter check: see if they meet requirements
+#         params = req_dct.get("parameters")
+#         # PENDING: check if parameters properly done
+
+#     return opt_dct
