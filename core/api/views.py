@@ -258,6 +258,7 @@ def getResultHTML(ringId, version, targetEntity, entityId):
         from_entity = getattr(ring.db,from_table)
         to_entity = getattr(ring.db,to_table)
         field = searchSpace[None]['attributes'][target_renderAS['attribute']]["fields"][0]
+        entityId = entityId.replace('%253B', ';').replace('%3B', ';') # various ways the ucid might get messed up en route due to encodings
         if hasattr(to_entity,field):
             target_model = sess.query(from_entity,getattr(to_entity,field)).join(getattr(from_entity,next_step)).where(getattr(targetEnt_compilerObj,ringExtractor.get_primarykey(targetEnt_tableName))== entityId)
             document = target_model.all()[0][1]
