@@ -179,13 +179,20 @@ def convertFilters(targetEntity, searchSpace, filter_dct):
     query = {"AND": []}
     for key, val in filter_dct.items():
         attrs = searchSpace.get(None).get("attributes")
-        if attrs.get(key) and attrs.get(key).get("type") == "date":
+        if attrs.get(key) and attrs.get(key).get("type") == "date": # when we implement mult date filters, will need "for v in val" & OR clause
             tpl = _createSearchTuple(targetEntity, searchSpace, key, val, "range")
             query["AND"].append(tpl)
         else:
             for v in val:
-                tpl = _createSearchTuple(targetEntity, searchSpace, key, v)
-                query["AND"].append(tpl)
+                if '|' in v: # vertical bar is a semi-arbitrary convention, but beware of changing it bc it's used both here & in the frontend
+                    or_dict = {"OR": []}
+                    for or_v in v.split('|'):
+                        tpl = _createSearchTuple(targetEntity, searchSpace, key, or_v)
+                        or_dict["OR"].append(tpl)
+                    query["AND"].append(or_dict)
+                else:
+                    tpl = _createSearchTuple(targetEntity, searchSpace, key, v)
+                    query["AND"].append(tpl)
     return query
 
 
