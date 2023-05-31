@@ -186,7 +186,7 @@ def convertFilters(targetEntity, searchSpace, filter_dct):
             for v in val:
                 if '|' in v: # vertical bar is a semi-arbitrary convention, but beware of changing it bc it's used both here & in the frontend
                     or_dict = {"OR": []}
-                    for or_v in v.split('|'):
+                    for or_v in filter(None, v.split('|')):
                         tpl = _createSearchTuple(targetEntity, searchSpace, key, or_v)
                         or_dict["OR"].append(tpl)
                     query["AND"].append(or_dict)
