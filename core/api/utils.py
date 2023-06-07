@@ -15,7 +15,7 @@ from .sql_func import _nan_cast, sql_concat
 from .operations import OPERATION_SPACE as OPS
 from .transforms import TRANSFORMS_SPACE as TRS
 from sqlalchemy import func
-from sqlalchemy.sql.expression import cast
+from sqlalchemy.sql.expression import cast, case
 import sqlalchemy
 
 def _parse_ref_string(ref_str):
@@ -168,6 +168,12 @@ def _get_helper(extractor, entity, attribute, db, transform, date_transform, op,
     # Get null handling
     if attr_obj and attr_obj.nullHandling and attr_obj.nullHandling == "cast":
         field = _nan_cast(field, attr_obj.nullValue)
+
+    # for case duration queries, drop non-positive values (ugly hack! needs to be refactored later!)
+    #we want null when the condition isn't satisfied; apparently "most databases" do this, so prob fine, but yet another reason to refactor lol
+    # (see https://docs-sqlalchemy.readthedocs.io/ko/latest/core/sqlelement.html#sqlalchemy.sql.expression.case.params.whens)
+    if str(field)=='cases.case_duration':
+        field = case((field>0, field))
 
     # Do operation if it is available
     if op:
