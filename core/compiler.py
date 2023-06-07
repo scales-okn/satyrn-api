@@ -15,10 +15,11 @@ from functools import reduce
 from gc import get_objects
 import json
 import os
+import enum
 
 import sqlalchemy as sa
 from sqlalchemy import inspect
-from sqlalchemy import Boolean, Column, ForeignKey, Integer, Float, String, DateTime, Date
+from sqlalchemy import Boolean, Column, ForeignKey, Integer, Float, String, DateTime, Date, Enum
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import relationship, sessionmaker, backref
 from sqlalchemy.orm import column_property
@@ -188,6 +189,8 @@ class Ring_Attribute(Ring_Object):
         # this next one is to separate conceptual type from data type (currency vs float)
         # doesn't matter know but will be useful later when we leverage upper ontology
         self.baseIsa = info.get('isa')
+        if 'enum' in self.baseIsa:
+            self.baseIsa = 'enum'
 
         self.units = info.get('units')
 
@@ -1077,7 +1080,7 @@ class Ring_Compiler(object):
     def column_with_type(self, type_string, primary_key=False, foreign_key=None):
         if type_string in self.upperOnt:
             sa_type = getattr(sa, self.upperOnt[type_string].capitalize())
-        elif type_string not in ["date", "datetime"]:
+        elif type_string not in ["date", "datetime"] and 'enum' not in type_string:
             sa_type = getattr(sa, type_string.capitalize())
         if primary_key and foreign_key == None:
             return Column(sa_type, primary_key=True)
@@ -1094,6 +1097,10 @@ class Ring_Compiler(object):
             return Column(DateTime, default=datetime.datetime.utcnow)
         elif type_string == "date":
             return Column(Date, default=datetime.date.today)
+        elif 'enum' in type_string: # time crunch, incredibly hacky, so sorry
+            enum_name = type_string.split()[1]
+            enum_values = type_string.split(' ',2)[2].strip('()').split('|')
+            return Column(Enum(enum.Enum(enum_name, enum_values))) # Enum is sqlalchemy, enum.Enum is python
         else:
             return Column(sa_type)
 

@@ -1,6 +1,7 @@
 {
 	"null_defaults": {
             "string": ["cast", "No value"],
+            "enum": ["cast", "No value"],
             "float": ["ignore", 0.0],
             "int": ["ignore", 0],
             "integer": ["ignore", 0],
