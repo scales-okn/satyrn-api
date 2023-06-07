@@ -151,10 +151,6 @@ def searchDB(ringId, version, targetEntity):
     opts_first_try = organizeFilters(request, searchSpace, targetEntity)
     opts = opts_first_try or (request.json if request.content_type=='application/json' else {"query": {}, "relationships": []})
 
-    # hardcoded rule for ontology_labels searches
-    if "ontology_labels" in opts:
-        opts["ontology_labels"] = ['|'+x+'|' for x in opts["ontology_labels"]]
-
     # left in case the filters came in the request body
     # note from scott (only relevant if this block is used at all): this block naively trusts that the sender knows the correct query format
     if not opts_first_try:
@@ -164,7 +160,7 @@ def searchDB(ringId, version, targetEntity):
             batchSize = int(opts["batchSize"])
 
     # otherwise, we will use the filters in the url/get rather than in the json
-    else:    
+    else:
         query = convertFilters(targetEntity, searchSpace, opts)
         opts = {"query": query, "relationships": []}
 

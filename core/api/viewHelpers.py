@@ -174,7 +174,7 @@ def checkFilter(filt, searchSpace):
         return None
 
 
-# convert filters from 2 to 2.1
+# convert filters from 2 to 2.1 -- beware of changing this, as it needs to match components/Analysis/index.tsx on the frontend :/
 def convertFilters(targetEntity, searchSpace, filter_dct):
     query = {"AND": []}
     for key, val in filter_dct.items():
@@ -213,6 +213,11 @@ def _createSearchTuple(targetEntity, searchSpace, key, val, tpe=None):
     else:
         if not tpe:
             tpe = "exact"
+
+    # hardcoded rule for ontology_labels searches
+    if key=="ontology_labels":
+        val = '|'+val+'|'
+
     return [{"entity": targetEntity,
                     "field": key}, val, tpe]
 
