@@ -171,10 +171,10 @@ def single_ring_analysis(s_opts, a_opts, ring, extractor, targetEntity, sess, db
     results["field_names"] = [utils._entity_from_name(col_name) for col_name in results["field_names"]]
 
     # display day/month names instead of numbers
-    day_names = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
-    month_names = ['', 'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'] # month indices are 1-12 lol
+    day_names = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat']
+    month_names = ['','Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'] # empty string bc month indices are 1-12, lol
     if "timeSeries" in results["field_types"]:
-        i = results["field_types"].index("timeSeries")
+        i = results["field_types"].index("timeSeries") # assumes we only need to make this adjustment once
         date_transform = results["field_names"][i].get("dateTransform")
         if date_transform in ("dayofweek", "onlymonth"):
             names_list = day_names if date_transform=="dayofweek" else month_names
@@ -293,17 +293,21 @@ def simple_query(s_opts, a_opts, ring, extractor, targetEntity, session, db, fie
     Queries from db, filters, and joins
     Returns runnable query, grouping arguments, and column/field names
     '''
+
     # Query fields
     q_args, tables, entity_ids, entity_names, field_names, col_names, joins_todo = _prep_query(a_opts, extractor, db, field_types=field_types)
     query = session.query(*q_args)
+
     # Do filtering
     query , joins_todo2 = _do_filters(query, s_opts, ring, extractor, targetEntity, field_names, session, db)
     for i in joins_todo2:
         if i not in joins_todo:
             joins_todo.append(i)
+
     # Do joins
     query, joined_tables = utils._do_joins(query, tables, a_opts["relationships"] if "relationships" in a_opts else [], extractor, targetEntity, db, entity_names, joins_todo)
     query, joined_tables = utils.do_multitable_joins(query, joins_todo, extractor, targetEntity, db, joined_tables, tables)
+
     # ADD THE UNIQUE CONSTRAINT ON THE TUPLES OF THE IMPORTANT FIELDS IDS
     # PENDING: this gives errors. right now will not add entity ids
     # query = query.distinct(*entity_ids)
@@ -313,7 +317,7 @@ def simple_query(s_opts, a_opts, ring, extractor, targetEntity, session, db, fie
         if field in a_opts:
              group_args.append(utils._name(a_opts[field]["entity"], a_opts[field]["field"], transform=a_opts[field].get("transform"), date_transform=a_opts[field].get("dateTransform")))
 
-     # Modify field_names so that it also return type of field
+    # Modify field_names so that it also return type of field
 
     return query, group_args, field_names, col_names
 
