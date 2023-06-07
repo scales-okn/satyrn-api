@@ -153,8 +153,8 @@ def _get_helper(extractor, entity, attribute, db, transform, date_transform, op,
         ##go back to business as usual
         model_name = attr_obj.source_table
         field_name = attr_obj.source_columns[0]
-        # "year_year" bug; date_transform probably shouldn't be passed at all in this case, but it seems easier to do a downstream patch here
-        if date_transform and date_transform not in field_name:
+        # "year_year"/"year_month" bug; date_transform probably shouldn't be passed at all in this case, but a downstream patch seemed easier
+        if date_transform and field_name != 'year': # date_transform not in field_name:
             field_name = field_name + "_" + date_transform
     else:
         model_name = entity_dict.table
@@ -231,8 +231,8 @@ def do_join_helper(query, path, db, added_tables=set()):
         # print("table to join")
         # print(the_table)
 
-        # isouter no longer used bc it resulted in a null entity being assigned a count & included in the avg...hopefully no legit reason for it
-        query_new = query.join(getattr(db,the_table), _get_join_field(path[indices[0]],db)==_get_join_field(path[indices[1]],db))#,isouter=True)
+        # isouter no longer used bc it resulted in a null entity being assigned a count & included in the avg..hopefully no legit reason for it
+        query_new = query.join(getattr(db,the_table),_get_join_field(path[indices[0]],db)==_get_join_field(path[indices[1]],db))#,isouter=True)
         return query_new, the_table
 # PENDING: Should be stress tested, tested more
 # PENDING: Should try to share this with seekers as much as possible
