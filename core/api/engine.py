@@ -12,6 +12,7 @@ If not, see <https://www.gnu.org/licenses/>.
 
 # the main file that handles analytics
 
+import re
 from copy import deepcopy
 
 from flask import current_app
@@ -178,6 +179,21 @@ def single_ring_analysis(s_opts, a_opts, ring, extractor, targetEntity, sess, db
         if date_transform in ("dayofweek", "onlymonth"):
             names_list = day_names if date_transform=="dayofweek" else month_names
             results["results"] = [x[:i] + [names_list[int(x[i])]] + x[i+1:] for x in results["results"]]
+
+    # reformat when planManager should do multiline or grouped bar (planManager itself can change instead, but that'll require dependency rework)
+    if results["results"] and len(results["results"][0])>2:
+        new_results, labels_seen = [], set()
+        for i,result in enumerate(results["results"]):
+            if result[0] not in labels_seen:
+                labels_seen.add(result[0])
+                new_result = {'label': result[0], 'series': [result[1:]]}
+                if i < len(results["results"])-1:
+                    for other_result in results["results"][i+1:]:
+                        if other_result[0] == result[0]:
+                            new_result['series'].append(other_result[1:])
+                new_results.append(new_result)
+        results["results"] = new_results
+
     return results
 
 
