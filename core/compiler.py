@@ -15,6 +15,7 @@ from functools import reduce
 from gc import get_objects
 import json
 import os
+import re
 import enum
 
 import sqlalchemy as sa
@@ -57,6 +58,27 @@ try:
     from api.utils import _rel_math, _mirrorRel, _walk_rel_path
 except:
     from .api.utils import _rel_math, _mirrorRel, _walk_rel_path
+
+
+# from https://stackoverflow.com/questions/32287299/sqlalchemy-database-int-to-python-enum
+class EnumAsInteger(sa.types.TypeDecorator):
+    impl = Integer
+
+    def __init__(self, enum_type):
+        super(EnumAsInteger, self).__init__()
+        self.enum_type = enum_type
+
+    def process_bind_param(self, value, dialect):
+        if isinstance(value, self.enum_type):
+            return value.value
+        raise ValueError('expected %s value, got %s'
+            % (self.enum_type.__name__, value.__class__.__name__))
+
+    def process_result_value(self, value, dialect):
+        return self.enum_type(value)
+
+    def copy(self, **kwargs):
+        return EnumAsInteger(self.enum_type)
 
 
 
@@ -1100,7 +1122,10 @@ class Ring_Compiler(object):
         elif 'enum' in type_string: # time crunch, incredibly hacky, so sorry
             enum_name = type_string.split()[1]
             enum_values = type_string.split(' ',2)[2].strip('()').split('|')
-            return Column(Enum(enum.Enum(enum_name, enum_values))) # Enum is sqlalchemy, enum.Enum is python
+            if any(((not re.match('[0-9\-]+', x)) for x in enum_values)):
+                return Column(Enum(enum.Enum(enum_name, enum_values))) # Enum is sqlalchemy, enum.Enum is python
+            else:
+                Column(EnumAsInteger(enum.Enum(enum_name, enum_values)))
         else:
             return Column(sa_type)
 
