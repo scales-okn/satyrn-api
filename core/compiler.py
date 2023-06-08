@@ -212,8 +212,8 @@ class Ring_Attribute(Ring_Object):
         # doesn't matter know but will be useful later when we leverage upper ontology
         self.baseIsa = info.get('isa')
         if 'enum' in self.baseIsa:
-            self.nullValue = info.get("nullValue") or (0 if re.match(
-                '^[0-9\-]+$', self.baseIsa.split()[-1].replace('|','').strip('()')) else 'No value')
+            self.nullValue = 0 if re.match( # info.get("nullValue") or (0 if re.match( # not sure what info is, but i don't think we need it
+                '^[0-9\-]+$', self.baseIsa.split()[-1].replace('|','').strip('()')) else 'No value'
             self.baseIsa = 'enum'
 
         self.units = info.get('units')
@@ -249,10 +249,11 @@ class Ring_Attribute(Ring_Object):
                 self.nullHandling = info.get("nullHandling")
             else:
                 self.nullHandling = defaults.get("null_defaults")[self.baseIsa][0]
-            if info.get("nullValue"):
-                self.nullValue = info.get("nullValue")
-            elif not self.nullValue:
-                self.nullValue = defaults.get("null_defaults")[self.baseIsa][1]
+            if not self.nullValue:
+                if info.get("nullValue"):
+                    self.nullValue = info.get("nullValue")
+                else:
+                    self.nullValue = defaults.get("null_defaults")[self.baseIsa][1]
 
             ## rounding
             if self.baseIsa in ["float", "integer"]:
