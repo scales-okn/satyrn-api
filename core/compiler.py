@@ -75,7 +75,7 @@ class EnumAsInteger(sa.types.TypeDecorator):
             % (self.enum_type.__name__, value.__class__.__name__))
 
     def process_result_value(self, value, dialect):
-        return self.enum_type(value)
+        return self.enum_type[str(value)]
 
     def copy(self, **kwargs):
         return EnumAsInteger(self.enum_type)
@@ -212,6 +212,8 @@ class Ring_Attribute(Ring_Object):
         # doesn't matter know but will be useful later when we leverage upper ontology
         self.baseIsa = info.get('isa')
         if 'enum' in self.baseIsa:
+            self.nullValue = info.get("nullValue") or (0 if re.match(
+                '^[0-9\-]+$', self.baseIsa.split()[-1].replace('|','').strip('()')) else 'No value')
             self.baseIsa = 'enum'
 
         self.units = info.get('units')
@@ -249,7 +251,7 @@ class Ring_Attribute(Ring_Object):
                 self.nullHandling = defaults.get("null_defaults")[self.baseIsa][0]
             if info.get("nullValue"):
                 self.nullValue = info.get("nullValue")
-            else:
+            elif not self.nullValue:
                 self.nullValue = defaults.get("null_defaults")[self.baseIsa][1]
 
             ## rounding
@@ -1125,7 +1127,7 @@ class Ring_Compiler(object):
             if any(((not re.match('[0-9\-]+', x)) for x in enum_values)):
                 return Column(Enum(enum.Enum(enum_name, enum_values))) # Enum is sqlalchemy, enum.Enum is python
             else:
-                Column(EnumAsInteger(enum.Enum(enum_name, enum_values)))
+                return Column(EnumAsInteger(enum.Enum(enum_name, enum_values)))
         else:
             return Column(sa_type)
 

@@ -1,7 +1,7 @@
 {
 	"null_defaults": {
             "string": ["cast", "No value"],
-            "enum": ["cast", "No value"],
+            "enum": ["cast", "if all is well, compiler.py is determining this value ad-hoc"],
             "float": ["ignore", 0.0],
             "int": ["ignore", 0],
             "integer": ["ignore", 0],
