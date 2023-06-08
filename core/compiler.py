@@ -209,11 +209,13 @@ class Ring_Attribute(Ring_Object):
         self.isa = info.get('isa')
 
         # this next one is to separate conceptual type from data type (currency vs float)
-        # doesn't matter know but will be useful later when we leverage upper ontology
+        # doesn't matter now but will be useful later when we leverage upper ontology
         self.baseIsa = info.get('isa')
+
+        # figure out nullValue for enums -- *very* important for ensuring that groupbys work later
         if 'enum' in self.baseIsa:
-            self.nullValue = 0 if re.match( # info.get("nullValue") or (0 if re.match( # not sure what info is, but i don't think we need it
-                '^[0-9\-]+$', self.baseIsa.split()[-1].replace('|','').strip('()')) else 'No value'
+            self.nullValue = info.get("nullValue") or (0 if re.match(
+                '^[0-9\-]+$', self.baseIsa.split()[-1].replace('|','').strip('()')) else 'No value')
             self.baseIsa = 'enum'
 
         self.units = info.get('units')
@@ -249,7 +251,9 @@ class Ring_Attribute(Ring_Object):
                 self.nullHandling = info.get("nullHandling")
             else:
                 self.nullHandling = defaults.get("null_defaults")[self.baseIsa][0]
-            if not self.nullValue:
+
+            # if not enum, determine nullValue
+            if self.nullValue is None:
                 if info.get("nullValue"):
                     self.nullValue = info.get("nullValue")
                 else:
