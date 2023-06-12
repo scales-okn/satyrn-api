@@ -20,7 +20,7 @@ from .engine import run_analysis
 from .seekers import getResults
 from .autocomplete import runAutocomplete
 
-from .viewHelpers import CLEAN_OPS, apiKeyCheck, errorGen, organizeFilters, cleanDate, getOrCreateRing, getRing, getRingFromService, convertFilters, organizeFilters2
+from .viewHelpers import CLEAN_OPS, apiKeyCheck, errorGen, organizeFilters, cleanDate, getOrCreateRing, getRing, getRingFromService, convertFilters, convertFrontendFilters, organizeFilters2
 
 from copy import deepcopy
 
@@ -203,6 +203,7 @@ def runAnalysis(ringId, version, targetEntity):
         analysisOpts["query"] = {}
 
     searchOpts = analysisOpts
+    searchOpts = convertFrontendFilters(targetEntity, searchSpace, searchOpts) # kludge added by scott
     searchOpts = organizeFilters2(searchOpts, searchSpace)
 
     if not analysisOpts:

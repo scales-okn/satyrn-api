@@ -174,13 +174,13 @@ def checkFilter(filt, searchSpace):
         return None
 
 
-# convert filters from 2 to 2.1 -- beware of changing this, as it needs to match components/Analysis/index.tsx on the frontend :/
+# convert filters from 2 to 2.1 -- beware of changing these two methods, as they needs to match components/Analysis/index.tsx on the frontend :/
 def convertFilters(targetEntity, searchSpace, filter_dct):
     query = {"AND": []}
     for key, val in filter_dct.items():
         attrs = searchSpace.get(None).get("attributes")
-        if attrs.get(key) and attrs.get(key).get("type") == "date": # when we implement mult date filters, will need "for v in val" & OR clause
-            tpl = _createSearchTuple(targetEntity, searchSpace, key, val, "range")
+        if attrs.get(key) and attrs.get(key).get("type") == "date": # when we implement mult date filters, we'll need "for v in val" & OR clause
+            tpl = _createSearchTuple(targetEntity, searchSpace, key, val, tpe="range")
             query["AND"].append(tpl)
         else:
             for v in val:
@@ -195,8 +195,27 @@ def convertFilters(targetEntity, searchSpace, filter_dct):
                     query["AND"].append(tpl)
     return query
 
+def convertFrontendFilters(targetEntity, searchSpace, searchOpts):
+    attrs = searchSpace.get(None).get("attributes")
+    query_new = {"AND": []}
+    for query_elem in searchOpts['query']['AND']:
+        if type(query_elem)==list:
+            key, val = query_elem[0]['field'], query_elem[1]
+            tpe = "range" if attrs.get(key) and attrs.get(key).get("type") == "date" else None # for mult date filters, we'll need OR handling
+            tpl = _createSearchTuple(targetEntity, searchSpace, key, val, tpe=tpe, already_formatted_ontology_labels=True)
+            query_new["AND"].append(tpl)
+        else:
+            or_dict_new = {"OR": []}
+            for or_elem in query_elem["OR"]:
+                key, val = or_elem[0]['field'], or_elem[1]
+                tpl = _createSearchTuple(targetEntity, searchSpace, key, val, already_formatted_ontology_labels=True)
+                or_dict_new["OR"].append(tpl)
+            query_new["AND"].append(or_dict_new)
+    searchOpts['query'] = query_new
+    return searchOpts
 
-def _createSearchTuple(targetEntity, searchSpace, key, val, tpe=None):
+
+def _createSearchTuple(targetEntity, searchSpace, key, val, tpe=None, already_formatted_ontology_labels=False):
 
     att_dct = searchSpace[None]["attributes"]
     if att_dct[key]["type"]  == "float":
@@ -215,7 +234,7 @@ def _createSearchTuple(targetEntity, searchSpace, key, val, tpe=None):
             tpe = "exact"
 
     # hardcoded rule for ontology_labels searches
-    if key=="ontology_labels":
+    if key=="ontology_labels" and not already_formatted_ontology_labels:
         val = '|'+val+'|'
 
     return [{"entity": targetEntity,
