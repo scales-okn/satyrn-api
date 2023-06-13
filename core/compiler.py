@@ -559,7 +559,7 @@ class Ring_Source(Ring_Object):
         elif self.type == "csv":
             self.eng, self.Session = self.csv_file_pathway(self.connection_string, db)
         else:
-            self.eng = create_engine(self.connection_string)
+            self.eng = create_engine(self.connection_string, pool_size=50) # default is 5; default postgres max_connections is 100
             self.Session = sessionmaker(bind=self.eng)
         return self.eng, self.Session
 
