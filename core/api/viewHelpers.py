@@ -198,7 +198,12 @@ def convertFilters(targetEntity, searchSpace, filter_dct):
 def convertFrontendFilters(targetEntity, searchSpace, searchOpts):
     attrs = searchSpace.get(None).get("attributes")
     query_new = {"AND": []}
-    for query_elem in searchOpts['query']['AND']:
+
+    print("********************************************************")
+    print(searchOpts)
+    print("********************************************************")
+
+    for query_elem in searchOpts.get('query').get('AND') or []:
         if type(query_elem)==list:
             key, val = query_elem[0]['field'], query_elem[1]
             tpe = "range" if attrs.get(key) and attrs.get(key).get("type") == "date" else None # for mult date filters, we'll need OR handling
