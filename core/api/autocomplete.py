@@ -23,8 +23,8 @@ def runAutocomplete(db, theType, config, extractor, targetEntity, opts={"query":
         return None
     opts["limit"] = opts["limit"] if "limit" in opts else 1000
     opts["format"] = opts["format"] if "format" in config else ("{} "*len(opts["vals"])).strip()
-    sess = db.Session()
-    return getDedupedBundle(db, extractor, targetEntity, theType, opts, sess)
+    with db.Session() as sess:
+        return getDedupedBundle(db, extractor, targetEntity, theType, opts, sess)
 
 # a helper for deduping types that have same names
 # this helper is not memoized, though the functions that call into should be
