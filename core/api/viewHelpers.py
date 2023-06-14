@@ -203,20 +203,20 @@ def convertFrontendFilters(targetEntity, searchSpace, searchOpts):
         if type(query_elem)==list:
             key, val = query_elem[0]['field'], query_elem[1]
             tpe = "range" if attrs.get(key) and attrs.get(key).get("type") == "date" else None # for mult date filters, we'll need OR handling
-            tpl = _createSearchTuple(targetEntity, searchSpace, key, val, tpe=tpe, already_formatted_ontology_labels=True)
+            tpl = _createSearchTuple(targetEntity, searchSpace, key, val, tpe=tpe, already_formatted_labels=True)
             query_new["AND"].append(tpl)
         else:
             or_dict_new = {"OR": []}
             for or_elem in query_elem["OR"]:
                 key, val = or_elem[0]['field'], or_elem[1]
-                tpl = _createSearchTuple(targetEntity, searchSpace, key, val, already_formatted_ontology_labels=True)
+                tpl = _createSearchTuple(targetEntity, searchSpace, key, val, already_formatted_labels=True)
                 or_dict_new["OR"].append(tpl)
             query_new["AND"].append(or_dict_new)
     searchOpts['query'] = query_new
     return searchOpts
 
 
-def _createSearchTuple(targetEntity, searchSpace, key, val, tpe=None, already_formatted_ontology_labels=False):
+def _createSearchTuple(targetEntity, searchSpace, key, val, tpe=None, already_formatted_labels=False):
 
     att_dct = searchSpace[None]["attributes"]
     if att_dct[key]["type"]  == "float":
@@ -234,9 +234,12 @@ def _createSearchTuple(targetEntity, searchSpace, key, val, tpe=None, already_fo
         if not tpe:
             tpe = "exact"
 
-    # hardcoded rule for ontology_labels searches
-    if key=="ontology_labels" and not already_formatted_ontology_labels:
-        val = '|'+val+'|'
+    # hardcoded db-search rules
+    if not already_formatted_labels:
+        if key=="ontology_labels":
+            val = '|'+val+'|'
+        elif key=='case_type':
+            val = {'civil':'cv', 'criminal':'cr'}[val]
 
     return [{"entity": targetEntity,
                     "field": key}, val, tpe]
