@@ -201,7 +201,6 @@ def convertFrontendFilters(targetEntity, searchSpace, searchOpts):
     query_new = {"AND": []}
 
     for query_elem in searchOpts.get('query').get('AND') or []:
-        print(query_elem)
         if type(query_elem)==list:
             key, val = query_elem[0]['field'], query_elem[1]
             if key!='undefined' and val:
@@ -240,7 +239,7 @@ def _createSearchTuple(targetEntity, searchSpace, key, val, tpe=None, already_fo
 
     # hardcoded db-search rules
     if not already_formatted_labels:
-        if key=="ontology_labels":
+        if key=="ontology_labels" and val:
             val = '|'+val+'|'
         elif key=='case_type':
             val = {'civil':'cv', 'criminal':'cr', '':''}[val]
