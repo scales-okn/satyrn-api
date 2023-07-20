@@ -14,7 +14,6 @@ from datetime import datetime
 from functools import wraps
 import json
 import os
-from urllib.parse import urljoin
 
 from flask import current_app, Blueprint, request
 import requests
@@ -307,19 +306,16 @@ def getRingFromService(ringId, version=None):
     # TODO: go get ring config and hydrate and append to app.rings / app.ringExtractors
     headers = {"x-api-key": app.config["UX_SERVICE_API_KEY"]}
     if version:
-        url = urljoin(app.uxServiceAPI, f"rings/{ringId}/{str(version)}")
-        request = requests.get(url, headers=headers)
+        request = requests.get(os.path.join(app.uxServiceAPI, "rings", ringId, str(version)), headers=headers)
     else:
         # get the latest...
-        url = urljoin(app.uxServiceAPI, f"rings/{ringId}")
-        request = requests.get(url, headers=headers)
+        request = requests.get(os.path.join(app.uxServiceAPI, "rings", ringId), headers=headers)
     # print("getting ring", flush=True)
     try:
         requestJSON = request.json()
         ringConfig = requestJSON["data"]["ring"]
-    except Exception as e:
+    except:
         print("Issue loading ring...", flush=True)
-        print(e, flush=True)
 
     if type(ringConfig) == str:
         ringConfig = json.loads(ringConfig)
