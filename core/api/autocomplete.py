@@ -26,10 +26,10 @@ class AutocompleteRecord:
         return { "value": self.value, "label": self.label }
 
     def __hash__(self):
-        return hash((self.value))
+        return hash(self.value)
 
     def __eq__(self, other):
-        return (self.value) == (other.value)
+        return self.value == other.value
 
 def runAutocomplete(db, theType, config, extractor, targetEntity, opts={"query": None}):
     # opts["type"] = config["acType"] if "acType" in config else theType
