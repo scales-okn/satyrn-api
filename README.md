@@ -1,6 +1,6 @@
 # Satyrn API v0.2.1
 
-This is the core codebase for the Satyrn API. Satyrn is developed by the C3 Lab at Northwestern University and is in pre-release alpha. Details about this work are pending publication
+This is the core codebase for the Satyrn API. Satyrn is developed by SCALES OKN and is in pre-release alpha. Details about this work are pending publication
 
 ### License
 
