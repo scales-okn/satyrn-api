@@ -1,4 +1,4 @@
-name: CI/CD
+name: QA Satyrn API
 
 on:
   push:
@@ -10,8 +10,6 @@ on:
 jobs:
   build:
     runs-on: ubuntu-latest
-
-    #
     steps:
       - name: Create the .ssh directory
         run: mkdir ~/.ssh && chmod 700 ~/.ssh
