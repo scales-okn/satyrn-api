@@ -19,6 +19,7 @@ from flask_security import login_required
 from .engine import run_analysis
 from .seekers import getResults
 from .autocomplete import runAutocomplete
+from .utils import replace_relative_urls
 
 from .viewHelpers import CLEAN_OPS, apiKeyCheck, errorGen, organizeFilters, cleanDate, getOrCreateRing, getRing, getRingFromService, convertFilters, convertFrontendFilters, organizeFilters2
 
@@ -262,5 +263,7 @@ def getResultHTML(ringId, version, targetEntity, entityId):
         else:
             target_model = sess.query(to_entity,getattr(from_entity,field)).join(getattr(from_entity,next_step)).where(getattr(targetEnt_compilerObj,ringExtractor.get_primarykey(targetEnt_tableName))== entityId)
             document = target_model.all()[0][1]
-
-    return document
+            
+    district = entityId.split(';;', 1)[0]
+    url_base = f"https://ecf.{district}.uscourts.gov"
+    return replace_relative_urls(document, url_base)

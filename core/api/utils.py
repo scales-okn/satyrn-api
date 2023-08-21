@@ -17,6 +17,7 @@ from .transforms import TRANSFORMS_SPACE as TRS
 from sqlalchemy import func
 from sqlalchemy.sql.expression import cast, case
 import sqlalchemy
+import re
 
 def _parse_ref_string(ref_str):
     # right now we assume ref_str is properly formed
@@ -438,6 +439,18 @@ def _remove_duplicate_vals(a_opts):
                 del a_opts[repeat_val]
 
     return a_opts, del_keys
+
+
+def replace_relative_urls(html_content, base_url):
+    # Remove / from base_url to avoid double slashes
+    if base_url.endswith('/'):
+        base_url = base_url[:-1]
+        
+    pattern = r'href="(/[^"]*)"'
+    replacement = f'href="{base_url}\\1"'
+    modified_html = re.sub(pattern, replacement, html_content)
+
+    return modified_html
 
 # # for debugging
 # def dict_print(d, indent=0):
