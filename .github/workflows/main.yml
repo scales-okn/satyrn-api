@@ -1,0 +1,24 @@
+name: Prod Satyrn API
+
+on:
+  pull_request:
+    types:
+      - closed
+    branches: [main]
+
+  # allows you to manually execute this pipeline from the Actions tab.
+  workflow_dispatch:
+
+jobs:
+  if_merged:
+    if: github.event.pull_request.merged == true
+    runs-on: ubuntu-latest
+    steps:
+      - name: Create the .ssh directory
+        run: mkdir ~/.ssh && chmod 700 ~/.ssh
+      - name: Install private key
+        run: echo "${{ secrets.SSH_PRIVATE_KEY }}" > ~/.ssh/id_rsa && chmod 600 ~/.ssh/id_rsa
+      - name: Add host to known hosts
+        run: echo "${{ secrets.SSH_KNOWN_PROD_HOSTS }}" > ~/.ssh/known_hosts
+      - name: Launch deploy script on droplet
+        run: ssh root@${{ secrets.PROD_HOST }} "/bin/bash -c 'cd scales-satyrn && sh docker_scripts/refresh_api.sh && docker system prune --filter until=24h --all --force && docker builder prune --all --force'"
