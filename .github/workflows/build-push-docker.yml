@@ -16,11 +16,11 @@ jobs:
       - name: Install doctl # (callout-3)
         uses: digitalocean/action-doctl@v2
         with:
-          token: ${{ secrets.DIGITALOCEAN_ACCESS_TOKEN }}
+          token: ${{ secrets.DIGITAL_OCEAN_ACCESS_TOKEN }}
       - name: Log in to DO Container Registry # (callout-4)
         run: doctl registry login --expiry-seconds 600
       - name: Tag image # (callout-5)
         run:
-          docker tag scales-okn/satyrn-api registry.digitalocean.com/scales-okn/satyrn-api:${{github.event.inputs.version }}
+          docker tag scales-okn/satyrn-api registry.digitalocean.com/scales-okn/satyrn-api:latest
       - name: Push image to DO Container Registry # (callout-6)
-        run: docker push registry.digitalocean.com/scales-okn/satyrn-api:${{ github.event.inputs.version }}
+        run: docker push registry.digitalocean.com/scales-okn/satyrn-api:latest
