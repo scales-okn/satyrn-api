@@ -12,15 +12,12 @@ jobs:
       - name: Checkout the repo # (callout-1)
         uses: actions/checkout@v2
       - name: Build image # (callout-2)
-        run: docker build -t scales-okn/satyrn-api .
+        run: docker build -t registry.digitalocean.com/scales-okn/satyrn-api:latest .
       - name: Install doctl # (callout-3)
         uses: digitalocean/action-doctl@v2
         with:
           token: ${{ secrets.DIGITAL_OCEAN_ACCESS_TOKEN }}
       - name: Log in to DO Container Registry # (callout-4)
         run: doctl registry login --expiry-seconds 600
-      - name: Tag image # (callout-5)
-        run:
-          docker tag scales-okn/satyrn-api registry.digitalocean.com/scales-okn/satyrn-api:latest
       - name: Push image to DO Container Registry # (callout-6)
         run: docker push registry.digitalocean.com/scales-okn/satyrn-api:latest
