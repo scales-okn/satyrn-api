@@ -17,6 +17,7 @@ FROM python:3.11-slim
 WORKDIR /app/satyrn-api
 
 # Copy necessary files from builder stage
+COPY --from=builder /usr/lib/postgresql /usr/lib/postgresql
 COPY --from=builder /usr/local /usr/local
 COPY --from=builder /app/satyrn-api /app/satyrn-api
 
