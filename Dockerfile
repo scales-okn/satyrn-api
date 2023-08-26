@@ -17,7 +17,7 @@ FROM python:3.11-slim
 WORKDIR /app/satyrn-api
 
 # Copy necessary files from builder stage
-RUN apt-get update && apt-get install libpq5 -y
+RUN apt-get update && apt-get install libpq-dev -y
 COPY --from=builder /usr/local /usr/local
 COPY --from=builder /app/satyrn-api /app/satyrn-api
 
