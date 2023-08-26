@@ -17,7 +17,7 @@ FROM python:3.11-slim
 WORKDIR /app/satyrn-api
 
 # Copy necessary files from builder stage
-COPY --from=builder /usr/lib/postgresql /usr/lib/postgresql
+RUN apt-get update && apt-get install libpq5 -y
 COPY --from=builder /usr/local /usr/local
 COPY --from=builder /app/satyrn-api /app/satyrn-api
 
