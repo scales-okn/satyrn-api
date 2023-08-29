@@ -16,8 +16,10 @@ FROM python:3.11-slim
 
 WORKDIR /app/satyrn-api
 
-# Copy necessary files from builder stage
+# Install dependencies to run psycopg2
 RUN apt-get update && apt-get install libpq-dev -y
+
+# Copy necessary files from builder stage
 COPY --from=builder /usr/local /usr/local
 COPY --from=builder /app/satyrn-api /app/satyrn-api
 
