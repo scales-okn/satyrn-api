@@ -6,20 +6,20 @@ on:
         branches: [build-push-test]
 
 jobs:
-  build_and_push:
+  build_push_pull:
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout the repo # (callout-1)
+      - name: Checkout the repo
         uses: actions/checkout@v2
-      - name: Build image # (callout-2)
+      - name: Build image
         run: docker build -t registry.digitalocean.com/scales-okn/satyrn-api:latest .
-      - name: Install doctl # (callout-3)
+      - name: Install doctl
         uses: digitalocean/action-doctl@v2
         with:
           token: ${{ secrets.DIGITAL_OCEAN_ACCESS_TOKEN }}
-      - name: Log in to DO Container Registry # (callout-4)
+      - name: Log in to DO Container Registry
         run: doctl registry login --expiry-seconds 600
-      - name: Push image to DO Container Registry # (callout-6)
+      - name: Push image to DO Container Registry
         run: docker push registry.digitalocean.com/scales-okn/satyrn-api:latest
       - name: Create the .ssh directory
         run: mkdir ~/.ssh && chmod 700 ~/.ssh
