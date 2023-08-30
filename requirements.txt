@@ -2,11 +2,9 @@ bcrypt
 Flask
 Flask-Caching
 Flask-Migrate
-Flask-Security-Too==3.4.5
+Flask-Security-Too
 Flask-SQLAlchemy
 flask_cors
-geoalchemy2
-IPython
 pandas
 requests
 psycopg2
