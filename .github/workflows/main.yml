@@ -14,11 +14,25 @@ jobs:
     if: github.event.pull_request.merged == true
     runs-on: ubuntu-latest
     steps:
+      - name: Checkout the repo
+        uses: actions/checkout@v2
+      - name: Build image
+        run: docker build -t registry.digitalocean.com/scales-okn/satyrn-api:latest .
+      - name: Install doctl
+        uses: digitalocean/action-doctl@v2
+        with:
+          token: ${{ secrets.DIGITAL_OCEAN_ACCESS_TOKEN }}
+      - name: Log in to DO Container Registry
+        run: doctl registry login --expiry-seconds 600
+      - name: Push image to DO Container Registry
+        run: docker push registry.digitalocean.com/scales-okn/satyrn-api:latest
+      - name: Clean up DO Container Registry
+        run: doctl registry garbage-collection start --include-untagged-manifests --force
       - name: Create the .ssh directory
         run: mkdir ~/.ssh && chmod 700 ~/.ssh
-      - name: Install private key
+      - name: Install private key for droplet
         run: echo "${{ secrets.SSH_PRIVATE_KEY }}" > ~/.ssh/id_rsa && chmod 600 ~/.ssh/id_rsa
-      - name: Add host to known hosts
+      - name: Add droplet host to known hosts
         run: echo "${{ secrets.SSH_KNOWN_PROD_HOSTS }}" > ~/.ssh/known_hosts
-      - name: Launch deploy script on droplet
-        run: ssh root@${{ secrets.PROD_HOST }} "/bin/bash -c 'cd scales-satyrn && sh docker_scripts/refresh_api.sh && docker system prune --filter until=24h --all --force && docker builder prune --all --force'"
+      - name: Log in to Droplet and pull updated image
+        run: ssh root@${{ secrets.PROD_HOST }} "/bin/bash -c 'cd scales-satyrn && docker compose pull api && docker compose restart api && docker image prune -f'"
