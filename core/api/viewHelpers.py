@@ -306,11 +306,13 @@ def getRingFromService(ringId, version=None):
     # TODO: go get ring config and hydrate and append to app.rings / app.ringExtractors
     headers = {"x-api-key": app.config["UX_SERVICE_API_KEY"]}
     if version:
-        url = urljoin(app.uxServiceAPI, "rings", ringId, str(version))
+        relative_url = "/".join(["rings", str(ringId), str(version)])
+        url = urljoin(app.uxServiceAPI, relative_url)
         request = requests.get(url, headers=headers)
     else:
         # get the latest...
-        url = urljoin(app.uxServiceAPI, "rings", ringId)
+        relative_url = "/".join(["rings", str(ringId)])
+        url = urljoin(app.uxServiceAPI, relative_url)
         request = requests.get(url, headers=headers)
     # print("getting ring", flush=True)
     try:
