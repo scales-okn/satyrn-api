@@ -316,7 +316,6 @@ def getRingFromService(ringId, version=None):
         request = requests.get(url, headers=headers)
     # print("getting ring", flush=True)
     try:
-        print("ring url", url)
         requestJSON = request.json()
         ringConfig = requestJSON["data"]["ring"]
     except Exception as e:
