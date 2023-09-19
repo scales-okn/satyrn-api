@@ -177,6 +177,19 @@ def checkFilter(filt, searchSpace):
 # convert filters from 2 to 2.1 -- beware of changing these two methods, as they needs to match components/Analysis/index.tsx on the frontend :/
 def convertFilters(targetEntity, searchSpace, filter_dct):
     query = {"AND": []}
+    print("filter_dct", filter_dct)
+    if "caseHTML" in filter_dct:
+        case_html = filter_dct.pop("caseHTML")
+
+        case_html_results = current_app.mongo.db.cases_html.find(
+            {"$text": { "$search": f'"{case_html[0]}"' }}, projection={"ucid": 1, "_id": 0}
+        ).sort([("score", {"$meta": "textScore"})]).limit(200)
+
+        or_dict = {"OR": []}
+        for case_html_result in case_html_results:
+            tpl = [{"entity": targetEntity, "field": "ucid"}, case_html_result["ucid"], "exact"]
+            or_dict["OR"].append(tpl)
+        query["AND"].append(or_dict)
     for key, val in filter_dct.items():
         if key and val:
             attrs = searchSpace.get(None).get("attributes")
@@ -194,6 +207,8 @@ def convertFilters(targetEntity, searchSpace, filter_dct):
                     else:
                         tpl = _createSearchTuple(targetEntity, searchSpace, key, v)
                         query["AND"].append(tpl)
+                    
+    print("tpl", tpl)
     return query
 
 def convertFrontendFilters(targetEntity, searchSpace, searchOpts):

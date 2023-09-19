@@ -163,10 +163,12 @@ def searchDB(ringId, version, targetEntity):
     # otherwise, we will use the filters in the url/get rather than in the json
     else:
         query = convertFilters(targetEntity, searchSpace, opts)
+        print("query: ", query)
         opts = {"query": query, "relationships": []}
 
 
-    opts = organizeFilters2(opts, searchSpace)
+    # opts = organizeFilters2(opts, searchSpace)
+    print("opts: ", opts)
     # and manage sorting
     targetInfo = ringExtractor.resolveEntity(targetEntity)[1]
     sortBy = request.args.get("sortBy", targetInfo.id[0])

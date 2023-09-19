@@ -4,6 +4,7 @@ Flask-Caching
 Flask-Migrate
 Flask-Security-Too
 Flask-SQLAlchemy
+Flask-PyMongo
 flask_cors
 pandas
 requests
