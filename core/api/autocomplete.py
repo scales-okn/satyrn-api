@@ -60,6 +60,7 @@ def getDedupedBundle(db, extractor, targetEntity, theType, opts={"query": None},
     # targetModel = opts["model"]
     # put together the query
     field, name, joins = utils._get(extractor, targetEntity, theType, db)
+    default_limit = 20
 
     # when time is of the essence, I'm not above some hardcoded ugliness!
     if 'ontology_labels' in name:
@@ -72,8 +73,7 @@ def getDedupedBundle(db, extractor, targetEntity, theType, opts={"query": None},
         if opts["query"]:
             query = query.filter(cast(field, String).ilike(f'%{opts["query"].lower()}%')).limit(opts["limit"])
         else:
-            query = query.limit(50)
-        print("bones", query)
+            query = query.limit(default_limit)
         output = [
             ac_rec.to_dict() 
             for ac_rec in set(
@@ -83,19 +83,15 @@ def getDedupedBundle(db, extractor, targetEntity, theType, opts={"query": None},
         ]
 
     else:
-        query = sess.query(field)
+        subquery = sess.query(field).distinct().limit(default_limit)
+        query = sess.query(subquery.subquery())
+
         if opts["query"]:
             query = query.filter(cast(field, String).ilike(f'%{opts["query"].lower()}%')).limit(opts["limit"])
-        else:
-            query = query.limit(50)
-        # at one point, a comment suggested that rules would be needed to join the potential multiple values in each tuple in query.all;
-        # however, as of commit 9b9b7e, sess.query only ever pulls a single field, so the below line should be fine
+
         output = [
-            ac_rec.to_dict() 
-            for ac_rec in set(
-                AutocompleteRecord(value=item[0], label=item[0]) 
-                for item in query.all()
-            )
+            AutocompleteRecord(value=item[0], label=item[0]).to_dict()
+            for item in query.all()
         ]
 
     return sorted(output, key=lambda x: x["value"])
