@@ -36,7 +36,8 @@ def runAutocomplete(db, theType, config, extractor, targetEntity, opts={"query":
     # TODO: come back and make this work with multi hop joins
     opts["model"] = config["model"]
     opts["vals"] = config["fields"] if "fields" in config else None
-    if not opts["query"] or not opts["vals"]:
+    # not opts["query"] or
+    if not opts["vals"]:
         return None
     opts["limit"] = opts["limit"] if "limit" in opts else 1000
     opts["format"] = opts["format"] if "format" in config else ("{} "*len(opts["vals"])).strip()
@@ -63,14 +64,16 @@ def getDedupedBundle(db, extractor, targetEntity, theType, opts={"query": None},
     # when time is of the essence, I'm not above some hardcoded ugliness!
     if 'ontology_labels' in name:
         ontology_labels = ['answer', 'arbitration motion', 'arrest', 'bench trial', 'bilateral', 'brief', 'complaint', 'consent decree order', 'consent decree', 'consent judgment', 'default judgment resolution', 'dismiss with prejudice', 'dismiss without prejudice', 'dismissing motion', 'error', 'findings of fact', 'granting motion for summary judgment', 'granting motion to dismiss', 'habeas corpus ad prosequendum', 'indictment', 'information', 'judgment', 'jury trial', 'minute entry', 'motion for default judgment', 'motion for habeas corpus', 'motion for judgment as a matter of law', 'motion for judgment on the pleadings', 'motion for judgment', 'motion for settlement', 'motion for summary judgment', 'motion for time extension', 'motion to certify class', 'motion to dismiss', 'motion to remand', 'motion to seal', 'motion', 'notice of appeal', 'notice of consent', 'notice of dismissal', 'notice of motion', 'notice of removal', 'notice of settlement', 'notice of voluntary dismissal', 'notice', 'opening - complaint', 'opening - indictment', 'opening - information', 'opening - notice of removal', 'order', 'outcome - bench trial', 'outcome - consent decree', 'outcome - default judgment', 'outcome - jury trial', 'outcome - party resolution', 'outcome - remand', 'outcome - rule 12b', 'outcome - rule 68', 'outcome - settlement', 'outcome - summary judgment', 'outcome - transfer', 'outcome - trial', 'outcome - voluntary dismissal', 'party resolution', 'petition for habeas corpus', 'petition', 'proposed', 'remand resolution', 'response', 'rule 68 resolution', 'settlement agreement', 'stipulation for judgment', 'stipulation for settlement', 'stipulation for voluntary dismissal', 'stipulation of dismissal', 'stipulation', 'summons', 'transfer', 'transferred entry', 'trial', 'unopposed', 'verdict', 'waiver of indictment', 'waiver', 'warrant']
-        return [{ 'value': x, 'label': x } for x in ontology_labels if opts.get('query', '').lower() in x]
+        return [{ 'value': x, 'label': x } for x in ontology_labels]
     elif 'case_type' in name:
-        return [{ 'value': x, 'label': x } for x in ('civil', 'criminal') if opts.get('query', '').lower() in x]
+        return [{ 'value': x, 'label': x } for x in ('civil', 'criminal')]
     elif 'case_NOS' in name:
         query = sess.query(field, text('nature_suit.number'))
         if opts["query"]:
             query = query.filter(cast(field, String).ilike(f'%{opts["query"].lower()}%')).limit(opts["limit"])
-
+        else:
+            query = query.limit(50)
+        print("bones", query)
         output = [
             ac_rec.to_dict() 
             for ac_rec in set(
@@ -83,6 +86,8 @@ def getDedupedBundle(db, extractor, targetEntity, theType, opts={"query": None},
         query = sess.query(field)
         if opts["query"]:
             query = query.filter(cast(field, String).ilike(f'%{opts["query"].lower()}%')).limit(opts["limit"])
+        else:
+            query = query.limit(50)
         # at one point, a comment suggested that rules would be needed to join the potential multiple values in each tuple in query.all;
         # however, as of commit 9b9b7e, sess.query only ever pulls a single field, so the below line should be fine
         output = [
