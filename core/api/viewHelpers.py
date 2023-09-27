@@ -13,7 +13,7 @@ If not, see <https://www.gnu.org/licenses/>.
 from datetime import datetime
 from functools import wraps
 import json
-import os
+from urllib.parse import urljoin
 
 from flask import current_app, Blueprint, request
 import requests
@@ -306,16 +306,21 @@ def getRingFromService(ringId, version=None):
     # TODO: go get ring config and hydrate and append to app.rings / app.ringExtractors
     headers = {"x-api-key": app.config["UX_SERVICE_API_KEY"]}
     if version:
-        request = requests.get(os.path.join(app.uxServiceAPI, "rings", ringId, str(version)), headers=headers)
+        relative_url = "/".join(["rings", str(ringId), str(version)])
+        url = urljoin(app.uxServiceAPI, relative_url)
+        request = requests.get(url, headers=headers)
     else:
         # get the latest...
-        request = requests.get(os.path.join(app.uxServiceAPI, "rings", ringId), headers=headers)
+        relative_url = "/".join(["rings", str(ringId)])
+        url = urljoin(app.uxServiceAPI, relative_url)
+        request = requests.get(url, headers=headers)
     # print("getting ring", flush=True)
     try:
         requestJSON = request.json()
         ringConfig = requestJSON["data"]["ring"]
-    except:
+    except Exception as e:
         print("Issue loading ring...", flush=True)
+        print(e, flush=True)
 
     if type(ringConfig) == str:
         ringConfig = json.loads(ringConfig)

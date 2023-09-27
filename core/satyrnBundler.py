@@ -49,6 +49,8 @@ app.config["ENV"] = os.environ.get("FLASK_ENV", "development")
 
 # set the location of the UX_API for ring requests
 app.uxServiceAPI = os.environ.get("UX_SERVICE_API", "http://localhost/api/")
+# make sure it ends with a slash
+app.uxServiceAPI = app.uxServiceAPI if app.uxServiceAPI.endswith("/") else app.uxServiceAPI + "/"
 
 # and the api keys
 app.config["API_KEY"] = os.environ.get("API_KEY")
@@ -82,3 +84,4 @@ if app.config["ENV"].lower() in ["dev", "development"]:
     rings, extractors = compile_rings(app.satMetadata.get("rings", []))
     app.rings = rings
     app.ringExtractors = extractors
+    
