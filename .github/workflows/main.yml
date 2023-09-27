@@ -10,8 +10,7 @@ on:
   workflow_dispatch:
 
 jobs:
-  if_merged:
-    if: github.event.pull_request.merged == true
+  build_push_pull_docker_image:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout the repo
@@ -35,4 +34,4 @@ jobs:
       - name: Add droplet host to known hosts
         run: echo "${{ secrets.SSH_KNOWN_PROD_HOSTS }}" > ~/.ssh/known_hosts
       - name: Log in to Droplet and pull updated image
-        run: ssh root@${{ secrets.PROD_HOST }} "/bin/bash -c 'cd scales-satyrn && docker compose pull api && docker compose restart api && docker image prune -f'"
+        run: ssh root@${{ secrets.PROD_HOST }} "/bin/bash -c 'cd scales-satyrn && docker compose pull api && docker compose stop api && docker-compose up -d --no-deps api && docker image prune -f'"
