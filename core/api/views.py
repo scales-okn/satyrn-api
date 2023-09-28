@@ -11,8 +11,10 @@ If not, see <https://www.gnu.org/licenses/>.
 '''
 
 import json
+import csv
+import re
 
-from flask import Blueprint, current_app, jsonify, request, send_from_directory
+from flask import Blueprint, Response, current_app, jsonify, request, send_from_directory
 from flask_cors import cross_origin
 from flask_security import login_required
 
@@ -267,3 +269,63 @@ def getResultHTML(ringId, version, targetEntity, entityId):
     district = entityId.split(';;', 1)[0]
     url_base = f"https://ecf.{district}.uscourts.gov"
     return replace_relative_urls(document, url_base)
+
+def parse_enum_string(enum_str):
+    # Extract the enum values from the enum string using a regular expression
+    match = re.search(r'\((.*?)\)', enum_str)
+    if not match:
+        raise ValueError("Invalid enum string format")
+    
+    # Split the matched string by '|' to get the individual enum values
+    enum_values = match.group(1).split('|')
+    return set(enum_values)
+
+def apply_csv_filters(row, filters):
+    for column_name, filter_attrs in filters.items():
+        # if str(row[column_name]).lower() != str(filter_attrs[0]).lower():
+        if column_name == 'ontology_labels':
+            if not any(value in row[column_name].split("|") for value in filter_attrs['value'][0].split('|')):
+                return None
+        if filter_attrs['isa'] == 'string' or filter_attrs['isa'].startswith('enum'):
+            if row[column_name] not in filter_attrs['value'][0].split('|'):
+                return None
+
+    return row
+
+def transform_column_names(filters, ring):
+    transformed_filters = {}
+    for column_name, filter_value in filters.items():
+        # this is a hack to reuse filter configuration from satyrn; should be a hash map keyed by column name
+        # should always be a list of length 1 since attribute names are unique
+        ring_attr = list(filter(lambda x: x.name == column_name, ring.entities[0].attributes))[0]
+        # the master csv file uses the table name as a prefix for column names on joined fields; assuming cases is the entity
+        db_column = ring_attr.source_columns[0] if ring_attr.source_table == "cases" else f"{ring_attr.source_table}_{ring_attr.source_columns[0]}"
+        transformed_filters[db_column] = { "value": filter_value, "isa": ring_attr.isa }
+        if ring_attr.isa.startswith('enum'):
+            transformed_filters[db_column]['enum_set'] = parse_enum_string(ring_attr.isa)
+    return transformed_filters
+
+
+@api.route("/download-csv/<ringId>/<version>/<targetEntity>/", methods=["GET","POST"])
+@cross_origin(supports_credentials=True)
+@apiKeyCheck
+def download_filtered_csv(ringId, version, targetEntity):
+    ring, ringExtractor = getOrCreateRing(ringId, version)
+    # for attrs in ring.entities[0].attributes:
+    #     print(attrs.name, attrs.source_table, attrs.source_columns)
+    searchSpace = ringExtractor.getSearchSpace(targetEntity)
+    filters = organizeFilters(request, searchSpace, targetEntity)
+    filters = transform_column_names(filters, ring)
+    print(filters)
+    def generate():
+        with open("./data.csv", "r") as infile:
+            reader = csv.DictReader(infile)
+            yield ','.join(reader.fieldnames) + '\n'  # reader.fieldnames contains the header (column names)
+            for row in reader:
+                filtered_row = apply_csv_filters(row, filters)
+                if filtered_row:
+                    yield ','.join(map(str, filtered_row.values())) + '\n'
+
+    # Stream the response as the data is generated on-the-fly
+    return Response(generate(), mimetype='text/csv', headers={"Content-Disposition": "attachment; filename=data.csv"})
+
