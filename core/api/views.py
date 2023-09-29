@@ -13,6 +13,7 @@ If not, see <https://www.gnu.org/licenses/>.
 import json
 import csv
 import re
+from datetime import datetime
 
 from flask import Blueprint, Response, current_app, jsonify, request, send_from_directory
 from flask_cors import cross_origin
@@ -286,10 +287,13 @@ def apply_csv_filters(row, filters):
         if column_name == 'ontology_labels':
             if not any(value in row[column_name].split("|") for value in filter_attrs['value'][0].split('|')):
                 return None
-        if filter_attrs['isa'] == 'string' or filter_attrs['isa'].startswith('enum'):
+        elif filter_attrs['isa'] == 'date':
+            if not filter_attrs['value'][0] <= row[column_name] <= filter_attrs['value'][1]:
+                return None
+        else:
             if row[column_name] not in filter_attrs['value'][0].split('|'):
                 return None
-
+            
     return row
 
 def transform_column_names(filters, ring):
@@ -300,13 +304,15 @@ def transform_column_names(filters, ring):
         ring_attr = list(filter(lambda x: x.name == column_name, ring.entities[0].attributes))[0]
         # the master csv file uses the table name as a prefix for column names on joined fields; assuming cases is the entity
         db_column = ring_attr.source_columns[0] if ring_attr.source_table == "cases" else f"{ring_attr.source_table}_{ring_attr.source_columns[0]}"
-        transformed_filters[db_column] = { "value": filter_value, "isa": ring_attr.isa }
-        if ring_attr.isa.startswith('enum'):
-            transformed_filters[db_column]['enum_set'] = parse_enum_string(ring_attr.isa)
+        if ring_attr.isa == 'date':
+            transformed_filters[db_column] = { "value": [filter_value[0].strftime("%Y-%m-%d"), filter_value[1].strftime("%Y-%m-%d")], "isa": ring_attr.isa }
+        else:
+            transformed_filters[db_column] = { "value": filter_value, "isa": ring_attr.isa }
+
     return transformed_filters
 
 
-@api.route("/download-csv/<ringId>/<version>/<targetEntity>/", methods=["GET","POST"])
+@api.route("/download-csv/<ringId>/<version>/<targetEntity>/", methods=["GET","POST, OPTIONS"])
 @cross_origin(supports_credentials=True)
 @apiKeyCheck
 def download_filtered_csv(ringId, version, targetEntity):
