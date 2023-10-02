@@ -12,8 +12,8 @@ If not, see <https://www.gnu.org/licenses/>.
 
 import json
 import csv
-import re
-from datetime import datetime
+import os
+from io import StringIO
 
 from flask import Blueprint, Response, current_app, jsonify, request, send_from_directory
 from flask_cors import cross_origin
@@ -24,7 +24,7 @@ from .seekers import getResults
 from .autocomplete import runAutocomplete
 from .utils import replace_relative_urls
 
-from .viewHelpers import CLEAN_OPS, apiKeyCheck, errorGen, organizeFilters, cleanDate, getOrCreateRing, getRing, getRingFromService, convertFilters, convertFrontendFilters, organizeFilters2
+from .viewHelpers import CLEAN_OPS, apiKeyCheck, errorGen, organizeFilters, cleanDate, getOrCreateRing, getRing, getRingFromService, convertFilters, convertFrontendFilters, organizeFilters2, transform_csv_filters, apply_csv_filters
 
 from copy import deepcopy
 
@@ -271,48 +271,7 @@ def getResultHTML(ringId, version, targetEntity, entityId):
     url_base = f"https://ecf.{district}.uscourts.gov"
     return replace_relative_urls(document, url_base)
 
-def parse_enum_string(enum_str):
-    # Extract the enum values from the enum string using a regular expression
-    match = re.search(r'\((.*?)\)', enum_str)
-    if not match:
-        raise ValueError("Invalid enum string format")
-    
-    # Split the matched string by '|' to get the individual enum values
-    enum_values = match.group(1).split('|')
-    return set(enum_values)
-
-def apply_csv_filters(row, filters):
-    for column_name, filter_attrs in filters.items():
-        # if str(row[column_name]).lower() != str(filter_attrs[0]).lower():
-        if column_name == 'ontology_labels':
-            if not any(value in row[column_name].split("|") for value in filter_attrs['value'][0].split('|')):
-                return None
-        elif filter_attrs['isa'] == 'date':
-            if not filter_attrs['value'][0] <= row[column_name] <= filter_attrs['value'][1]:
-                return None
-        else:
-            if row[column_name] not in filter_attrs['value'][0].split('|'):
-                return None
-            
-    return row
-
-def transform_column_names(filters, ring):
-    transformed_filters = {}
-    for column_name, filter_value in filters.items():
-        # this is a hack to reuse filter configuration from satyrn; should be a hash map keyed by column name
-        # should always be a list of length 1 since attribute names are unique
-        ring_attr = list(filter(lambda x: x.name == column_name, ring.entities[0].attributes))[0]
-        # the master csv file uses the table name as a prefix for column names on joined fields; assuming cases is the entity
-        db_column = ring_attr.source_columns[0] if ring_attr.source_table == "cases" else f"{ring_attr.source_table}_{ring_attr.source_columns[0]}"
-        if ring_attr.isa == 'date':
-            transformed_filters[db_column] = { "value": [filter_value[0].strftime("%Y-%m-%d"), filter_value[1].strftime("%Y-%m-%d")], "isa": ring_attr.isa }
-        else:
-            transformed_filters[db_column] = { "value": filter_value, "isa": ring_attr.isa }
-
-    return transformed_filters
-
-
-@api.route("/download-csv/<ringId>/<version>/<targetEntity>/", methods=["GET","POST, OPTIONS"])
+@api.route("/download-csv/<ringId>/<version>/<targetEntity>/", methods=["GET"])
 @cross_origin(supports_credentials=True)
 @apiKeyCheck
 def download_filtered_csv(ringId, version, targetEntity):
@@ -321,17 +280,32 @@ def download_filtered_csv(ringId, version, targetEntity):
     #     print(attrs.name, attrs.source_table, attrs.source_columns)
     searchSpace = ringExtractor.getSearchSpace(targetEntity)
     filters = organizeFilters(request, searchSpace, targetEntity)
-    filters = transform_column_names(filters, ring)
-    print(filters)
-    def generate():
-        with open("./data.csv", "r") as infile:
-            reader = csv.DictReader(infile)
-            yield ','.join(reader.fieldnames) + '\n'  # reader.fieldnames contains the header (column names)
-            for row in reader:
-                filtered_row = apply_csv_filters(row, filters)
-                if filtered_row:
-                    yield ','.join(map(str, filtered_row.values())) + '\n'
+    filters = transform_csv_filters(filters, ring)
+
+    # generator function to stream the csv data
+    def stream_csv():
+            cases_csv_path = os.environ.get("CASES_CSV", "./cases.csv")
+            with open(cases_csv_path, "r") as infile:
+                reader = csv.DictReader(infile)
+                sio = StringIO()
+                # using the csv writer to propery quote and escape the data
+                writer = csv.writer(sio, quoting=csv.QUOTE_MINIMAL, quotechar='"', lineterminator='\n', escapechar='\\', doublequote=True, dialect=reader.dialect)
+                
+                # Write and yield the header
+                writer.writerow(reader.fieldnames)
+                yield sio.getvalue()
+                sio.truncate(0)  # Clear the StringIO buffer
+                sio.seek(0)  # Reset the write position to the beginning of the buffer
+                
+                # Write and yield each row
+                for row in reader:
+                    filtered_row = apply_csv_filters(row, filters)
+                    if filtered_row:
+                        writer.writerow(filtered_row.values())
+                        yield sio.getvalue()
+                        sio.truncate(0)  # Clear the StringIO buffer
+                        sio.seek(0)  # Reset the write position to the beginning of the buffer
 
     # Stream the response as the data is generated on-the-fly
-    return Response(generate(), mimetype='text/csv', headers={"Content-Disposition": "attachment; filename=data.csv"})
+    return Response(stream_csv(), mimetype='text/csv', headers={"Content-Disposition": "attachment; filename=data.csv"})
 

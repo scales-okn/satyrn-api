@@ -333,8 +333,35 @@ def getRingFromService(ringId, version=None):
     app.rings[ring.id][version] = ring
     app.ringExtractors[ring.id][version] = RingConfigExtractor(ring)
 
+def transform_csv_filters(filters, ring):
+    transformed_filters = {}
+    for column_name, filter_value in filters.items():
+        # this is a hack to reuse filter configuration from satyrn; should be a hash map keyed by column name
+        # should always be a list of length 1 since attribute names are unique
+        ring_attr = list(filter(lambda x: x.name == column_name, ring.entities[0].attributes))[0]
+        # the master csv file uses the table name as a prefix for column names on joined fields; assuming cases is the entity
+        db_column = ring_attr.source_columns[0] if ring_attr.source_table == "cases" else f"{ring_attr.source_table}_{ring_attr.source_columns[0]}"
+        if ring_attr.isa == 'date':
+            transformed_filters[db_column] = { "value": [filter_value[0].strftime("%Y-%m-%d"), filter_value[1].strftime("%Y-%m-%d")], "isa": ring_attr.isa }
+        else:
+            transformed_filters[db_column] = { "value": filter_value, "isa": ring_attr.isa }
 
+    return transformed_filters
 
+def apply_csv_filters(row, filters):
+    for column_name, filter_attrs in filters.items():
+        # if str(row[column_name]).lower() != str(filter_attrs[0]).lower():
+        if column_name == 'ontology_labels':
+            if not any(value in row[column_name].split("|") for value in filter_attrs['value'][0].split('|')):
+                return None
+        elif filter_attrs['isa'] == 'date':
+            if not filter_attrs['value'][0] <= row[column_name] <= filter_attrs['value'][1]:
+                return None
+        else:
+            if row[column_name] not in filter_attrs['value'][0].split('|'):
+                return None
+            
+    return row
 
 # # as of the c3-to-scales handoff, the below functions don't seem to be used anywhere
 
