@@ -26,5 +26,5 @@ COPY --from=builder /app/satyrn-api /app/satyrn-api
 # Expose port 5000
 EXPOSE 5000
 
-CMD ["gunicorn", "wsgi:app", "--bind", "0.0.0.0:5000", "--workers", "3", "--timeout", "120", "--access-logfile", "-", "--error-logfile", "-", "--log-level", "info"]
+CMD ["gunicorn", "wsgi:app", "--bind", "0.0.0.0:5000", "--workers", "3", "--timeout", "300", "--access-logfile", "-", "--error-logfile", "-", "--log-level", "info"]
 
