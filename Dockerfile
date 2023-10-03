@@ -9,7 +9,7 @@ RUN apt-get update && \
 RUN mkdir -p /app/satyrn-api
 WORKDIR /app/satyrn-api
 COPY . .
-RUN pip install --no-cache-dir -r requirements.txt gunicorn
+RUN pip install --no-cache-dir -r requirements.txt gunicorn gevent
 
 # ------ Runner Stage ------
 FROM python:3.11-slim
