@@ -83,11 +83,16 @@ def getDedupedBundle(db, extractor, targetEntity, theType, opts={"query": None},
         ]
 
     else:
-        subquery = sess.query(field).distinct().limit(default_limit)
+        subquery = sess.query(field).distinct()
         query = sess.query(subquery.subquery())
 
         if opts["query"]:
-            query = query.filter(cast(field, String).ilike(f'%{opts["query"].lower()}%')).limit(opts["limit"])
+            query = query.filter(cast(field, String).ilike(f'%{opts["query"].lower()}%'))
+            limit = opts["limit"]
+        else:
+            limit = default_limit
+
+        query = query.limit(limit)
 
         output = [
             AutocompleteRecord(value=item[0], label=item[0]).to_dict()
