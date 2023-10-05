@@ -84,7 +84,7 @@ def getDedupedBundle(db, extractor, targetEntity, theType, opts={"query": None},
 
     else:
         subquery = sess.query(field).distinct()
-        query = sess.query(subquery.subquery())
+        query = sess.query(subquery.subquery()).distinct()
 
         if opts["query"]:
             query = query.filter(cast(field, String).ilike(f'%{opts["query"].lower()}%'))
