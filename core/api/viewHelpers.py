@@ -1,4 +1,4 @@
-'''
+"""
 This file is part of Satyrn.
 Satyrn is free software: you can redistribute it and/or modify it under 
 the terms of the GNU General Public License as published by the Free Software Foundation, 
@@ -8,7 +8,7 @@ without even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR
 See the GNU General Public License for more details.
 You should have received a copy of the GNU General Public License along with Satyrn. 
 If not, see <https://www.gnu.org/licenses/>.
-'''
+"""
 
 from datetime import datetime
 from functools import wraps
@@ -17,15 +17,25 @@ from urllib.parse import urljoin
 
 from flask import current_app, Blueprint, request
 import requests
+from sqlalchemy import text
 
 from .operations import OPERATION_SPACE
 from ..compiler import compile_ring
 from ..extractors import RingConfigExtractor
 
-app = current_app # this is now the same app instance as defined in appBundler.py
+app = current_app  # this is now the same app instance as defined in appBundler.py
 
 # Clean up the globals
-CLEAN_OPS = {k: {k1: v1 for k1, v1 in v.items() if type(v1) in [int, float, str, list, dict] and k1 not in ["pandaFunc", "funcDict", "pandasFunc"]} for k, v in OPERATION_SPACE.items()}
+CLEAN_OPS = {
+    k: {
+        k1: v1
+        for k1, v1 in v.items()
+        if type(v1) in [int, float, str, list, dict]
+        and k1 not in ["pandaFunc", "funcDict", "pandasFunc"]
+    }
+    for k, v in OPERATION_SPACE.items()
+}
+
 
 # a decorator for checking API keys
 # API key set flatfootedly via env in appBundler.py for now
@@ -42,13 +52,13 @@ def apiKeyCheck(innerfunc):
         elif request.headers.get("x-api-key") != app.config["API_KEY"]:
             return errorGen("Incorrect API key")
         return innerfunc(*args, **kwargs)
+
     return decfunc
 
+
 def errorGen(msg):
-    return json.dumps({
-        "success": False,
-        "message": str(msg)
-    })
+    return json.dumps({"success": False, "message": str(msg)})
+
 
 # a generic filter-prep function
 def organizeFilters(request, searchSpace, targetEntity):
@@ -58,14 +68,21 @@ def organizeFilters(request, searchSpace, targetEntity):
     for k in iterables.keys():
         setting = request.args.getlist(k)
         if not searchSpace[None]["attributes"][k]["allowMultiple"]:
-            setting = setting[:1] # might want to warn that the rest is being chopped off (although this is no worse than what was here before)
+            setting = setting[
+                :1
+            ]  # might want to warn that the rest is being chopped off (although this is no worse than what was here before)
         if setting:
             if iterables[k]["type"] == "date":
-                dateRange = setting[0].split(",") # doesn't allow multiple ranges to be passed, but we'll cross that bridge when we get to it
-                opts[k] = [cleanDate(dte) for dte in dateRange] # used to be cleanUglyDate at one point; unsure why
+                dateRange = setting[0].split(
+                    ","
+                )  # doesn't allow multiple ranges to be passed, but we'll cross that bridge when we get to it
+                opts[k] = [
+                    cleanDate(dte) for dte in dateRange
+                ]  # used to be cleanUglyDate at one point; unsure why
             else:
-                opts[k] = setting  
+                opts[k] = setting
     return opts
+
 
 # new generic filter prep function
 def organizeFilters2(opts, searchSpace):
@@ -117,9 +134,12 @@ def checkFilter(filt, searchSpace):
         return None
     ent = ent_dct["entity"]
     field = ent_dct["field"]
-    ent_lst = [val for key, val in searchSpace.items() if val["entity"] == ent and field in val["attributes"]]
+    ent_lst = [
+        val
+        for key, val in searchSpace.items()
+        if val["entity"] == ent and field in val["attributes"]
+    ]
     if len(ent_lst):
-
         ent = ent_lst[0]
         attr = ent["attributes"][field]
 
@@ -180,15 +200,23 @@ def convertFilters(targetEntity, searchSpace, filter_dct):
     for key, val in filter_dct.items():
         if key and val:
             attrs = searchSpace.get(None).get("attributes")
-            if attrs.get(key) and attrs.get(key).get("type") == "date": # when we implement mult date filters, we'll need "for v in val" & OR clause
-                tpl = _createSearchTuple(targetEntity, searchSpace, key, val, tpe="range")
+            if (
+                attrs.get(key) and attrs.get(key).get("type") == "date"
+            ):  # when we implement mult date filters, we'll need "for v in val" & OR clause
+                tpl = _createSearchTuple(
+                    targetEntity, searchSpace, key, val, tpe="range"
+                )
                 query["AND"].append(tpl)
             else:
                 for v in val:
-                    if '|' in v: # vertical bar is a semi-arbitrary convention, but beware of changing it bc it's used both here & in the frontend
+                    if (
+                        "|" in v
+                    ):  # vertical bar is a semi-arbitrary convention, but beware of changing it bc it's used both here & in the frontend
                         or_dict = {"OR": []}
-                        for or_v in filter(None, v.split('|')):
-                            tpl = _createSearchTuple(targetEntity, searchSpace, key, or_v)
+                        for or_v in filter(None, v.split("|")):
+                            tpl = _createSearchTuple(
+                                targetEntity, searchSpace, key, or_v
+                            )
                             or_dict["OR"].append(tpl)
                         query["AND"].append(or_dict)
                     else:
@@ -196,37 +224,56 @@ def convertFilters(targetEntity, searchSpace, filter_dct):
                         query["AND"].append(tpl)
     return query
 
+
 def convertFrontendFilters(targetEntity, searchSpace, searchOpts):
     attrs = searchSpace.get(None).get("attributes")
     query_new = {"AND": []}
 
-    for query_elem in searchOpts.get('query').get('AND') or []:
-        if type(query_elem)==list:
-            key, val = query_elem[0]['field'], query_elem[1]
-            if key!='undefined' and val:
-                tpe = "range" if attrs.get(key) and attrs.get(key).get("type") == "date" else None # for mult date filters, we'll need OR handling
-                tpl = _createSearchTuple(targetEntity, searchSpace, key, val, tpe=tpe, already_formatted_labels=True)
+    for query_elem in searchOpts.get("query").get("AND") or []:
+        if type(query_elem) == list:
+            key, val = query_elem[0]["field"], query_elem[1]
+            if key != "undefined" and val:
+                tpe = (
+                    "range"
+                    if attrs.get(key) and attrs.get(key).get("type") == "date"
+                    else None
+                )  # for mult date filters, we'll need OR handling
+                tpl = _createSearchTuple(
+                    targetEntity,
+                    searchSpace,
+                    key,
+                    val,
+                    tpe=tpe,
+                    already_formatted_labels=True,
+                )
                 query_new["AND"].append(tpl)
         else:
             or_dict_new = {"OR": []}
             for or_elem in query_elem["OR"]:
-                key, val = or_elem[0]['field'], or_elem[1]
-                if key!='undefined' and val:
-                    tpl = _createSearchTuple(targetEntity, searchSpace, key, val, already_formatted_labels=True)
+                key, val = or_elem[0]["field"], or_elem[1]
+                if key != "undefined" and val:
+                    tpl = _createSearchTuple(
+                        targetEntity,
+                        searchSpace,
+                        key,
+                        val,
+                        already_formatted_labels=True,
+                    )
                     or_dict_new["OR"].append(tpl)
             query_new["AND"].append(or_dict_new)
-    searchOpts['query'] = query_new
+    searchOpts["query"] = query_new
     return searchOpts
 
 
-def _createSearchTuple(targetEntity, searchSpace, key, val, tpe=None, already_formatted_labels=False):
-
+def _createSearchTuple(
+    targetEntity, searchSpace, key, val, tpe=None, already_formatted_labels=False
+):
     att_dct = searchSpace[None]["attributes"]
-    if att_dct[key]["type"]  == "float":
+    if att_dct[key]["type"] == "float":
         val = float(val)
         if not tpe:
             tpe = "exact"
-    elif att_dct[key]["type"]  == "integer":
+    elif att_dct[key]["type"] == "integer":
         val = int(val)
         if not tpe:
             tpe = "exact"
@@ -239,18 +286,19 @@ def _createSearchTuple(targetEntity, searchSpace, key, val, tpe=None, already_fo
 
     # hardcoded db-search rules
     if not already_formatted_labels:
-        if key=="ontology_labels" and val:
-            val = '|'+val+'|'
-        elif key=='case_type':
-            val = {'civil':'cv', 'criminal':'cr', '':''}[val]
+        if key == "ontology_labels" and val:
+            val = "|" + val + "|"
+        elif key == "case_type":
+            val = {"civil": "cv", "criminal": "cr", "": ""}[val]
 
-    return [{"entity": targetEntity,
-                    "field": key}, val, tpe]
+    return [{"entity": targetEntity, "field": key}, val, tpe]
+
 
 def cleanUglyDate(dte):
     # Fri Oct 29 2021 00:00:00 GMT-0500 (Central Daylight Time)
     dte = dte.split("-")[0]
-    return datetime.strptime(dte, '%a %b %d %Y %H:%M:%S %Z') if dte != "null" else None
+    return datetime.strptime(dte, "%a %b %d %Y %H:%M:%S %Z") if dte != "null" else None
+
 
 def cleanDate(dte):
     if type(dte) == datetime:
@@ -260,13 +308,15 @@ def cleanDate(dte):
     else:
         if "T" in dte:
             dte = dte.split("T")[0]
-        return datetime.strptime(dte, '%Y-%m-%d') if dte != "null" else None
+        return datetime.strptime(dte, "%Y-%m-%d") if dte != "null" else None
+
 
 def cleanFloat(num):
     try:
         return float(num)
     except ValueError:
         return None
+
 
 def cleanInt(num):
     try:
@@ -275,14 +325,16 @@ def cleanInt(num):
         return None
 
 
-
-
 # RING HELPERS
 # to get or create ring as necessary
 def getOrCreateRing(ringId, version=None, forceRefresh=False):
     # breakpoint()
     version = int(version) if version else version
-    if (ringId not in app.rings) or (version and version not in app.rings.get(ringId, {})) or forceRefresh:
+    if (
+        (ringId not in app.rings)
+        or (version and version not in app.rings.get(ringId, {}))
+        or forceRefresh
+    ):
         # this try-catch block obscured flask's error info while not providing much more than the normal "Failed to get ring info!" (plus,
         # its potential explanations were usually incorrect), so i took it out --scott
         # try:
@@ -298,9 +350,11 @@ def getOrCreateRing(ringId, version=None, forceRefresh=False):
         version = versions[-1:][0]
     return app.rings[ringId][version], app.ringExtractors[ringId][version]
 
+
 def getRing(ringId, version=None):
     ring, ringExtractor = getOrCreateRing(ringId, version)
     return ring
+
 
 def getRingFromService(ringId, version=None):
     # TODO: go get ring config and hydrate and append to app.rings / app.ringExtractors
@@ -333,35 +387,83 @@ def getRingFromService(ringId, version=None):
     app.rings[ring.id][version] = ring
     app.ringExtractors[ring.id][version] = RingConfigExtractor(ring)
 
+
 def transform_csv_filters(filters, ring):
+    # harmless hardcoding :)
+    case_types = {"criminal": "cr", "civil": "cv"}
     transformed_filters = {}
     for column_name, filter_value in filters.items():
         # this is a hack to reuse filter configuration from satyrn; should be a hash map keyed by column name
         # should always be a list of length 1 since attribute names are unique
-        ring_attr = list(filter(lambda x: x.name == column_name, ring.entities[0].attributes))[0]
+        ring_attr = list(
+            filter(lambda x: x.name == column_name, ring.entities[0].attributes)
+        )[0]
+        print("filter_value", filter_value)
         # the master csv file uses the table name as a prefix for column names on joined fields; assuming cases is the entity
-        db_column = ring_attr.source_columns[0] if ring_attr.source_table == "cases" else f"{ring_attr.source_table}_{ring_attr.source_columns[0]}"
-        if ring_attr.isa == 'date':
-            transformed_filters[db_column] = { "value": [filter_value[0].strftime("%Y-%m-%d"), filter_value[1].strftime("%Y-%m-%d")], "isa": ring_attr.isa }
+        csv_column = (
+            ring_attr.source_columns[0]
+            if ring_attr.source_table == "cases"
+            else f"{ring_attr.source_table}_{ring_attr.source_columns[0]}"
+        )
+        if ring_attr.isa == "date":
+            transformed_filters[csv_column] = {
+                "value": [
+                    filter_value[0].strftime("%Y-%m-%d"),
+                    filter_value[1].strftime("%Y-%m-%d"),
+                ],
+                "isa": ring_attr.isa,
+            }
+        elif ring_attr.name == "case_type":
+            transformed_filters[csv_column] = {
+                "value": [case_types[value] for value in filter_value],
+                "isa": ring_attr.isa,
+            }
+        elif ring_attr.name == "parties":
+            placeholders = ",".join([f":name{i}" for i in range(len(filter_value))])
+            params = {
+                f"name{i}": name for i, name in enumerate(filter_value[0].split("|"))
+            }
+            sql = text(f"SELECT ucid FROM parties WHERE name IN ({placeholders})")
+            sess = ring.db.Session()
+            result = sess.execute(sql, params).fetchall()
+            transformed_filters[csv_column] = {
+                "value": [row[0] for row in result],
+                "isa": ring_attr.isa,
+            }
         else:
-            transformed_filters[db_column] = { "value": filter_value, "isa": ring_attr.isa }
+            transformed_filters[csv_column] = {
+                "value": filter_value,
+                "isa": ring_attr.isa,
+            }
 
     return transformed_filters
+
 
 def apply_csv_filters(row, filters):
     for column_name, filter_attrs in filters.items():
         # if str(row[column_name]).lower() != str(filter_attrs[0]).lower():
-        if column_name == 'ontology_labels':
-            if not any(value in row[column_name].split("|") for value in filter_attrs['value'][0].split('|')):
+        if column_name == "ontology_labels":
+            if not any(
+                value in row[column_name].split("|")
+                for value in filter_attrs["value"][0].split("|")
+            ):
                 return None
-        elif filter_attrs['isa'] == 'date':
-            if not filter_attrs['value'][0] <= row[column_name] <= filter_attrs['value'][1]:
+        elif filter_attrs["isa"] == "date":
+            if (
+                not filter_attrs["value"][0]
+                <= row[column_name]
+                <= filter_attrs["value"][1]
+            ):
+                return None
+        elif column_name == "parties_name":
+            if row["ucid"] not in filter_attrs["value"]:
                 return None
         else:
-            if row[column_name] not in filter_attrs['value'][0].split('|'):
+            if row[column_name] not in filter_attrs["value"][0].split("|"):
                 return None
-            
+
     return row
+
 
 # # as of the c3-to-scales handoff, the below functions don't seem to be used anywhere
 
