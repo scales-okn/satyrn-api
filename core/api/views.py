@@ -361,7 +361,6 @@ def download_filtered_csv(ringId, version, targetEntity):
     searchSpace = ringExtractor.getSearchSpace(targetEntity)
     filters = organizeFilters(request, searchSpace, targetEntity)
     filters = transform_csv_filters(filters, ring)
-    print(filters)
 
     # generator function to stream the csv data
     def stream_csv():
