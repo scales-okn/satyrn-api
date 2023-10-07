@@ -277,7 +277,8 @@ def _createSearchTuple(
         val = int(val)
         if not tpe:
             tpe = "exact"
-    elif att_dct[key]["type"] == "string":
+    elif att_dct[key]["type"] == "string" and att_dct[key]["search_style"] == "contains":
+    # only use contains when explicitly specified
         if not tpe:
             tpe = "contains"
     else:

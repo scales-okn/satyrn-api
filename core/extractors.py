@@ -85,7 +85,9 @@ class RingConfigExtractor(object):
                                 "nicename": att.nicename[0], # TODO: leverage the list for singular+plural
                                 "description": att.description,
                                 "resultFormat": att.resultFormat,
-                                "source_joins": att.source_joins
+                                "source_joins": att.source_joins,
+                                "search_style": att.search_style if hasattr(att, 'search_style') else None
+                                # Why was search_style not used before? Most searches should be exact instead of defaulting to "contains"
                             } for att in entObj.attributes if att.searchable
                 }
             }
