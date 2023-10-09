@@ -13,6 +13,7 @@ If not, see <https://www.gnu.org/licenses/>.
 import json
 import csv
 import os
+import time
 from io import StringIO
 
 from flask import (
@@ -363,12 +364,13 @@ def download_filtered_csv(ringId, version, targetEntity):
     filters = transform_csv_filters(filters, ring)
 
     # generator function to stream the csv data
-    def stream_csv():
+    def stream_csv(batch_size=1000):
         cases_csv_path = os.environ.get("CASES_CSV", "./cases.csv")
         with open(cases_csv_path, "r") as infile:
             reader = csv.DictReader(infile)
             sio = StringIO()
             # using the csv writer to propery quote and escape the data
+            # using StringIO because the writerow method expects a file-like object; Response is not
             writer = csv.writer(
                 sio,
                 quoting=csv.QUOTE_MINIMAL,
@@ -386,15 +388,25 @@ def download_filtered_csv(ringId, version, targetEntity):
             sio.seek(0)  # Reset the write position to the beginning of the buffer
 
             # Write and yield each row
+            # start_time = time.time()
+            batch = []
             for row in reader:
                 filtered_row = apply_csv_filters(row, filters)
                 if filtered_row:
-                    writer.writerow(filtered_row.values())
+                    batch.append(filtered_row.values())
+
+                if len(batch) == batch_size:
+                    writer.writerows(batch)
                     yield sio.getvalue()
                     sio.truncate(0)  # Clear the StringIO buffer
                     sio.seek(
                         0
                     )  # Reset the write position to the beginning of the buffer
+                    batch.clear()
+
+            if batch: # handle and leftover rows in the batch
+                writer.writerows(batch)
+                yield sio.getvalue()
 
     # Stream the response as the data is generated on-the-fly
     return Response(
