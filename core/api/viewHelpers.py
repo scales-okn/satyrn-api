@@ -277,7 +277,8 @@ def _createSearchTuple(
         val = int(val)
         if not tpe:
             tpe = "exact"
-    elif att_dct[key]["type"] == "string":
+    elif att_dct[key]["type"] == "string" and att_dct[key]["search_style"] == "contains":
+    # only use contains when explicitly specified
         if not tpe:
             tpe = "contains"
     else:
@@ -398,7 +399,6 @@ def transform_csv_filters(filters, ring):
         ring_attr = list(
             filter(lambda x: x.name == column_name, ring.entities[0].attributes)
         )[0]
-        print("filter_value", filter_value)
         # the master csv file uses the table name as a prefix for column names on joined fields; assuming cases is the entity
         csv_column = (
             ring_attr.source_columns[0]
