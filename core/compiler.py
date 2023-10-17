@@ -112,7 +112,7 @@ def connect_to_extensions(engine, packages=["stats"]):
             "Linux": ".so",
             "Darwin": ".dylib",
         }
-        mypath = os.environ.get("SATYRN_ROOT_DIR") + "/" +"core" + "/" +"sqlite_extensions" + "/"
+        mypath = os.path.join("core", "sqlite_extensions")
         onlyfiles = [f for f in os.listdir(mypath) if os.path.isfile(os.path.join(mypath, f)) and f.endswith(os_type_dct[os_type])]
         for thefile in onlyfiles:
             file_name = os.path.join(mypath, thefile)
@@ -243,7 +243,7 @@ class Ring_Attribute(Ring_Object):
             self.resultFormat = md.get('resultFormat', [False,False])
             self.threshold = md.get("threshold", None)
 
-        default_path = os.environ.get("SATYRN_ROOT_DIR") + "/" +"core" + "/" + "defaults.json"
+        default_path = os.path.join("core", "defaults.json")
         with open(default_path, 'r') as file:
             defaults = json.load(file)
             ##check if the value is set in the ring
@@ -765,7 +765,7 @@ class Ring_Configuration(Ring_Object):
 
         # TODO: Decide how to wrie the rounding defaults
         # i.e. where to put the attributes in the ring json
-        default_path = os.environ.get("SATYRN_ROOT_DIR") + "/" +"core" + "/" + "defaults.json"
+        default_path = os.path.join("core", "defaults.json")
         with open(default_path, 'r') as file:
             defaults = json.load(file)
             self.sig_figs = defaults.get("result_formatting")["rounding"][1]
@@ -889,7 +889,7 @@ class Ring_Compiler(object):
         self.config = config
 
         # Get upper ontology
-        default_path = os.environ.get("SATYRN_ROOT_DIR") + "/" +"core" + "/" + "upperOntology.json"
+        default_path = os.path.join("core", "upperOntology.json")
         with open(default_path, 'r') as file:
             defaults = json.load(file)
             self.upperOnt = defaults      
