@@ -140,5 +140,5 @@ dmypy.json
 # Pyre type checker
 .pyre/
 
-snapshot of cases table
+# snapshot of cases table
 cases.csv
