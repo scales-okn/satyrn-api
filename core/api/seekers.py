@@ -32,6 +32,17 @@ def getResults(opts, ring, ringExtractor, targetEntity, page=0, batchSize=10):
     payload = getResultSet(opts, ring, ringExtractor, targetEntity, targetRange)
     relativeStart = page * batchSize - targetRange[0]
     relativeStop = relativeStart + batchSize
+    if "case_html_filter" in opts and opts["case_html_filter"] is not None:
+        temp_total_count = payload["totalCount"]
+        relativeStart = 0
+        if(temp_total_count > 10):
+            relativeStop = 10
+        else:
+            relativeStop = temp_total_count
+
+        payload["totalCount"] = payload["totalCount"] + getCaseHTMLCount(opts["case_html_filter"])
+    print("relative start: ", relativeStart)
+    print("relative stop: ", relativeStop)
     return {
         "totalCount": payload["totalCount"], # the total count based on query
         "page": page, # the page this is
@@ -95,7 +106,9 @@ def rawGetResultSet(opts, ring, ringExtractor, targetEntity, targetRange=None, s
         return query, joins_todo
         
     targetPK = getattr(targetModel, targetInfo.id[0])
-    return bundleQueryResults(query, targetRange, targetEntity, targetPK, ringExtractor, simpleResults)
+    query_results = bundleQueryResults(query, targetRange, targetEntity, targetPK, ringExtractor, simpleResults)
+
+    return query_results
 
 def makeFilters(query, extractor, db, opts, joins_todo):
     # check if just a condition
@@ -189,11 +202,15 @@ def sortQuery(sess, targetModel, query, sortBy, sortDir, details):
         return query
 
 def bundleQueryResults(query, targetRange, targetEntity, targetPK, ringExtractor, simpleResults=True):
+    print("bundled query", query)
+    print("target PK: ", targetPK)
     totalCount = query.distinct(targetPK).count() # count() w/o distinct() double-counts when returning multiple docket lines from a single case
+    print("total count: ", totalCount)
     formatResult = ringExtractor.formatResult
     sess = ringExtractor.config.db.Session()
     if targetRange is not None:
         results = query.slice(targetRange[0], targetRange[1]).all()
+        print("sliced results")
     else:
         results = query.all()
 
@@ -218,3 +235,44 @@ def createTargetFieldSet(model, fields):
     else:
         field = field[0]
     return field
+
+def getCaseHTMLCount(query):
+    count_pipeline = [
+        {
+            "$match": {
+                "$text": {
+                    "$search": f'"{query}"'
+                }
+            }
+        },
+        {
+            "$lookup": {
+                "from": "cases",
+                "localField": "ucid",
+                "foreignField": "ucid",
+                "as": "case",
+            }
+        },
+        {
+            "$unwind": "$case"
+        },
+        {
+            "$match": {
+                "case.is_private": False,
+                "case.is_stub": False
+            }
+        },
+        {
+            "$group": {
+                "_id": None,  # Group all documents together
+                "count": {
+                    "$sum": 1  # Increment by 1 for every document
+                }
+            }
+        }
+    ]
+
+    result = app.mongo.db.cases_html.aggregate(count_pipeline)
+    count = list(result)[0]["count"]
+    print("COUNT: ", count)
+    return count - 10

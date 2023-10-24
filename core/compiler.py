@@ -560,12 +560,11 @@ class Ring_Source(Ring_Object):
             self.eng, self.Session = self.csv_file_pathway(self.connection_string, db)
         else:
             self.eng = create_engine(self.connection_string,
-                                     pool_size=50,  # default is 5; default postgres max_connections is 100
-                                     max_overflow=2, # the next four params are an attempt to solve the closed connection issue
+                                     pool_size=25,  # default is 5; default postgres max_connections is 100
+                                     max_overflow=25, # the next four params are an attempt to solve the closed connection issue
                                      pool_recycle=300,
                                      pool_pre_ping=True,
-                                     pool_use_lifo=True,
-                                     echo=True)
+                                     pool_use_lifo=True)
             self.Session = sessionmaker(bind=self.eng)
         return self.eng, self.Session
 
