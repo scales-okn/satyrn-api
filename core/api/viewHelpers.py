@@ -195,109 +195,14 @@ def checkFilter(filt, searchSpace):
 
 
 # convert filters from 2 to 2.1 -- beware of changing these two methods, as they needs to match components/Analysis/index.tsx on the frontend :/
-def convertFilters(targetEntity, searchSpace, filter_dct, page, batch_size):
+def convertFilters(targetEntity, searchSpace, filter_dct):
     query = {"AND": []}
-    # print("filter_dct", filter_dct)
-    # print("page", page)
-    # print("batch_size", batch_size)
+    # intercept caseHTML filter so it does not query the default database using "contains"
+    # store as attribute on query so it can be used to query mongo by seekers.py
     if "caseHTML" in filter_dct:
-        case_html = filter_dct.pop("caseHTML")
+        case_html_query = filter_dct.pop("caseHTML")
+        query["case_html_query"] = case_html_query[0]
 
-        pipeline = [
-            {
-                "$match": {
-                    "$text": {
-                        "$search": f'"{case_html[0]}"'
-                    }
-                }
-            },
-            {
-                "$project": {
-                    "_id": 0,
-                    "ucid": 1,
-                    "score": {
-                        "$meta": "textScore"
-                    }
-                }
-            },
-            {
-                "$sort": {
-                    "score": {
-                        "$meta": "textScore"
-                    }
-                }
-            },
-            {
-                "$lookup": {
-                    "from": "cases",
-                    "localField": "ucid",
-                    "foreignField": "ucid",
-                    "as": "case",
-                }
-            },
-            {
-                "$unwind": "$case"
-            },
-            {
-                "$match": {
-                    "case.is_private": False,
-                    "case.is_stub": False
-                }
-            },
-            {
-                "$skip": page * batch_size
-            },
-            {
-                "$limit": batch_size
-            }
-        ]
-
-        # count_pipeline = [
-        #     {
-        #         "$match": {
-        #             "$text": {
-        #                 "$search": f'"{case_html[0]}"'
-        #             }
-        #         }
-        #     },
-        #     {
-        #         "$lookup": {
-        #             "from": "cases",
-        #             "localField": "ucid",
-        #             "foreignField": "ucid",
-        #             "as": "case",
-        #         }
-        #     },
-        #     {
-        #         "$unwind": "$case"
-        #     },
-        #     {
-        #         "$match": {
-        #             "case.is_private": False,
-        #             "case.is_stub": False
-        #         }
-        #     },
-        #     {
-        #         "$group": {
-        #             "_id": None,  # Group all documents together
-        #             "count": {
-        #                 "$sum": 1  # Increment by 1 for every document
-        #             }
-        #         }
-        #     }
-        # ]
-
-        # result = current_app.mongo.db.cases_html.aggregate(count_pipeline)
-        # count = list(result)[0]["count"]
-        # print("count", count)
-        case_html_results = current_app.mongo.db.cases_html.aggregate(pipeline)
-
-        or_dict = {"OR": []}
-        for case_html_result in case_html_results:
-            tpl = [{"entity": targetEntity, "field": "ucid"}, case_html_result["ucid"], "exact"]
-            or_dict["OR"].append(tpl)
-        query["AND"].append(or_dict)
-        # return {"AND": []}
     for key, val in filter_dct.items():
         if key and val:
             attrs = searchSpace.get(None).get("attributes")
@@ -323,7 +228,7 @@ def convertFilters(targetEntity, searchSpace, filter_dct, page, batch_size):
                     else:
                         tpl = _createSearchTuple(targetEntity, searchSpace, key, v)
                         query["AND"].append(tpl)
-                    
+
     # print("query", query)
     return query
 
@@ -380,8 +285,10 @@ def _createSearchTuple(
         val = int(val)
         if not tpe:
             tpe = "exact"
-    elif att_dct[key]["type"] == "string" and att_dct[key]["search_style"] == "contains":
-    # only use contains when explicitly specified
+    elif (
+        att_dct[key]["type"] == "string" and att_dct[key]["search_style"] == "contains"
+    ):
+        # only use contains when explicitly specified
         if not tpe:
             tpe = "contains"
     else:

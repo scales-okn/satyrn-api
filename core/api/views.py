@@ -204,11 +204,10 @@ def searchDB(ringId, version, targetEntity):
 
     # otherwise, we will use the filters in the url/get rather than in the json
     else:
-        case_html_filter = opts["caseHTML"][0] if "caseHTML" in opts else None
-        query = convertFilters(targetEntity, searchSpace, opts, page, batchSize)
-        # print("query: ", query)
-        opts = {"query": query, "relationships": [], "case_html_filter": case_html_filter}
-
+        query = convertFilters(targetEntity, searchSpace, opts)
+        # remove case_html_query from query and put it on the opts that gets passed to seekers.py
+        if "case_html_query" in query:
+            opts = {"query": query, "relationships": [], "case_html_query": query.pop("case_html_query")}
 
     opts = organizeFilters2(opts, searchSpace)
     # and manage sorting
