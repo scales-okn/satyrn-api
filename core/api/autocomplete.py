@@ -61,6 +61,7 @@ def getDedupedBundle(db, extractor, targetEntity, theType, opts={"query": None},
     # put together the query
     field, name, joins = utils._get(extractor, targetEntity, theType, db)
     default_limit = 20
+    print("autocomplete name: ", name)
 
     # when time is of the essence, I'm not above some hardcoded ugliness!
     if 'ontology_labels' in name:
@@ -68,6 +69,9 @@ def getDedupedBundle(db, extractor, targetEntity, theType, opts={"query": None},
         return [{ 'value': x, 'label': x } for x in ontology_labels]
     elif 'case_type' in name:
         return [{ 'value': x, 'label': x } for x in ('civil', 'criminal')]
+    elif 'caseHTML' in name:
+        # the front end should no longer be sending this, but just in case; currently causes db to crash
+        return []
     elif 'case_NOS' in name:
         query = sess.query(field, text('nature_suit.number'))
         if opts["query"]:
