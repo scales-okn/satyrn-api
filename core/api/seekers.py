@@ -11,8 +11,7 @@ If not, see <https://www.gnu.org/licenses/>.
 '''
 
 from flask import current_app as app
-from sqlalchemy import func
-from sqlalchemy import and_, or_
+from sqlalchemy import and_, or_, text, func
 from sqlalchemy.orm import Session
 
 from . import utils
@@ -32,6 +31,7 @@ def getResults(opts, ring, ringExtractor, targetEntity, page=0, batchSize=10):
     payload = getResultSet(opts, ring, ringExtractor, targetEntity, targetRange)
     relativeStart = page * batchSize - targetRange[0]
     relativeStop = relativeStart + batchSize
+
     return {
         "totalCount": payload["totalCount"], # the total count based on query
         "page": page, # the page this is
@@ -71,10 +71,16 @@ def rawGetResultSet(opts, ring, ringExtractor, targetEntity, targetRange=None, s
         ##PROBLEM FOR LATER
             ##Query and join the 'derived' table for the entity --> multitable entity issue
                 ## Don't rejoin again afterwards! 
+    targetPK = getattr(targetModel, targetInfo.id[0])
     if opts["query"]:
         que, joins_todo = makeFilters(query, ringExtractor, db, opts["query"], [])
         query = query.filter(que)
-
+    # if case_html_query is present, get the list of ucid's from a full text search
+    if "case_html_query" in opts:
+        case_html_ucids = query_case_html(opts["case_html_query"])
+        # if there are ucid's, filter the query by them
+        if case_html_ucids:
+            query = query.filter(targetPK.in_(case_html_ucids))
     # DO joins
     if make_joins:
         relationships = opts["relationships"]
@@ -94,8 +100,9 @@ def rawGetResultSet(opts, ring, ringExtractor, targetEntity, targetRange=None, s
     if just_query:
         return query, joins_todo
         
-    targetPK = getattr(targetModel, targetInfo.id[0])
-    return bundleQueryResults(query, targetRange, targetEntity, targetPK, ringExtractor, simpleResults)
+    query_results = bundleQueryResults(query, opts, targetRange, targetEntity, targetPK, ringExtractor, simpleResults)
+
+    return query_results
 
 def makeFilters(query, extractor, db, opts, joins_todo):
     # check if just a condition
@@ -180,6 +187,7 @@ def sortQuery(sess, targetModel, query, sortBy, sortDir, details):
     # breakpoint()
     if details["model"] == targetModel:
         targetField = createTargetFieldSet(targetModel, details[sortKey])
+        print("sort field", targetField)
         # targetField = targetField if sortDir == "asc" else targetField.desc()
         if sortDir == "desc":
             return query.order_by(targetField.desc())
@@ -188,7 +196,7 @@ def sortQuery(sess, targetModel, query, sortBy, sortDir, details):
         # TODO: set it up so that the system can sort by relationships
         return query
 
-def bundleQueryResults(query, targetRange, targetEntity, targetPK, ringExtractor, simpleResults=True):
+def bundleQueryResults(query, opts, targetRange, targetEntity, targetPK, ringExtractor, simpleResults=True):
     totalCount = query.distinct(targetPK).count() # count() w/o distinct() double-counts when returning multiple docket lines from a single case
     formatResult = ringExtractor.formatResult
     sess = ringExtractor.config.db.Session()
@@ -218,3 +226,40 @@ def createTargetFieldSet(model, fields):
     else:
         field = field[0]
     return field
+
+def query_case_html(query):
+    result = []
+
+    pipeline = [
+        {"$match": {"$text": {"$search": f'"{query}"'}}},
+        {"$project": {"_id": 0, "ucid": 1}},
+        {
+            "$lookup": {
+                "from": "cases",
+                "let": {"local_ucid": "$ucid"},
+                "pipeline": [
+                    {
+                        "$match": {
+                            "$expr": {
+                                "$and": [
+                                    {"$eq": ["$ucid", "$$local_ucid"]},
+                                    {"$eq": ["$is_private", False]},
+                                    {"$eq": ["$is_stub", False]},
+                                ]
+                            }
+                        }
+                    },
+                    {"$project": {"_id": 0, "ucid": 1}},
+                ],
+                "as": "case"
+            }
+        },
+    ]
+
+    case_html_results = app.mongo.db.cases_html.aggregate(pipeline)
+    for case_html_result in case_html_results:
+        if case_html_result["case"]:
+            for case_doc in case_html_result["case"]:
+                result.append(case_doc["ucid"])
+
+    return result

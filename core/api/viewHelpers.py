@@ -197,6 +197,12 @@ def checkFilter(filt, searchSpace):
 # convert filters from 2 to 2.1 -- beware of changing these two methods, as they needs to match components/Analysis/index.tsx on the frontend :/
 def convertFilters(targetEntity, searchSpace, filter_dct):
     query = {"AND": []}
+    # intercept caseHTML filter so it does not query the default database using "contains"
+    # store as attribute on query so it can be used to query mongo by seekers.py
+    if "caseHTML" in filter_dct:
+        case_html_query = filter_dct.pop("caseHTML")
+        query["case_html_query"] = case_html_query[0]
+
     for key, val in filter_dct.items():
         if key and val:
             attrs = searchSpace.get(None).get("attributes")
@@ -222,6 +228,8 @@ def convertFilters(targetEntity, searchSpace, filter_dct):
                     else:
                         tpl = _createSearchTuple(targetEntity, searchSpace, key, v)
                         query["AND"].append(tpl)
+
+    # print("query", query)
     return query
 
 
@@ -277,8 +285,10 @@ def _createSearchTuple(
         val = int(val)
         if not tpe:
             tpe = "exact"
-    elif att_dct[key]["type"] == "string" and att_dct[key]["search_style"] == "contains":
-    # only use contains when explicitly specified
+    elif (
+        att_dct[key]["type"] == "string" and att_dct[key]["search_style"] == "contains"
+    ):
+        # only use contains when explicitly specified
         if not tpe:
             tpe = "contains"
     else:
