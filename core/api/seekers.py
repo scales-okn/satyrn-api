@@ -187,7 +187,6 @@ def sortQuery(sess, targetModel, query, sortBy, sortDir, details):
     # breakpoint()
     if details["model"] == targetModel:
         targetField = createTargetFieldSet(targetModel, details[sortKey])
-        print("sort field", targetField)
         # targetField = targetField if sortDir == "asc" else targetField.desc()
         if sortDir == "desc":
             return query.order_by(targetField.desc())
@@ -197,7 +196,11 @@ def sortQuery(sess, targetModel, query, sortBy, sortDir, details):
         return query
 
 def bundleQueryResults(query, opts, targetRange, targetEntity, targetPK, ringExtractor, simpleResults=True):
+    # remove the order_by so that we can count the distinct cases
+    query = query.order_by(None)
     totalCount = query.distinct(targetPK).count() # count() w/o distinct() double-counts when returning multiple docket lines from a single case
+    if ("sortBy" in opts and opts["sortBy"] is not None) and "sortDir" in opts:
+        query = query.order_by(text(f'cases.{opts["sortBy"]} {opts["sortDir"]}'))
     formatResult = ringExtractor.formatResult
     sess = ringExtractor.config.db.Session()
     if targetRange is not None:

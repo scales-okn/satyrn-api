@@ -217,7 +217,7 @@ def searchDB(ringId, version, targetEntity):
     sortBy = request.args.get("sortBy", targetInfo.id[0])
     # sortBy = request.args.get("sortBy", None)
     sortDir = request.args.get("sortDirection", "desc")
-    opts["sortBy"] = sortBy if sortBy in sortables else None
+    opts["sortBy"] = sortBy if sortBy in sortables else "filing_date"
     opts["sortDir"] = sortDir if sortDir in ["asc", "desc"] else "desc"
 
     # now go hunting
