@@ -22,6 +22,8 @@ from sqlalchemy import text
 from .operations import OPERATION_SPACE
 from ..compiler import compile_ring
 from ..extractors import RingConfigExtractor
+from .seekers import query_case_html
+
 
 app = current_app  # this is now the same app instance as defined in appBundler.py
 
@@ -415,6 +417,7 @@ def transform_csv_filters(filters, ring):
             if ring_attr.source_table == "cases"
             else f"{ring_attr.source_table}_{ring_attr.source_columns[0]}"
         )
+
         if ring_attr.isa == "date":
             transformed_filters[csv_column] = {
                 "value": [
@@ -436,8 +439,15 @@ def transform_csv_filters(filters, ring):
             sql = text(f"SELECT ucid FROM parties WHERE name IN ({placeholders})")
             sess = ring.db.Session()
             result = sess.execute(sql, params).fetchall()
+            sess.close()
             transformed_filters[csv_column] = {
-                "value": [row[0] for row in result],
+                "value": set([row[0] for row in result]),
+                "isa": ring_attr.isa,
+            }
+        elif ring_attr.name == "caseHTML":
+            ucids = query_case_html(filter_value[0])
+            transformed_filters[csv_column] = {
+                "value": set(ucids),
                 "isa": ring_attr.isa,
             }
         else:
@@ -465,7 +475,7 @@ def apply_csv_filters(row, filters):
                 <= filter_attrs["value"][1]
             ):
                 return None
-        elif column_name == "parties_name":
+        elif column_name == "parties_name" or column_name == "docket_html_html":
             if row["ucid"] not in filter_attrs["value"]:
                 return None
         else:
