@@ -228,7 +228,7 @@ def createTargetFieldSet(model, fields):
     return field
 
 # we can safely cache this indefinitely because it's the source data rarely changes
-@cache.memoize(timeout=0)
+@cache.memoize(timeout=CACHE_TIMEOUT)
 def query_case_html(query):
     result = []
 
