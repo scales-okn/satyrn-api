@@ -19,7 +19,7 @@ from . import sql_func
 
 
 cache = app.cache
-CACHE_TIMEOUT=6000
+CACHE_TIMEOUT=3600
 
 # Helper functions for searching/results
 @cache.memoize(timeout=CACHE_TIMEOUT)
