@@ -19,7 +19,7 @@ from . import sql_func
 
 
 cache = app.cache
-CACHE_TIMEOUT=6000
+CACHE_TIMEOUT=3600
 
 # Helper functions for searching/results
 @cache.memoize(timeout=CACHE_TIMEOUT)
@@ -227,39 +227,19 @@ def createTargetFieldSet(model, fields):
         field = field[0]
     return field
 
+# we can safely cache this indefinitely because it's the source data rarely changes
+@cache.memoize(timeout=CACHE_TIMEOUT)
 def query_case_html(query):
     result = []
 
     pipeline = [
         {"$match": {"$text": {"$search": f'"{query}"'}}},
-        {"$project": {"_id": 0, "ucid": 1}},
-        {
-            "$lookup": {
-                "from": "cases",
-                "let": {"local_ucid": "$ucid"},
-                "pipeline": [
-                    {
-                        "$match": {
-                            "$expr": {
-                                "$and": [
-                                    {"$eq": ["$ucid", "$$local_ucid"]},
-                                    {"$eq": ["$is_private", False]},
-                                    {"$eq": ["$is_stub", False]},
-                                ]
-                            }
-                        }
-                    },
-                    {"$project": {"_id": 0, "ucid": 1}},
-                ],
-                "as": "case"
-            }
-        },
+        {"$project": {"_id": 0, "ucid": 1}}
     ]
 
     case_html_results = app.mongo.db.cases_html.aggregate(pipeline)
+    
     for case_html_result in case_html_results:
-        if case_html_result["case"]:
-            for case_doc in case_html_result["case"]:
-                result.append(case_doc["ucid"])
+        result.append(case_html_result["ucid"])
 
     return result
