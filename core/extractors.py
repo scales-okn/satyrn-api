@@ -353,7 +353,9 @@ class RingConfigExtractor(object):
             formated_result['case_name'] = getattr(result,'case_name') if getattr(result,'case_name') is not None else "None"
             formated_result['case_NOS'] = nature_suits_dict.get(getattr(result,'nature_suit_id'), "None")
             formated_result['court_name'] = courts_dict.get(getattr(result,'court_id'), "None")
-            formated_result['__uniqueId'] = getattr(result,'ucid')
+
+            formated_result["__uniqueId"] = {}
+            formated_result['__uniqueId']["ucid"] = getattr(result,'ucid')
             formated_result['__entType'] = 'Case'
             formated_results.append(formated_result)
 
