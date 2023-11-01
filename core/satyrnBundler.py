@@ -18,6 +18,7 @@ from flask import Flask
 from flask_caching import Cache
 from flask_cors import CORS
 from flask_sqlalchemy import SQLAlchemy
+from flask_pymongo import PyMongo
 
 app = Flask(__name__)
 CORS(app, supports_credentials=True)
@@ -77,6 +78,9 @@ else:
 
 app.rings = {}
 app.ringExtractors = {}
+
+app.config["MONGO_URI"] = os.environ.get("MONGO_URI")
+app.mongo = PyMongo(app)
 
 # if we're in local dev, we can bootstrap rings through the site config
 # any additional ones will still assume a running version of the FE

@@ -11,8 +11,7 @@ If not, see <https://www.gnu.org/licenses/>.
 '''
 
 from flask import current_app as app
-from sqlalchemy import func
-from sqlalchemy import and_, or_
+from sqlalchemy import and_, or_, text, func
 from sqlalchemy.orm import Session
 
 from . import utils
@@ -20,7 +19,7 @@ from . import sql_func
 
 
 cache = app.cache
-CACHE_TIMEOUT=6000
+CACHE_TIMEOUT=3600
 
 # Helper functions for searching/results
 @cache.memoize(timeout=CACHE_TIMEOUT)
@@ -32,6 +31,7 @@ def getResults(opts, ring, ringExtractor, targetEntity, page=0, batchSize=10):
     payload = getResultSet(opts, ring, ringExtractor, targetEntity, targetRange)
     relativeStart = page * batchSize - targetRange[0]
     relativeStop = relativeStart + batchSize
+
     return {
         "totalCount": payload["totalCount"], # the total count based on query
         "page": page, # the page this is
@@ -71,10 +71,16 @@ def rawGetResultSet(opts, ring, ringExtractor, targetEntity, targetRange=None, s
         ##PROBLEM FOR LATER
             ##Query and join the 'derived' table for the entity --> multitable entity issue
                 ## Don't rejoin again afterwards! 
+    targetPK = getattr(targetModel, targetInfo.id[0])
     if opts["query"]:
         que, joins_todo = makeFilters(query, ringExtractor, db, opts["query"], [])
         query = query.filter(que)
-
+    # if case_html_query is present, get the list of ucid's from a full text search
+    if "case_html_query" in opts:
+        case_html_ucids = query_case_html(opts["case_html_query"])
+        # if there are ucid's, filter the query by them
+        if case_html_ucids:
+            query = query.filter(targetPK.in_(case_html_ucids))
     # DO joins
     if make_joins:
         relationships = opts["relationships"]
@@ -94,8 +100,9 @@ def rawGetResultSet(opts, ring, ringExtractor, targetEntity, targetRange=None, s
     if just_query:
         return query, joins_todo
         
-    targetPK = getattr(targetModel, targetInfo.id[0])
-    return bundleQueryResults(query, targetRange, targetEntity, targetPK, ringExtractor, simpleResults)
+    query_results = bundleQueryResults(query, opts, targetRange, targetEntity, targetPK, ringExtractor, simpleResults)
+    
+    return query_results
 
 def makeFilters(query, extractor, db, opts, joins_todo):
     # check if just a condition
@@ -188,9 +195,16 @@ def sortQuery(sess, targetModel, query, sortBy, sortDir, details):
         # TODO: set it up so that the system can sort by relationships
         return query
 
-def bundleQueryResults(query, targetRange, targetEntity, targetPK, ringExtractor, simpleResults=True):
+def bundleQueryResults(query, opts, targetRange, targetEntity, targetPK, ringExtractor, simpleResults=True):
+    # remove the order_by so that we can count the distinct cases
+    query = query.order_by(None)
     totalCount = query.distinct(targetPK).count() # count() w/o distinct() double-counts when returning multiple docket lines from a single case
+    if ("sortBy" in opts and opts["sortBy"] is not None) and "sortDir" in opts:
+        query = query.order_by(text(f'cases.{opts["sortBy"]} {opts["sortDir"]}'))
+
     formatResult = ringExtractor.formatResult
+    formatResult2 = ringExtractor.formatResult2
+
     sess = ringExtractor.config.db.Session()
     if targetRange is not None:
         results = query.slice(targetRange[0], targetRange[1]).all()
@@ -198,7 +212,12 @@ def bundleQueryResults(query, targetRange, targetEntity, targetPK, ringExtractor
         results = query.all()
 
     if simpleResults:
-        results = [formatResult(result,sess,targetEntity) for result in results]
+        # results = [formatResult(result,sess,targetEntity) for result in results]
+        # the origianl formatResult function makes 2 queries per result just to get the court and nature of suit
+        # we get the courts and nature_of_suits (only on the first call) and pass them in a dict to formatResult2
+        courts_dict = get_courts(sess)
+        nature_of_suits_dict = get_nature_of_suits(sess)
+        results = formatResult2(results, courts_dict, nature_of_suits_dict)
 
         return {
             "results": results,
@@ -218,3 +237,40 @@ def createTargetFieldSet(model, fields):
     else:
         field = field[0]
     return field
+
+# we can safely cache this indefinitely because it's the source data rarely changes
+@cache.memoize(timeout=CACHE_TIMEOUT)
+def query_case_html(query):
+    result = []
+
+    pipeline = [
+        {"$match": {"$text": {"$search": f'"{query}"'}}},
+        {"$project": {"_id": 0, "ucid": 1}}
+    ]
+
+    case_html_results = app.mongo.db.cases_html.aggregate(pipeline)
+    
+    for case_html_result in case_html_results:
+        result.append(case_html_result["ucid"])
+
+    return result
+
+@cache.memoize(timeout=0)
+def get_courts(sess):
+    courts = sess.execute(text("SELECT id, fullname FROM courts")).fetchall()
+
+    courts_dict = {}
+    for court in courts:
+        courts_dict[court[0]] = court[1]
+
+    return courts_dict
+
+@cache.memoize(timeout=0)
+def get_nature_of_suits(sess):
+    nature_suits = sess.execute(text("SELECT id, name FROM nature_suit")).fetchall()
+
+    nature_suits_dict = {}
+    for nature_suit in nature_suits:
+        nature_suits_dict[nature_suit[0]] = nature_suit[1]
+
+    return nature_suits_dict

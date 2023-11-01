@@ -23,8 +23,6 @@ jobs:
         run: doctl registry login --expiry-seconds 600
       - name: Push image to DO Container Registry
         run: docker push registry.digitalocean.com/scales-okn/satyrn-api:latest
-      - name: Clean up DO Container Registry
-        run: doctl registry garbage-collection start --include-untagged-manifests --force
       - name: Create the .ssh directory
         run: mkdir ~/.ssh && chmod 700 ~/.ssh
       - name: Install private key for droplet

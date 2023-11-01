@@ -22,6 +22,8 @@ from sqlalchemy import text
 from .operations import OPERATION_SPACE
 from ..compiler import compile_ring
 from ..extractors import RingConfigExtractor
+from .seekers import query_case_html
+
 
 app = current_app  # this is now the same app instance as defined in appBundler.py
 
@@ -197,6 +199,12 @@ def checkFilter(filt, searchSpace):
 # convert filters from 2 to 2.1 -- beware of changing these two methods, as they needs to match components/Analysis/index.tsx on the frontend :/
 def convertFilters(targetEntity, searchSpace, filter_dct):
     query = {"AND": []}
+    # intercept caseHTML filter so it does not query the default database using "contains"
+    # store as attribute on query so it can be used to query mongo by seekers.py
+    if "caseHTML" in filter_dct:
+        case_html_query = filter_dct.pop("caseHTML")
+        query["case_html_query"] = case_html_query[0]
+
     for key, val in filter_dct.items():
         if key and val:
             attrs = searchSpace.get(None).get("attributes")
@@ -222,6 +230,8 @@ def convertFilters(targetEntity, searchSpace, filter_dct):
                     else:
                         tpl = _createSearchTuple(targetEntity, searchSpace, key, v)
                         query["AND"].append(tpl)
+
+    # print("query", query)
     return query
 
 
@@ -277,8 +287,10 @@ def _createSearchTuple(
         val = int(val)
         if not tpe:
             tpe = "exact"
-    elif att_dct[key]["type"] == "string" and att_dct[key]["search_style"] == "contains":
-    # only use contains when explicitly specified
+    elif (
+        att_dct[key]["type"] == "string" and att_dct[key]["search_style"] == "contains"
+    ):
+        # only use contains when explicitly specified
         if not tpe:
             tpe = "contains"
     else:
@@ -405,6 +417,7 @@ def transform_csv_filters(filters, ring):
             if ring_attr.source_table == "cases"
             else f"{ring_attr.source_table}_{ring_attr.source_columns[0]}"
         )
+
         if ring_attr.isa == "date":
             transformed_filters[csv_column] = {
                 "value": [
@@ -426,8 +439,15 @@ def transform_csv_filters(filters, ring):
             sql = text(f"SELECT ucid FROM parties WHERE name IN ({placeholders})")
             sess = ring.db.Session()
             result = sess.execute(sql, params).fetchall()
+            sess.close()
             transformed_filters[csv_column] = {
-                "value": [row[0] for row in result],
+                "value": set([row[0] for row in result]),
+                "isa": ring_attr.isa,
+            }
+        elif ring_attr.name == "caseHTML":
+            ucids = query_case_html(filter_value[0])
+            transformed_filters[csv_column] = {
+                "value": set(ucids),
                 "isa": ring_attr.isa,
             }
         else:
@@ -455,7 +475,7 @@ def apply_csv_filters(row, filters):
                 <= filter_attrs["value"][1]
             ):
                 return None
-        elif column_name == "parties_name":
+        elif column_name == "parties_name" or column_name == "docket_html_html":
             if row["ucid"] not in filter_attrs["value"]:
                 return None
         else:
