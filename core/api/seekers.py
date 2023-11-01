@@ -100,7 +100,7 @@ def rawGetResultSet(opts, ring, ringExtractor, targetEntity, targetRange=None, s
     if just_query:
         return query, joins_todo
         
-    query_results = bundleQueryResults(query, ring, opts, targetRange, targetEntity, targetPK, ringExtractor, simpleResults)
+    query_results = bundleQueryResults(query, opts, targetRange, targetEntity, targetPK, ringExtractor, simpleResults)
     
     return query_results
 
@@ -195,7 +195,7 @@ def sortQuery(sess, targetModel, query, sortBy, sortDir, details):
         # TODO: set it up so that the system can sort by relationships
         return query
 
-def bundleQueryResults(query, ring, opts, targetRange, targetEntity, targetPK, ringExtractor, simpleResults=True):
+def bundleQueryResults(query, opts, targetRange, targetEntity, targetPK, ringExtractor, simpleResults=True):
     # remove the order_by so that we can count the distinct cases
     query = query.order_by(None)
     totalCount = query.distinct(targetPK).count() # count() w/o distinct() double-counts when returning multiple docket lines from a single case
