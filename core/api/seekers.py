@@ -100,8 +100,8 @@ def rawGetResultSet(opts, ring, ringExtractor, targetEntity, targetRange=None, s
     if just_query:
         return query, joins_todo
         
-    query_results = bundleQueryResults(query, opts, targetRange, targetEntity, targetPK, ringExtractor, simpleResults)
-
+    query_results = bundleQueryResults(query, ring, opts, targetRange, targetEntity, targetPK, ringExtractor, simpleResults)
+    
     return query_results
 
 def makeFilters(query, extractor, db, opts, joins_todo):
@@ -195,13 +195,16 @@ def sortQuery(sess, targetModel, query, sortBy, sortDir, details):
         # TODO: set it up so that the system can sort by relationships
         return query
 
-def bundleQueryResults(query, opts, targetRange, targetEntity, targetPK, ringExtractor, simpleResults=True):
+def bundleQueryResults(query, ring, opts, targetRange, targetEntity, targetPK, ringExtractor, simpleResults=True):
     # remove the order_by so that we can count the distinct cases
     query = query.order_by(None)
     totalCount = query.distinct(targetPK).count() # count() w/o distinct() double-counts when returning multiple docket lines from a single case
     if ("sortBy" in opts and opts["sortBy"] is not None) and "sortDir" in opts:
         query = query.order_by(text(f'cases.{opts["sortBy"]} {opts["sortDir"]}'))
+
     formatResult = ringExtractor.formatResult
+    formatResult2 = ringExtractor.formatResult2
+
     sess = ringExtractor.config.db.Session()
     if targetRange is not None:
         results = query.slice(targetRange[0], targetRange[1]).all()
@@ -209,7 +212,12 @@ def bundleQueryResults(query, opts, targetRange, targetEntity, targetPK, ringExt
         results = query.all()
 
     if simpleResults:
-        results = [formatResult(result,sess,targetEntity) for result in results]
+        # results = [formatResult(result,sess,targetEntity) for result in results]
+        # the origianl formatResult function makes 2 queries per result just to get the court and nature of suit
+        # we get the courts and nature_of_suits (only on the first call) and pass them in a dict to formatResult2
+        courts_dict = get_courts(sess)
+        nature_of_suits_dict = get_nature_of_suits(sess)
+        results = formatResult2(results, courts_dict, nature_of_suits_dict)
 
         return {
             "results": results,
@@ -246,3 +254,23 @@ def query_case_html(query):
         result.append(case_html_result["ucid"])
 
     return result
+
+@cache.memoize(timeout=0)
+def get_courts(sess):
+    courts = sess.execute(text("SELECT id, fullname FROM courts")).fetchall()
+
+    courts_dict = {}
+    for court in courts:
+        courts_dict[court[0]] = court[1]
+
+    return courts_dict
+
+@cache.memoize(timeout=0)
+def get_nature_of_suits(sess):
+    nature_suits = sess.execute(text("SELECT id, name FROM nature_suit")).fetchall()
+
+    nature_suits_dict = {}
+    for nature_suit in nature_suits:
+        nature_suits_dict[nature_suit[0]] = nature_suit[1]
+
+    return nature_suits_dict

@@ -565,6 +565,7 @@ class Ring_Source(Ring_Object):
                                      pool_recycle=300,
                                      pool_pre_ping=True,
                                      pool_use_lifo=True)
+            
             self.Session = sessionmaker(bind=self.eng)
         return self.eng, self.Session
 
