@@ -22,6 +22,7 @@ try:
 except:
     from .api.utils import _rel_math, _mirrorRel
 
+from sqlalchemy import text
 
 import queue
 from copy import deepcopy
@@ -290,9 +291,11 @@ class RingConfigExtractor(object):
         cols = self.getColumns(target)
         searchSpace = self.getSearchSpace(target)
         renderMap = {
-            col["key"]: self.getSearchSpace(target)[None]["attributes"][col["key"]]["fields"] for col in cols
+            col["key"]: searchSpace[None]["attributes"][col["key"]]["fields"] for col in cols
         }
         results = {}
+
+
 
         for attr, fields in renderMap.items():
             attribute_list = []
@@ -337,7 +340,24 @@ class RingConfigExtractor(object):
         results["__entType"] = targetEnt.name
 
         return results
+    
+    def formatResult2(self, results, courts_dict, nature_suits_dict):
 
+        formated_results = []
+
+        for result in results:
+            formated_result = {}
+            formated_result['case_id'] = getattr(result, 'case_id')
+            formated_result['filing_date'] = getattr(result,'filing_date')
+            formated_result['terminating_date'] = getattr(result,'terminating_date') if getattr(result,'terminating_date') is not None else "None"
+            formated_result['case_name'] = getattr(result,'case_name') if getattr(result,'case_name') is not None else "None"
+            formated_result['case_NOS'] = nature_suits_dict.get(getattr(result,'nature_suit_id'), "None")
+            formated_result['court_name'] = courts_dict.get(getattr(result,'court_id'), "None")
+            formated_result['__uniqueId'] = getattr(result,'ucid')
+            formated_result['__entType'] = 'Case'
+            formated_results.append(formated_result)
+
+        return formated_results
 
     def coerceValsToString(self, vals, formatting):
         # TODO: make this both a) type (leveraging ontology + styling) aware and b) template-compatible
@@ -405,3 +425,4 @@ class RingConfigExtractor(object):
         }
         self.cache[target]["feInfo"] = output
         return output
+    
