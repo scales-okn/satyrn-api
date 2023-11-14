@@ -346,16 +346,17 @@ class RingConfigExtractor(object):
         formated_results = []
 
         for result in results:
+            print(result)
             formated_result = {}
-            formated_result['case_id'] = getattr(result, 'case_id')
-            formated_result['filing_date'] = getattr(result,'filing_date')
-            formated_result['terminating_date'] = getattr(result,'terminating_date') if getattr(result,'terminating_date') is not None else "None"
-            formated_result['case_name'] = getattr(result,'case_name') if getattr(result,'case_name') is not None else "None"
-            formated_result['case_NOS'] = nature_suits_dict.get(getattr(result,'nature_suit_id'), "None")
-            formated_result['court_name'] = courts_dict.get(getattr(result,'court_id'), "None")
+            formated_result['case_id'] = getattr(result[0], 'case_id')
+            formated_result['filing_date'] = getattr(result[0],'filing_date')
+            formated_result['terminating_date'] = getattr(result[0],'terminating_date') if getattr(result[0],'terminating_date') is not None else "None"
+            formated_result['case_name'] = getattr(result[0],'case_name') if getattr(result[0],'case_name') is not None else "None"
+            formated_result['case_NOS'] = result[1] if result[1] is not None else "None"
+            formated_result['court_name'] = result[2] if result[2] is not None else "None"
 
             formated_result["__uniqueId"] = {}
-            formated_result['__uniqueId']["ucid"] = getattr(result,'ucid')
+            formated_result['__uniqueId']["ucid"] = getattr(result[0],'ucid')
             formated_result['__entType'] = 'Case'
             formated_results.append(formated_result)
 
