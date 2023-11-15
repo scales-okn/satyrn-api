@@ -80,7 +80,7 @@ class RingConfigExtractor(object):
                                 "displayable": att.displayable,
                                 "autocomplete": att.autocomplete,
                                 "type": att.baseIsa,
-                                "model": getattr(self.config.db, entObj.table),
+                                "model": getattr(self.config.db, att.source_table),
                                 "fields": att.source_columns,
                                 "allowMultiple": att.allow_multiple,
                                 "nicename": att.nicename[0], # TODO: leverage the list for singular+plural
@@ -341,12 +341,12 @@ class RingConfigExtractor(object):
 
         return results
     
-    def formatResult2(self, results, courts_dict, nature_suits_dict):
+    def formatResult2(self, results):
 
         formated_results = []
 
         for result in results:
-            print(result)
+            # result[0] is the case object; result[1] is the nature of suit; result[2] is the court name
             formated_result = {}
             formated_result['case_id'] = getattr(result[0], 'case_id')
             formated_result['filing_date'] = getattr(result[0],'filing_date')
