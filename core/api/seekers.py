@@ -144,7 +144,7 @@ def rawGetResultSet(
     # query = query.order_by(targetInfo.id[0])
 
     # get the count before we add order by
-    total_count = getTotalCount(query, targetPK)
+    total_count = getTotalCount(query)
 
     if "sortBy" in opts and opts["sortBy"] is not None:
         details = searchSpace[None]["attributes"][opts["sortBy"]]
@@ -260,8 +260,8 @@ def sortQuery(sess, targetModel, query, sortBy, sortDir, details, natureSuitMode
         return query.order_by(targetField.desc())
     return query.order_by(targetField.asc())
     
-def getTotalCount(query, targetPK):
-    return query.distinct(targetPK).count()
+def getTotalCount(query):
+    return query.count()
 
 def bundleQueryResults(
     query, opts, targetRange, targetEntity, targetPK, ringExtractor, simpleResults=True
