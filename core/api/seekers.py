@@ -71,9 +71,14 @@ def rawGetResultSet(
     db = ring.db
     targetInfo = ringExtractor.resolveEntity(targetEntity)[1]
     targetModel = getattr(db, targetInfo.table)
+
+    # join these models because they are needed for the front end
+    # these models need to be aliased because they might be joined later for filters
     natureSuitModel = aliased(getattr(db, "nature_suit"))
     courtsModel = aliased(getattr(db, "courts"))
+    
     searchSpace = ringExtractor.getSearchSpace(targetEntity)
+
     # formatResult = ringExtractor.formatResult
     # takes a dictionary of key->vals that power a set of searchs downstream...
     # also takes a ring, ringExtractor and targetEntity name
@@ -83,7 +88,10 @@ def rawGetResultSet(
     if not sess:
         sess = db.Session()
         ##query = sess.query(targetModel).distinct(targetInfo.id[0]).group_by(targetInfo.id[0])
-        # query = sess.query(targetModel)
+        ##query = sess.query(targetModel)
+
+        # join the nature_suit and courts tables so they can be sorted later
+        # this also gets the values without having to query for them later
         query = (
             sess.query(targetModel, natureSuitModel.name, courtsModel.fullname)
             .outerjoin(
@@ -134,10 +142,14 @@ def rawGetResultSet(
     #         query = query.filter(filt)
 
     # query = query.order_by(targetInfo.id[0])
+
+    # get the count before we add order by
+    total_count = getTotalCount(query, targetPK)
+
     if "sortBy" in opts and opts["sortBy"] is not None:
         details = searchSpace[None]["attributes"][opts["sortBy"]]
         query = sortQuery(
-            sess, targetModel, query, opts["sortBy"], opts["sortDir"], details
+            sess, targetModel, query, opts["sortBy"], opts["sortDir"], details, natureSuitModel, courtsModel
         )
     if just_query:
         return query, joins_todo
@@ -145,6 +157,8 @@ def rawGetResultSet(
     query_results = bundleQueryResults(
         query, opts, targetRange, targetEntity, targetPK, ringExtractor, simpleResults
     )
+
+    query_results["totalCount"] = total_count
 
     return query_results
 
@@ -229,30 +243,40 @@ def addFilter(query, extractor, db, opts):
     return query, joins_todo
 
 
-def sortQuery(sess, targetModel, query, sortBy, sortDir, details):
+def sortQuery(sess, targetModel, query, sortBy, sortDir, details, natureSuitModel=None, courtsModel=None):
     sortKey = "sortField" if "sortField" in details else "fields"
     # breakpoint()
     if details["model"] == targetModel:
-        targetField = createTargetFieldSet(targetModel, details[sortKey])
-        # targetField = targetField if sortDir == "asc" else targetField.desc()
-        if sortDir == "desc":
-            return query.order_by(targetField.desc())
-        return query.order_by(targetField.asc())
+        targetField = createTargetFieldSet(details["model"], details[sortKey])
+    # these model objects are different, but the tables are the same
+    elif details["model"].__table__ is courtsModel.__table__:
+        targetField = createTargetFieldSet(courtsModel, details[sortKey])
+    elif details["model"].__table__ is natureSuitModel.__table__:
+        targetField = createTargetFieldSet(natureSuitModel, details[sortKey])
     else:
-        # TODO: set it up so that the system can sort by relationships
         return query
-
+        # targetField = targetField if sortDir == "asc" else targetField.desc()
+    if sortDir == "desc":
+        return query.order_by(targetField.desc())
+    return query.order_by(targetField.asc())
+    
+def getTotalCount(query, targetPK):
+    return query.distinct(targetPK).count()
 
 def bundleQueryResults(
     query, opts, targetRange, targetEntity, targetPK, ringExtractor, simpleResults=True
 ):
     # remove the order_by so that we can count the distinct cases
-    query = query.order_by(None)
-    totalCount = query.distinct(
-        targetPK
-    ).count()  # count() w/o distinct() double-counts when returning multiple docket lines from a single case
-    if ("sortBy" in opts and opts["sortBy"] is not None) and "sortDir" in opts:
-        query = query.order_by(text(f'cases.{opts["sortBy"]} {opts["sortDir"]}'))
+    # query = query.order_by(None)
+    # count() w/o distinct() double-counts when returning multiple docket lines from a single case
+    # totalCount = query.distinct(
+    #     targetPK
+    # ).count()  
+    # if ("sortBy" in opts and opts["sortBy"] is not None) and "sortDir" in opts:
+    #     if opts["sortBy"] == "case_NOS":
+    #         query = query.order_by(text(f'nature_suit_1.name {opts["sortDir"]}'))
+    #     else:
+    #         query = query.order_by(text(f'cases.{opts["sortBy"]} {opts["sortDir"]}'))
 
     formatResult = ringExtractor.formatResult
     formatResult2 = ringExtractor.formatResult2
@@ -267,13 +291,12 @@ def bundleQueryResults(
         # results = [formatResult(result,sess,targetEntity) for result in results]
         # the origianl formatResult function makes 2 queries per result just to get the court and nature of suit
         # we get the courts and nature_of_suits (only on the first call) and pass them in a dict to formatResult2
-        courts_dict = get_courts(sess)
-        nature_of_suits_dict = get_nature_of_suits(sess)
-        results = formatResult2(results, courts_dict, nature_of_suits_dict)
+        # courts_dict = get_courts(sess)
+        # nature_of_suits_dict = get_nature_of_suits(sess)
+        results = formatResult2(results)
 
         return {
             "results": results,
-            "totalCount": totalCount,
             "resultRange": targetRange,
         }
 
