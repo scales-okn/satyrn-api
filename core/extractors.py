@@ -80,7 +80,7 @@ class RingConfigExtractor(object):
                                 "displayable": att.displayable,
                                 "autocomplete": att.autocomplete,
                                 "type": att.baseIsa,
-                                "model": getattr(self.config.db, entObj.table),
+                                "model": getattr(self.config.db, att.source_table),
                                 "fields": att.source_columns,
                                 "allowMultiple": att.allow_multiple,
                                 "nicename": att.nicename[0], # TODO: leverage the list for singular+plural
@@ -341,21 +341,22 @@ class RingConfigExtractor(object):
 
         return results
     
-    def formatResult2(self, results, courts_dict, nature_suits_dict):
+    def formatResult2(self, results):
 
         formated_results = []
 
         for result in results:
+            # result[0] is the case object; result[1] is the nature of suit; result[2] is the court name
             formated_result = {}
-            formated_result['case_id'] = getattr(result, 'case_id')
-            formated_result['filing_date'] = getattr(result,'filing_date')
-            formated_result['terminating_date'] = getattr(result,'terminating_date') if getattr(result,'terminating_date') is not None else "None"
-            formated_result['case_name'] = getattr(result,'case_name') if getattr(result,'case_name') is not None else "None"
-            formated_result['case_NOS'] = nature_suits_dict.get(getattr(result,'nature_suit_id'), "None")
-            formated_result['court_name'] = courts_dict.get(getattr(result,'court_id'), "None")
+            formated_result['case_id'] = getattr(result[0], 'case_id')
+            formated_result['filing_date'] = getattr(result[0],'filing_date')
+            formated_result['terminating_date'] = getattr(result[0],'terminating_date') if getattr(result[0],'terminating_date') is not None else "None"
+            formated_result['case_name'] = getattr(result[0],'case_name') if getattr(result[0],'case_name') is not None else "None"
+            formated_result['case_NOS'] = result[1] if result[1] is not None else "None"
+            formated_result['court_name'] = result[2] if result[2] is not None else "None"
 
             formated_result["__uniqueId"] = {}
-            formated_result['__uniqueId']["ucid"] = getattr(result,'ucid')
+            formated_result['__uniqueId']["ucid"] = getattr(result[0],'ucid')
             formated_result['__entType'] = 'Case'
             formated_results.append(formated_result)
 
