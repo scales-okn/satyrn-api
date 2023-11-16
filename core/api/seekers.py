@@ -144,7 +144,8 @@ def rawGetResultSet(
     # query = query.order_by(targetInfo.id[0])
 
     # get the count before we add order by
-    total_count = getTotalCount(query)
+    if not just_query:
+        total_count = getTotalCount(query)
 
     if "sortBy" in opts and opts["sortBy"] is not None:
         details = searchSpace[None]["attributes"][opts["sortBy"]]
