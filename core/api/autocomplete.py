@@ -46,6 +46,22 @@ def runAutocomplete(db, theType, config, extractor, targetEntity, opts={"query":
 
 # a helper for deduping types that have same names
 # this helper is not memoized, though the functions that call into should be
+  
+def prepare_output(sess, column_name, field, opts, default_limit, label_template):
+  query = sess.query(field, text(column_name))
+  if opts["query"]:
+      query = query.filter(cast(field, String).ilike(f'%{opts["query"].lower()}%')).limit(opts["limit"])
+  else:
+      query = query.limit(default_limit)
+
+  output = [
+      ac_rec.to_dict() 
+      for ac_rec in set(
+          AutocompleteRecord(value=item[0], label=label_template.format(item[1], item[0])) 
+          for item in query.all()
+      )
+  ]
+  return output
 
 '''
     7/20/23: Danny O'Neal
@@ -72,23 +88,13 @@ def getDedupedBundle(db, extractor, targetEntity, theType, opts={"query": None},
         # the front end should no longer be sending this, but just in case; currently causes db to crash
         return []
     elif 'case_NOS' in name:
-        query = sess.query(field, text('nature_suit.number'))
-        if opts["query"]:
-            query = query.filter(cast(field, String).ilike(f'%{opts["query"].lower()}%')).limit(opts["limit"])
-        else:
-            query = query.limit(default_limit)
-        output = [
-            ac_rec.to_dict() 
-            for ac_rec in set(
-                AutocompleteRecord(value=item[0], label=f"{item[1]} - {item[0]}") 
-                for item in query.all()
-            )
-        ]
+        output = prepare_output(sess, 'nature_suit.number', field, opts, default_limit, "{} - {}")
+    elif 'case_id' in name:
+        output = prepare_output(sess, 'case_id', field, opts, default_limit, "{}")
 
     else:
         subquery = sess.query(field).distinct()
         query = sess.query(subquery.subquery()).distinct()
-
         if opts["query"]:
             query = query.filter(cast(field, String).ilike(f'%{opts["query"].lower()}%'))
             limit = opts["limit"]
