@@ -5,21 +5,45 @@ CACHE_TIMEOUT = 3000
 
 sparql = current_app.sparql
 
-def search_sparql_endpoint(opts, page=1, batch_size=10):
-    print(opts, page, batch_size)
-    # Extract the circuits from opts, defaulting to a list with "Ninth" if not provided
-    circuits = opts.get('circuits', ['Ninth'])
+prefix = """
+PREFIX scales: <http://schemas.scales-okn.org/rdf/scales#>
+PREFIX xsd: <http://www.w3.org/2001/XMLSchema#>
+PREFIX rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#>
+"""
 
-    # Prepare the VALUES clause for the SPARQL query
-    values_clause = "VALUES ?circuit { " + ' '.join(f'"{circuit}"' for circuit in circuits) + " }"
+case_types = {
+    "civil": "CaseCivil",
+    "criminal": "CaseCriminal",
+}
+
+def search_sparql_endpoint(entity, batch_size, page):
+    # print(opts, page, batch_size)
+    # # Extract the circuits from opts, defaulting to a list with "Ninth" if not provided
+    # circuits = opts.get('circuits', ['Ninth'])
+
+    # # Prepare the VALUES clause for the SPARQL query
+    # values_clause = "VALUES ?circuit { " + ' '.join(f'"{circuit}"' for circuit in circuits) + " }"
 
     # Construct the SPARQL query
     query = f"""
-        PREFIX scales: <http://schemas.scales-okn.org/rdf/scales#>
-        SELECT ?Name
+        {prefix}
+        SELECT ?entity ?filingDate ?terminatingDate ?natureOfSuit ?courtName
         WHERE {{
-            ?Court scales:isInCircuit ?circuit .
-            ?Court scales:hasName ?Name .
+          ?entity a ?entityType ;
+          scales:hasDocketTable ?docketTable ;
+          scales:hasAgent ?agent ;
+          scales:hasFilingDate ?filingDate ;
+          scales:hasStatus ?status ;
+          scales:isInCourt ?court ;
+          scales:hasTerminatingDate ?terminatingDate .
+          ?docketTable ?p ?docketEntry .
+          ?docketEntry scales:hasOntologyLabel ?ontologyLabel .
+          ?agent scales:hasAgentType ?agentType ;
+                scales:hasName ?agentName ;
+                scales:hasRoleInCase ?agentRoleInCase .
+          ?court scales:hasName ?courtName ;
+                scales:isInCircuit ?courtCircuit .     
+          FILTER(?entityType = scales:{case_types[entity]})
         }}
         LIMIT {batch_size}
         OFFSET {(page - 1) * batch_size}

@@ -10,8 +10,24 @@ You should have received a copy of the GNU General Public License along with Sat
 If not, see <https://www.gnu.org/licenses/>.
 '''
 
-from .satyrnBundler import app
+import os
 
-with app.app_context():
-    from .api.views import api
-    app.register_blueprint(api, url_prefix="/api")
+DB_MODE = os.environ.get("DB_MODE", "sql")
+
+print(f"DB_MODE: {DB_MODE}")
+
+match DB_MODE:
+    case "sql":
+        from .satyrnBundler import app
+        with app.app_context():
+          from .api.views import api
+          app.register_blueprint(api, url_prefix="/api")
+    case "sparql":
+        from .sparqlBundler import app
+        with app.app_context():
+          from .api.sparql_views import api
+          app.register_blueprint(api, url_prefix="/api")
+    case _:
+        raise Exception("Invalid DB_MODE: {DB_MODE}")
+
+
