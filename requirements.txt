@@ -10,3 +10,4 @@ pandas==2.1.1
 requests==2.31.0
 psycopg2==2.9.9
 werkzeug==2.3.7
+SPARQLWrapper==2.0.0
