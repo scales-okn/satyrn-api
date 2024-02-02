@@ -14,8 +14,6 @@ import os
 
 DB_MODE = os.environ.get("DB_MODE", "sql")
 
-print(f"DB_MODE: {DB_MODE}")
-
 match DB_MODE:
     case "sql":
         from .satyrnBundler import app
