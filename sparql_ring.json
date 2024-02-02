@@ -26,8 +26,8 @@
           "parent": "case"
         },
         "terminatingDate": {
-          "name": "Filing Date",
-          "description": "The date the case was filed",
+          "name": "Terminating Date",
+          "description": "The date the case terminated",
           "predicate": "scales:hasTerminatingDate",
           "optional": false,
           "parent": "case"
