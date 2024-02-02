@@ -53,19 +53,14 @@ sparql.setReturnFormat(JSON)
 
 app.sparql = sparql
 
-query = """
-    PREFIX scales: <http://schemas.scales-okn.org/rdf/scales#>
-    SELECT ?Name
-    WHERE {
-        ?Court scales:isInCircuit "Ninth" .
-        ?Court scales:hasName ?Name .
-    }
-    LIMIT 100
-"""
+with open("sparql_ring.json", 'r') as file:
+    ring = json.load(file)
 
-sparql.setQuery(query)
+    # Transforming the list of graphs into a dictionary indexed by graph name
+    graphs = {graph['name']: graph for graph in ring['graphs']}
+    ring['graphs'] = graphs
 
-results = sparql.query().convert()
-for result in results["results"]["bindings"]:
-    print(result["Name"]["value"])
+    app.ring = ring
     
+# pacer_graph_config = app.ring['graphs']['Pacer']
+# print(pacer_graph_config)

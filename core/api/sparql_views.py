@@ -18,8 +18,8 @@ cache = app.cache
 def base():
     return json.dumps({"status": "API is up and running"})
 
-@api.route("/results/<targetEntity>/", methods=["GET", "POST"])
-def get_results(targetEntity):
+@api.route("/results/<graph>/", methods=["GET", "POST"])
+def get_results(graph):
     batchSize = int(request.args.get("batchSize", 10))
     page = int(request.args.get("page", 0))
-    return json.dumps(search_sparql_endpoint(targetEntity, batchSize, page))
+    return json.dumps(search_sparql_endpoint(graph, batchSize, page))

@@ -16,38 +16,19 @@ case_types = {
     "criminal": "CaseCriminal",
 }
 
-def search_sparql_endpoint(entity, batch_size, page):
-    # print(opts, page, batch_size)
-    # # Extract the circuits from opts, defaulting to a list with "Ninth" if not provided
-    # circuits = opts.get('circuits', ['Ninth'])
 
-    # # Prepare the VALUES clause for the SPARQL query
-    # values_clause = "VALUES ?circuit { " + ' '.join(f'"{circuit}"' for circuit in circuits) + " }"
+def search_sparql_endpoint(graph, batch_size, page):
+    filter_values = {'caseType': 'scales:CaseCriminal'}
 
-    # Construct the SPARQL query
-    query = f"""
-        {prefix}
-        SELECT ?entity ?filingDate ?terminatingDate ?natureOfSuit ?courtName
-        WHERE {{
-          ?entity a ?entityType ;
-          scales:hasDocketTable ?docketTable ;
-          scales:hasAgent ?agent ;
-          scales:hasFilingDate ?filingDate ;
-          scales:hasStatus ?status ;
-          scales:isInCourt ?court ;
-          scales:hasTerminatingDate ?terminatingDate .
-          ?docketTable ?p ?docketEntry .
-          ?docketEntry scales:hasOntologyLabel ?ontologyLabel .
-          ?agent scales:hasAgentType ?agentType ;
-                scales:hasName ?agentName ;
-                scales:hasRoleInCase ?agentRoleInCase .
-          ?court scales:hasName ?courtName ;
-                scales:isInCircuit ?courtCircuit .     
-          FILTER(?entityType = scales:{case_types[entity]})
-        }}
-        LIMIT {batch_size}
-        OFFSET {(page - 1) * batch_size}
-    """
+    query = construct_query(
+        current_app.ring["graphs"][graph],
+        ["case", "filingDate", "terminatingDate", "natureOfSuit", "courtName"],
+        filter_values,
+        page=page,
+        limit=batch_size,
+    )
+
+    print("query", query)
 
     # Set and execute the query
     sparql.setQuery(query)
@@ -55,22 +36,73 @@ def search_sparql_endpoint(entity, batch_size, page):
 
     print("sparql results", results)
 
-    return results
+    return convert_results(results)
 
-def convert_sparql_results(results):
-    # Extract the bindings from the results
-    bindings = results['results']['bindings']
 
-    # Extract the names from the bindings
-    names = [binding['Name']['value'] for binding in bindings]
+def convert_results(sparql_results):
+    vars = sparql_results["head"]["vars"]
+    bindings = sparql_results["results"]["bindings"]
 
-    return names
+    formatted_results = []
 
-def convert_filter(query):
-    # Convert the query to a list of filters
-    filters = query.split(',')
+    for binding in bindings:
+        formatted_binding = {}
+        for var in vars:
+            if var in binding:
+                formatted_binding[var] = binding[var]["value"]
+            else:
+                formatted_binding[var] = "None"
+        formatted_results.append(formatted_binding)
 
-    # Convert the filters to a list of tuples
-    filters = [tuple(filter.split(':')) for filter in filters]
+    return formatted_results
 
+
+def get_prefixes(ring):
+    return "\n".join(ring["prefixes"])
+
+
+def get_field_predicates(ring, field_name):
+    field = ring["fields"].get(field_name)
+    if field:
+        return field["predicates"]
+    else:
+        return None
+
+
+def build_filters(graph_config, filter_values):
+    filters = ""
+    for field, value in filter_values.items():
+        field_config = graph_config["fields"].get(field)
+        if field_config and field_config.get("canFilter"):
+            if isinstance(value, list):
+                value_list = ", ".join(f'"{v}"' for v in value)
+                filters += f"FILTER(?{field}Obj IN ({value_list})) .\n"
+            else:
+                filters += f'FILTER(?{field}Obj = "{value}") .\n'
     return filters
+
+
+def construct_query(graph_config, select_fields, filter_values=None, page=1, limit=10):
+    query_prefixes = get_prefixes(graph_config)
+    query_select = "SELECT " + " ".join(f"?{field}" for field in select_fields)
+    query_where = "WHERE {\n"
+
+    for field in select_fields:
+        if field.optional:
+            query_where += f"OPTIONAL {{ ?{field} {field.predicate} ?{field}Obj . }}\n"
+        else:
+            query_where += f"?case {field.predicate} ?{field}Obj .\n"
+
+    # Add filters if any filter values are provided
+    if filter_values:
+        query_where += build_filters(graph_config, filter_values)
+
+    query_where += "}"
+
+    # Calculate OFFSET based on the page number and limit
+    offset = (page - 1) * limit
+
+    # Append LIMIT and OFFSET clauses to the query
+    query_limit_offset = f"LIMIT {limit} OFFSET {offset}"
+
+    return f"{query_prefixes}\n{query_select}\n{query_where}\n{query_limit_offset}"
