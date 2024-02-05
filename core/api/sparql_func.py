@@ -1,3 +1,4 @@
+import json
 from flask import current_app
 
 cache = current_app.cache
@@ -18,11 +19,11 @@ case_types = {
 
 
 def search_sparql_endpoint(graph, batch_size, page):
-    filter_values = {'caseType': 'scales:CaseCriminal'}
+    filter_values = {"caseType": "scales:CaseCriminal"}
 
     query = construct_query(
         current_app.ring["graphs"][graph],
-        ["case", "filingDate", "terminatingDate", "natureOfSuit", "courtName"],
+        ["case", "filingDate", "terminatingDate", "natureOfSuit"],
         filter_values,
         page=page,
         limit=batch_size,
@@ -83,15 +84,18 @@ def build_filters(graph_config, filter_values):
 
 
 def construct_query(graph_config, select_fields, filter_values=None, page=1, limit=10):
+    print("graph_config", graph_config)
     query_prefixes = get_prefixes(graph_config)
-    query_select = "SELECT " + " ".join(f"?{field}" for field in select_fields)
+    query_select = "SELECT DISTINCT " + " ".join(f"?{field}" for field in select_fields)
     query_where = "WHERE {\n"
 
-    for field in select_fields:
-        if field.optional:
-            query_where += f"OPTIONAL {{ ?{field} {field.predicate} ?{field}Obj . }}\n"
+    for field_name in select_fields:
+        field = graph_config["fields"][field_name]
+        print("field", field)
+        if field["optional"]:
+            query_where += f"OPTIONAL {{ ?{field['parent']} {field['predicate']} ?{field_name} . }}\n"
         else:
-            query_where += f"?case {field.predicate} ?{field}Obj .\n"
+            query_where += f"?{field['parent']} {field['predicate']} ?{field_name} .\n"
 
     # Add filters if any filter values are provided
     if filter_values:

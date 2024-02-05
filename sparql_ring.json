@@ -1,9 +1,8 @@
 {
   "name": "OKN",
   "description": "Open Knowledge Network Graph Data",
-  "graphs": [
-    {
-      "name": "PACER",
+  "graphs": {
+    "PACER": {
       "description": "PACER data from the federal court system",
       "url": "http://natchez.chem-eng.northwestern.edu:3030/scales/sparql",
       "prefixes": [
@@ -16,7 +15,8 @@
           "name": "The case",
           "description": "The parent case",
           "predicate": "a",
-          "optional": false
+          "optional": false,
+          "parent": "case"
         },
         "filingDate": {
           "name": "Filing Date",
@@ -62,5 +62,5 @@
         }
       }
     }
-  ]
+  }
 }

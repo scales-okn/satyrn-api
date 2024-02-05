@@ -55,11 +55,7 @@ app.sparql = sparql
 
 with open("sparql_ring.json", 'r') as file:
     ring = json.load(file)
-
-    # Transforming the list of graphs into a dictionary indexed by graph name
-    graphs = {graph['name']: graph for graph in ring['graphs']}
-    ring['graphs'] = graphs
-
+    
     app.ring = ring
     
 # pacer_graph_config = app.ring['graphs']['Pacer']
