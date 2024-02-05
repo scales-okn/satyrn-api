@@ -16,7 +16,8 @@
           "description": "The parent case",
           "predicate": "a",
           "optional": false,
-          "parent": "case"
+          "parent": "case",
+          "variable": "caseType"
         },
         "filingDate": {
           "name": "Filing Date",

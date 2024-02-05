@@ -93,9 +93,9 @@ def construct_query(graph_config, select_fields, filter_values=None, page=1, lim
         field = graph_config["fields"][field_name]
         print("field", field)
         if field["optional"]:
-            query_where += f"OPTIONAL {{ ?{field['parent']} {field['predicate']} ?{field_name} . }}\n"
+            query_where += f"OPTIONAL {{ ?{field['parent']} {field['predicate']} ?{field.get('variable', field_name)} . }}\n"
         else:
-            query_where += f"?{field['parent']} {field['predicate']} ?{field_name} .\n"
+            query_where += f"?{field['parent']} {field['predicate']} ?{field.get('variable', field_name)} .\n"
 
     # Add filters if any filter values are provided
     if filter_values:
