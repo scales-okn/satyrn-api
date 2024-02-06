@@ -6,20 +6,8 @@ CACHE_TIMEOUT = 3000
 
 sparql = current_app.sparql
 
-prefix = """
-PREFIX scales: <http://schemas.scales-okn.org/rdf/scales#>
-PREFIX xsd: <http://www.w3.org/2001/XMLSchema#>
-PREFIX rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#>
-"""
-
-case_types = {
-    "civil": "CaseCivil",
-    "criminal": "CaseCriminal",
-}
-
-
 def search_sparql_endpoint(graph, batch_size, page):
-    filter_values = {"caseType": "scales:CaseCriminal"}
+    filter_values = {"case": "scales:CaseCriminal"}
 
     query = construct_query(
         current_app.ring["graphs"][graph],
@@ -34,8 +22,6 @@ def search_sparql_endpoint(graph, batch_size, page):
     # Set and execute the query
     sparql.setQuery(query)
     results = sparql.query().convert()
-
-    print("sparql results", results)
 
     return convert_results(results)
 
@@ -72,14 +58,14 @@ def get_field_predicates(ring, field_name):
 
 def build_filters(graph_config, filter_values):
     filters = ""
-    for field, value in filter_values.items():
-        field_config = graph_config["fields"].get(field)
-        if field_config and field_config.get("canFilter"):
+    for field_name, value in filter_values.items():
+        field_config = graph_config["fields"][field_name]
+        if field_config.get("canFilter") == True:
             if isinstance(value, list):
                 value_list = ", ".join(f'"{v}"' for v in value)
-                filters += f"FILTER(?{field}Obj IN ({value_list})) .\n"
+                filters += f'FILTER(?{field_config.get("variable", field_name)} IN ({value_list})) .\n'
             else:
-                filters += f'FILTER(?{field}Obj = "{value}") .\n'
+                filters += f'FILTER(?{field_config.get("variable", field_name)} = {value}) .\n'
     return filters
 
 
