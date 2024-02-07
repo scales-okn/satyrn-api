@@ -12,20 +12,22 @@ If not, see <https://www.gnu.org/licenses/>.
 
 import os
 
-DB_MODE = os.environ.get("DB_MODE", "sql")
+DB_MODE = os.environ.get("DB_MODE", "mongo")
 
-match DB_MODE:
-    case "sql":
-        from .satyrnBundler import app
-        with app.app_context():
-          from .api.views import api
-          app.register_blueprint(api, url_prefix="/api")
-    case "sparql":
-        from .sparqlBundler import app
-        with app.app_context():
-          from .api.sparql_views import api
-          app.register_blueprint(api, url_prefix="/api")
-    case _:
-        raise Exception("Invalid DB_MODE: {DB_MODE}")
-
-
+if DB_MODE == "sql":
+    from .satyrnBundler import app
+    with app.app_context():
+      from .api.views import api
+      app.register_blueprint(api, url_prefix="/api")
+elif DB_MODE == "sparql":
+    from .sparqlBundler import app
+    with app.app_context():
+      from .api.sparql_views import api
+      app.register_blueprint(api, url_prefix="/api")
+elif DB_MODE == "mongo":
+    from .mongo.mongoBundler import app
+    with app.app_context():
+      from .mongo.api.views import api
+      app.register_blueprint(api, url_prefix="/api")
+else:
+    raise Exception("Invalid DB_MODE: {DB_MODE}")
