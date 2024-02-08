@@ -25,9 +25,8 @@ app.config["CACHE_TYPE"] = "simple"
 app.config["CACHE_DEFAULT_TIMEOUT"] = 300
 
 # MongoDB Configuration
-app.config["MONGO_URI"] = os.environ.get("MONGO_URI", "mongodb://localhost:27017/satyrn")
-mongo = PyMongo(app)
-app.mongo = mongo
+app.config["MONGO_URI"] = os.environ.get("MONGO_URI")
+app.mongo = PyMongo(app)
 
 # Initialize cache
 app.cache = Cache(app)

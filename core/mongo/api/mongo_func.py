@@ -1,98 +1,40 @@
 import json
 from flask import current_app
 
-cache = current_app.cache
-CACHE_TIMEOUT = 3000
+def search_mongo_endpoint(dataSource, batch_size, page):
+    mongo = current_app.mongo
+    filter_values = {"caseType": "CaseCriminal"}
 
-mongo = current_app.mongo
+    collection_name = current_app.ring["mongo"][dataSource]
 
-def search_mongo_endpoint(graph, batch_size, page):
-    filter_values = {"case": "scales:CaseCriminal"}
+    mongo_query = {}
+    for key, value in filter_values.items():
+        mongo_query[key] = value
 
-    query = construct_query(
-        current_app.ring["graphs"][graph],
-        ["case", "filingDate", "terminatingDate", "natureOfSuit"],
-        filter_values,
-        page=page,
-        limit=batch_size,
-    )
+    skip_amount = (page - 1) * batch_size
 
-    print("query", query)
+    # MongoDB aggregation pipeline for filtering and pagination
+    pipeline = [
+        {"$match": mongo_query},
+        {"$skip": skip_amount},
+        {"$limit": batch_size}
+    ]
 
-    # Set and execute the query
-    mongo.setQuery(query)
-    results = mongo.query().convert()
+    # find the first case
+    case_html_results = mongo.db["cases"].find_one()
 
-    return convert_results(results)
+    # Execute query
+    results_cursor = mongo.db
+    results = list(results_cursor)
+
+    # Convert MongoDB results to JSON
+    results_json = json.loads(json.dumps(results, default=str))  # Ensuring ObjectId is serialized
+
+    return results_json
 
 
 def convert_results(mongo_results):
-    vars = mongo_results["head"]["vars"]
-    bindings = mongo_results["results"]["bindings"]
-
-    formatted_results = []
-
-    for binding in bindings:
-        formatted_binding = {}
-        for var in vars:
-            if var in binding:
-                formatted_binding[var] = binding[var]["value"]
-            else:
-                formatted_binding[var] = "None"
-        formatted_results.append(formatted_binding)
-
-    return formatted_results
-
-
-def get_prefixes(ring):
-    return "\n".join(ring["prefixes"])
-
-
-def get_field_predicates(ring, field_name):
-    field = ring["fields"].get(field_name)
-    if field:
-        return field["predicates"]
-    else:
-        return None
-
-
-def build_filters(graph_config, filter_values):
-    filters = ""
-    for field_name, value in filter_values.items():
-        field_config = graph_config["fields"][field_name]
-        if field_config.get("canFilter") == True:
-            if isinstance(value, list):
-                value_list = ", ".join(f'"{v}"' for v in value)
-                filters += f'FILTER(?{field_config.get("variable", field_name)} IN ({value_list})) .\n'
-            else:
-                filters += f'FILTER(?{field_config.get("variable", field_name)} = {value}) .\n'
-    return filters
-
-
-def construct_query(graph_config, select_fields, filter_values=None, page=1, limit=10):
-    print("graph_config", graph_config)
-    query_prefixes = get_prefixes(graph_config)
-    query_select = "SELECT DISTINCT " + " ".join(f"?{field}" for field in select_fields)
-    query_where = "WHERE {\n"
-
-    for field_name in select_fields:
-        field = graph_config["fields"][field_name]
-        print("field", field)
-        if field["optional"]:
-            query_where += f"OPTIONAL {{ ?{field['parent']} {field['predicate']} ?{field.get('variable', field_name)} . }}\n"
-        else:
-            query_where += f"?{field['parent']} {field['predicate']} ?{field.get('variable', field_name)} .\n"
-
-    # Add filters if any filter values are provided
-    if filter_values:
-        query_where += build_filters(graph_config, filter_values)
-
-    query_where += "}"
-
-    # Calculate OFFSET based on the page number and limit
-    offset = (page - 1) * limit
-
-    # Append LIMIT and OFFSET clauses to the query
-    query_limit_offset = f"LIMIT {limit} OFFSET {offset}"
-
-    return f"{query_prefixes}\n{query_select}\n{query_where}\n{query_limit_offset}"
+    # This function would need to be adjusted based on the structure of your MongoDB documents
+    # and what you're aiming to achieve with the conversion.
+    # Since MongoDB documents are already JSON-like, you might simplify or directly use the query results.
+    return mongo_results

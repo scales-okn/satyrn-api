@@ -37,6 +37,8 @@ def base():
 def get_results(graph):
     batchSize = int(request.args.get("batchSize", 10))
     page = int(request.args.get("page", 0))
+    testData = current_app.mongo.db["cases"].find_one({"case_id": "3:16-cv-00226"})
+    print(" ~ testData:",testData)
     return json.dumps(search_mongo_endpoint(graph, batchSize, page))
 
 # @apiKeyCheck
