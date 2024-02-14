@@ -20,7 +20,7 @@
           "variable": "caseType",
           "canFilter": true
         },
-        "filingDate": {
+        "filing_date": {
           "name": "Filing Date",
           "description": "The date the case was filed",
           "predicate": "scales:hasFilingDate",
@@ -28,7 +28,7 @@
           "parent": "case",
           "canFilter": true
         },
-        "terminatingDate": {
+        "terminating_date": {
           "name": "Terminating Date",
           "description": "The date the case terminated",
           "predicate": "scales:hasTerminatingDate",
@@ -43,7 +43,7 @@
           "optional": false,
           "parent": "case"
         },
-        "courtName": {
+        "court_name": {
           "name": "Court Name",
           "description": "The name of the court",
           "predicate": "scales:hasName",
@@ -51,7 +51,7 @@
           "parent": "court",
           "canFilter": true
         },
-        "courtCircuit": {
+        "court_circuit": {
           "name": "Court Circuit",
           "description": "The circuit of the court",
           "predicate": "scales:isInCircuit",
@@ -59,7 +59,7 @@
           "parent": "court",
           "canFilter": true
         },
-        "natureOfSuit": {
+        "nature_suit": {
           "name": "Nature of Suit",
           "description": "The nature of the suit",
           "predicate": "scales:hasNatureSuit",

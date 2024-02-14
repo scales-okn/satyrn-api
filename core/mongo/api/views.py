@@ -2,23 +2,10 @@ import json
 from flask import (
     Blueprint,
     current_app,
+    jsonify,
     request,
 )
-# from .viewHelpers import (
-#     CLEAN_OPS,
-#     apiKeyCheck,
-#     # errorGen,
-#     # organizeFilters,
-#     # cleanDate,
-#     # getOrCreateRing,
-#     # getRing,
-#     # getRingFromService,
-#     # convertFilters,
-#     # convertFrontendFilters,
-#     # organizeFilters2,
-#     # transform_csv_filters,
-#     # apply_csv_filters,
-# )
+from bson.json_util import dumps
 from core.mongo.api.mongo_func import search_mongo_endpoint
 
 # # some "local globals"
@@ -33,13 +20,16 @@ cache = app.cache
 def base():
     return json.dumps({"status": "API is up and running"})
 
-@api.route("/results/<graph>/", methods=["GET", "POST"])
-def get_results(graph):
+@api.route("/results/<dataSourceName>/", methods=["GET", "POST"])
+def get_results(dataSourceName):
     batchSize = int(request.args.get("batchSize", 10))
-    page = int(request.args.get("page", 0))
-    testData = current_app.mongo.db["cases"].find_one({"case_id": "3:16-cv-00226"})
-    print(" ~ testData:",testData)
-    return json.dumps(search_mongo_endpoint(graph, batchSize, page))
+    page = int(request.args.get("page", 1))
+
+    filters = request.args
+
+    results = search_mongo_endpoint(dataSourceName, filters, batchSize, page)
+
+    return dumps(list(results))
 
 # @apiKeyCheck
 @api.route("/rings/<ringId>/<version>/", methods=["GET"])

@@ -67,7 +67,7 @@ def run_analysis(s_opts, a_opts, targetEntity, ring, extractor):
 
 
 def _add_group_ref(a_opts, field_name, pos=None):
-    # if given pos, it means the undelrying field was a list
+    # if given pos, it means the underlying field was a list
     if pos != None:
         name = field_name + str(pos) + "_ref"
         orig_dct = a_opts[field_name][pos]
@@ -94,7 +94,7 @@ def _expand_grouping(a_opts, field_types):
             if new_field:
                 extra_fields.append(new_field)
 
-    # go thru the field_types[group] and expand as needed (ignore per and timesries)
+    # go thru the field_types[group] and expand as needed (ignore per and timeSeries)
     for field in field_types["group"]:
         if field not in ["per", "timeSeries"]:
             a_opts, new_field = _add_group_ref(a_opts, field)
@@ -206,7 +206,7 @@ def complex_operation(s_opts, a_opts, ring, extractor, targetEntity, session, db
 
     # PENDING: Path for when queryPrep is a list with len > 1 (and consequently pandasFunc len > 1)
     '''
-    Basically, the pipelin would be:
+    Basically, the pipeline would be:
     input: original a_opts and everything
         queryPrep1
             return new_a_opts1
@@ -529,7 +529,7 @@ def _do_filters(query, s_opts, ring, extractor, targetEntity, col_names, session
 
 
 # PENDING: Do this
-# PNEDING: See if we actually need to do this, not sure if we do
+# PENDING: See if we actually need to do this, not sure if we do
 def _format_results():
     # make human legible
 
