@@ -11,8 +11,17 @@
         "PREFIX scales: <http://schemas.scales-okn.org/rdf/scales#>"
       ],
       "fields": {
-        "case": {
-          "name": "The case",
+        "case_name": {
+          "name": "Case Name",
+          "description": "The parent case",
+          "predicate": "a",
+          "optional": false,
+          "parent": "case",
+          "variable": "caseType",
+          "canFilter": true
+        },
+        "case_id": {
+          "name": "Case ID",
           "description": "The parent case",
           "predicate": "a",
           "optional": false,
@@ -41,22 +50,15 @@
           "description": "The court where the case was filed",
           "predicate": "scales:isInCourt",
           "optional": false,
-          "parent": "case"
-        },
-        "court_name": {
-          "name": "Court Name",
-          "description": "The name of the court",
-          "predicate": "scales:hasName",
-          "optional": false,
-          "parent": "court",
+          "parent": "case",
           "canFilter": true
         },
-        "court_circuit": {
-          "name": "Court Circuit",
-          "description": "The circuit of the court",
-          "predicate": "scales:isInCircuit",
+        "judge": {
+          "name": "Judge",
+          "description": "The judge presiding over the case",
+          "predicate": "scales:isInCourt",
           "optional": false,
-          "parent": "court",
+          "parent": "case",
           "canFilter": true
         },
         "nature_suit": {
