@@ -778,6 +778,7 @@ class Ring_Configuration(Ring_Object):
             self.source = source
 
     def parse_entities(self, configuration):
+        print(self.schemaVersion)
         if self.schemaVersion > 2:
             entities = configuration.get('ontology', {}).get('entities', [])
         else:

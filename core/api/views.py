@@ -15,6 +15,7 @@ import csv
 import os
 import time
 from io import StringIO
+from bson.json_util import dumps
 
 from flask import (
     Blueprint,
@@ -31,6 +32,7 @@ from .engine import run_analysis
 from .seekers import getResults
 from .autocomplete import runAutocomplete
 from .utils import replace_relative_urls
+from core.mongo.api.mongo_func import search_mongo_endpoint
 
 from .viewHelpers import (
     CLEAN_OPS,
@@ -49,6 +51,7 @@ from .viewHelpers import (
 )
 
 from copy import deepcopy
+from bson.json_util import dumps
 
 # # some "local globals"
 app = current_app  # this is now the same app instance as defined in appBundler.py
@@ -418,3 +421,54 @@ def download_filtered_csv(ringId, version, targetEntity):
         mimetype="text/csv",
         headers={"Content-Disposition": "attachment; filename=data.csv"},
     )
+
+# Is this the same as the above? Do we need two endpoints?
+@api.route("/mongo_results/<ringId>/<version>/<targetEntity>/", methods=["GET", "POST"])
+def get_results(ringId, version, targetEntity):
+    # this call takes a long time - can we cache it?
+    ring, ringExtractor = getOrCreateRing(ringId, version)
+
+    if ringExtractor is None:
+      # ring will now be an error message
+      return json.dumps(ring)
+    # takes a list of args that match to top-level keys in SEARCH_SPACE
+    # or None and it'll return the full set (in batches of limit)
+    # set up some args
+
+    # NOTE ON DATES
+    # dates always expect a range, either:
+    # [2018-01-01, 2018-01-01] for single day
+    # [2018-01-01, 2018-06-15] for everything between two dates
+    # [null, 2018-01-01] for everything up to a date (and inverse for after)
+
+    batchSize = int(request.args.get("batchSize", 10))
+    page = int(request.args.get("page", 0))
+
+    searchSpace = ringExtractor.getSearchSpace(targetEntity)
+    sortables = ringExtractor.getSortables(targetEntity)
+
+    opts_first_try = organizeFilters(request, searchSpace, targetEntity)
+    opts = opts_first_try or (
+        request.json
+        if request.content_type == "application/json"
+        else {"query": {}, "relationships": []}
+    )
+
+    query = convertFilters(targetEntity, searchSpace, opts)
+    # remove case_html_query from query and put it on the opts that gets passed to seekers.py
+    if "case_html_query" in query:
+        opts = {"query": query, "relationships": [], "case_html_query": query.pop("case_html_query")}
+    else:
+        opts = {"query": query, "relationships": []}
+
+    opts = organizeFilters2(opts, searchSpace)
+    targetInfo = ringExtractor.resolveEntity(targetEntity)[1]
+
+    sortBy = request.args.get("sortBy", targetInfo.id[0])
+    sortDir = request.args.get("sortDirection", "desc")
+    opts["sortBy"] = sortBy if sortBy in sortables else "filing_date"
+    opts["sortDir"] = sortDir if sortDir in ["asc", "desc"] else "desc"
+
+    results = search_mongo_endpoint(opts, ring, ringExtractor, targetEntity, page, batchSize)
+
+    return dumps(results)

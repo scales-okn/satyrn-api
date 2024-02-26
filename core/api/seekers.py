@@ -25,7 +25,7 @@ CACHE_TIMEOUT = 3600
 # Helper functions for searching/results
 @cache.memoize(timeout=CACHE_TIMEOUT)
 def getResults(opts, ring, ringExtractor, targetEntity, page=0, batchSize=10):
-    # takes a dictionary of key->vals that power a set of searchs downstream...
+    # takes a dictionary of key->vals that power a set of searches downstream...
     # also takes a page + slice value to power pagination on the UI (and caching per page)
     # defers to another memoized function getResultSet to preload results in batches of 10x the slice
     targetRange = getCacheRange(page, batchSize)

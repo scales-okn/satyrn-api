@@ -231,7 +231,6 @@ def convertFilters(targetEntity, searchSpace, filter_dct):
                         tpl = _createSearchTuple(targetEntity, searchSpace, key, v)
                         query["AND"].append(tpl)
 
-    # print("query", query)
     return query
 
 
