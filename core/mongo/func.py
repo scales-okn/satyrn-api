@@ -70,6 +70,11 @@ def update_dates_in_documents(documents):
         if 'terminating_date' in doc and doc['terminating_date'] is not None:
             doc['terminating_date'] = format_date_field(doc['terminating_date'])
 
+        if 'ucid' in doc:
+            doc['__uniqueId'] = {'ucid': doc['ucid']}
+        else:
+            doc['__uniqueId'] = {'ucid': "None"} 
+
         nature_suit = doc.pop('nature_suit', None)
         if nature_suit is None:
             doc['case_NOS'] = "None"

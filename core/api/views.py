@@ -15,7 +15,6 @@ import csv
 import os
 import time
 from io import StringIO
-from bson.json_util import dumps
 
 from flask import (
     Blueprint,
@@ -32,7 +31,7 @@ from .engine import run_analysis
 from .seekers import getResults
 from .autocomplete import runAutocomplete
 from .utils import replace_relative_urls
-from core.mongo.api.mongo_func import search_mongo_endpoint
+from core.mongo.func import search_mongo_endpoint
 
 from .viewHelpers import (
     CLEAN_OPS,
