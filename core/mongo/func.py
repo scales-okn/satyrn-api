@@ -10,7 +10,7 @@ def search_mongo_endpoint(opts, ring, ringExtractor, targetEntity, page, batchSi
     where_args = compile_where_args(opts)
     select_fields = compile_select_fields(ring.entities)
     
-    cursor = mongo_db[collection_name].find(where_args, {}).limit(batchSize).skip(page * batchSize)
+    cursor = mongo_db[collection_name].find(where_args, select_fields).limit(batchSize).skip(page * batchSize)
     results = list(cursor)
     total_count = mongo_db[collection_name].estimated_document_count(where_args)
 
@@ -25,10 +25,8 @@ def search_mongo_endpoint(opts, ring, ringExtractor, targetEntity, page, batchSi
     }
 
 def compile_where_args(filters):
-    # Base case: directly return the query if it's already in the correct format
     if 'query' in filters:
         query = filters['query']
-        # Recursively process the query to transform it into MongoDB's format
         return process_query(query)
     else:
         return {}
@@ -46,7 +44,10 @@ def process_query(query):
 def compile_select_fields(entities):
     select_fields = {}
     for entity in entities:
-            select_fields[entity.name] = 1
+        for attribute in entity.attributes:
+            for column in attribute.source_columns:
+                select_fields[column] = 1
+
     return select_fields
 
 def get_collection_name(targetEntity):
