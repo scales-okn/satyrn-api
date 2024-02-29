@@ -10,40 +10,55 @@
         "PREFIX xsd: <http://www.w3.org/2001/XMLSchema#>",
         "PREFIX scales: <http://schemas.scales-okn.org/rdf/scales#>"
       ],
+      "multiValueDelimiter": "|",
+      "dateRangeDelimiter": ",",
       "fields": {
-        "case": {
-          "name": "The case",
+        "docketId": {
+          "type": "string",
+          "name": "Case",
           "description": "The parent case",
+          "predicate": "scales:hasPacerID",
+          "optional": false,
+          "parent": "s",
+          "canFilter": true
+        },
+        "caseType": {
+          "type": "string",
+          "name": "Case Type",
+          "description": "The type of case",
           "predicate": "a",
           "optional": false,
-          "parent": "case",
-          "variable": "caseType",
+          "parent": "s",
           "canFilter": true
         },
         "filingDate": {
+          "type": "date-time",
           "name": "Filing Date",
           "description": "The date the case was filed",
-          "predicate": "scales:hasFilingDate",
+          "predicate": "scales:hasIdbFiledate",
           "optional": false,
-          "parent": "case",
+          "parent": "s",
           "canFilter": true
         },
         "terminatingDate": {
+          "type": "date",
           "name": "Terminating Date",
           "description": "The date the case terminated",
           "predicate": "scales:hasTerminatingDate",
           "optional": false,
-          "parent": "case",
+          "parent": "s",
           "canFilter": true
         },
         "court": {
+          "type": "string",
           "name": "Court",
           "description": "The court where the case was filed",
           "predicate": "scales:isInCourt",
           "optional": false,
-          "parent": "case"
+          "parent": "s"
         },
         "courtName": {
+          "type": "string",
           "name": "Court Name",
           "description": "The name of the court",
           "predicate": "scales:hasName",
@@ -52,6 +67,7 @@
           "canFilter": true
         },
         "courtCircuit": {
+          "type": "string",
           "name": "Court Circuit",
           "description": "The circuit of the court",
           "predicate": "scales:isInCircuit",
@@ -60,11 +76,12 @@
           "canFilter": true
         },
         "natureOfSuit": {
+          "type": "string",
           "name": "Nature of Suit",
           "description": "The nature of the suit",
           "predicate": "scales:hasNatureSuit",
           "optional": true,
-          "parent": "case",
+          "parent": "s",
           "canFilter": true
         }
       }

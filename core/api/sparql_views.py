@@ -4,7 +4,7 @@ from flask import (
     current_app,
     request,
 )
-from core.api.sparql_func import search_sparql_endpoint
+from core.api.sparql_func import process_filters, search_sparql_endpoint
 
 # # some "local globals"
 app = current_app  # this is now the same app instance as defined in appBundler.py
@@ -22,4 +22,6 @@ def base():
 def get_results(graph):
     batchSize = int(request.args.get("batchSize", 10))
     page = int(request.args.get("page", 0))
-    return json.dumps(search_sparql_endpoint(graph, batchSize, page))
+    filters = process_filters(app.ring["graphs"][graph], request.args)
+    print("filters", filters)
+    return json.dumps(search_sparql_endpoint(graph, batchSize, page, filters))
