@@ -10,13 +10,11 @@ sparql = current_app.sparql
 def search_sparql_endpoint(graph, batch_size, page, filter_values=None):
     query = construct_query(
         current_app.ring["graphs"][graph],
-        ["docketId", "filingDate", "terminatingDate", "natureOfSuit"],
+        ["docketId", "filingDate", "terminatingDate", "natureOfSuit", "courtName"],
         filter_values,
         page=page,
         limit=batch_size,
     )
-
-    print("query", query)
 
     # Set and execute the query
     sparql.setQuery(query)
@@ -66,20 +64,23 @@ def get_filter_val(field_config, value):
             return f'"{value}"^^xsd:dateTime'
         case "date":
             return f'"{value}"^^xsd:date'
+        case "iri":
+            prefix = field_config["iriPrefix"]
+            return f"<{prefix}/{value}>"
         case _:
             return value
 
 
-def process_filters(graph_config, request_args):
+def process_filters(ring, request_args):
     filters = {}
     for field_name, value in request_args.items():
-        if graph_config["fields"].get(field_name) == None:
+        if ring["fields"].get(field_name) == None:
             continue
 
-        field_config = graph_config["fields"][field_name]
+        field_config = ring["fields"][field_name]
         if field_config.get("canFilter") == True:
-            if graph_config["multiValueDelimiter"] in value:
-                value_list = value.split(graph_config["multiValueDelimiter"])
+            if ring["multiValueDelimiter"] in value:
+                value_list = value.split(ring["multiValueDelimiter"])
                 filters[field_name] = value_list
             else:
                 filters[field_name] = value
@@ -87,16 +88,16 @@ def process_filters(graph_config, request_args):
     return filters
 
 
-def build_filters(graph_config, filter_values):
+def build_filters(ring, filter_values):
     filters = ""
     for field_name, value in filter_values.items():
-        field_config = graph_config["fields"][field_name]
+        field_config = ring["fields"][field_name]
         if isinstance(value, list):
             if field_config["type"] == "date" or field_config["type"] == "date-time":
                 filters += f"FILTER(?{field_name} >= {get_filter_val(field_config, value[0])} && ?{field_name} <= {get_filter_val(field_config, value[1])}) .\n"
             else:
-              value_list = ", ".join(get_filter_val(field_config, v) for v in value)
-              filters += f"FILTER(?{field_name} IN ({value_list})) .\n"
+                value_list = ", ".join(get_filter_val(field_config, v) for v in value)
+                filters += f"FILTER(?{field_name} IN ({value_list})) .\n"
         else:
             filters += (
                 f"FILTER(?{field_name} = {get_filter_val(field_config, value)}) .\n"
@@ -105,28 +106,44 @@ def build_filters(graph_config, filter_values):
     return filters
 
 
-def construct_query(graph_config, select_fields, filter_values=None, page=1, limit=10):
-    query_prefixes = get_prefixes(graph_config)
+def add_parents(ring, select_fields):
+    parents_to_add = set()  # Temporary set to store parents that need to be added
+
+    # Find all parents that need to be added
+    for field_name in select_fields:
+        field = ring["fields"].get(field_name, {})
+        parent = field.get("parent")
+        if parent:  # Ensure the parent is not None and not "root"
+            parents_to_add.add(parent)
+
+    # If no new parents to add, stop recursion
+    if not parents_to_add:
+        return select_fields
+    else:
+        return select_fields.union(add_parents(ring, parents_to_add))
+
+
+def construct_query(ring, select_fields, filter_values=None, page=1, limit=10):
+    query_prefixes = get_prefixes(ring)
     query_select = "SELECT DISTINCT " + " ".join(f"?{field}" for field in select_fields)
     query_where = "WHERE {\n"
 
     select_fields.extend(filter_values.keys() if filter_values else [])
     select_fields = set(select_fields)
-    select_field_parents = select_fields.copy()
+    select_fields = add_parents(ring, select_fields)
+
     for field_name in select_fields:
-        field = graph_config["fields"][field_name]
-        if field["parent"] != None and field["parent"] != "s":
-          select_field_parents.add(field["parent"])
-            
-    for field_name in select_field_parents:
-        field = graph_config["fields"][field_name]
-        if field["optional"] == True:
-            query_where += f"OPTIONAL {{ ?{field['parent']} {field['predicate']} ?{field_name} . }}\n"
+        field = ring["fields"][field_name]
+        parent = field.get("parent", "root")
+        if field["required"] == False:
+            query_where += (
+                f"OPTIONAL {{ ?{parent} {field['predicate']} ?{field_name} . }}\n"
+            )
         else:
-            query_where += f"?{field['parent']} {field['predicate']} ?{field_name} .\n"
+            query_where += f"?{parent} {field['predicate']} ?{field_name} .\n"
 
     if filter_values:
-        query_where += build_filters(graph_config, filter_values)
+        query_where += build_filters(ring, filter_values)
 
     query_where += "}"
     offset = (page - 1) * limit
