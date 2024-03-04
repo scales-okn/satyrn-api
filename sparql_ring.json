@@ -90,7 +90,7 @@
           "type": "string",
           "name": "Docket Entry",
           "description": "The docket entry",
-          "predicate": "scales:hasDocketTable",
+          "predicate": "?p",
           "required": false,
           "parent": "docketTable",
           "canFilter": false
