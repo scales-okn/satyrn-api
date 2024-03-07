@@ -5,22 +5,21 @@ from datetime import datetime
 
 def search_mongo_endpoint(opts, ring, ringExtractor, targetEntity, page, batchSize):
     mongo_db = current_app.mongo.db
-    collection_name = get_collection_name(targetEntity)
     
     where_args = compile_where_args(opts)
     select_fields = compile_select_fields(ring.entities)
     
-    cursor = mongo_db[collection_name].find(where_args, select_fields).limit(batchSize).skip(page * batchSize)
+    cursor = mongo_db[targetEntity].find(where_args, select_fields).limit(batchSize).skip(page * batchSize)
     results = list(cursor)
-    total_count = mongo_db[collection_name].estimated_document_count(where_args)
-
+    total_count = mongo_db[targetEntity].estimated_document_count(where_args)
+    
     formatted_results = update_dates_in_documents(results)
 
     return {
         "totalCount": total_count,
         "page": page,
         "batchSize": 10,
-        "activeCacheRange": 12, # what is this?
+        "activeCacheRange": 12, 
         "results": formatted_results,
     }
 
@@ -50,12 +49,6 @@ def compile_select_fields(entities):
 
     return select_fields
 
-def get_collection_name(targetEntity):
-    if (targetEntity == "Case"):
-        return "cases"
-    else:
-        return "judges"
-
 def format_date_field(date_field):
     """Formats a date field to 'YYYY-MM-DD' string."""
     if isinstance(date_field, dict) and '$date' in date_field:
@@ -63,8 +56,10 @@ def format_date_field(date_field):
     elif isinstance(date_field, datetime):
         return date_field.strftime("%Y-%m-%d")
 
+# Hardcoded changes must be moved to ring
 def update_dates_in_documents(documents):
     for doc in documents:
+        print(doc)
         if 'filing_date' in doc and doc['filing_date'] is not None:
             doc['filing_date'] = format_date_field(doc['filing_date'])
 

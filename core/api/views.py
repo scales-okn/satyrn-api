@@ -421,12 +421,11 @@ def download_filtered_csv(ringId, version, targetEntity):
         headers={"Content-Disposition": "attachment; filename=data.csv"},
     )
 
-# Is this the same as the above? Do we need two endpoints?
 @api.route("/mongo_results/<ringId>/<version>/<targetEntity>/", methods=["GET", "POST"])
 def get_results(ringId, version, targetEntity):
     # this call takes a long time - can we cache it?
     ring, ringExtractor = getOrCreateRing(ringId, version)
-
+    
     if ringExtractor is None:
       # ring will now be an error message
       return json.dumps(ring)
