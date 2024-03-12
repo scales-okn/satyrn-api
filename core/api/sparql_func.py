@@ -16,7 +16,7 @@ def search_sparql_endpoint(graph, batch_size, page, filter_values=None):
         limit=batch_size,
     )
 
-    # Set and execute the query
+    print("Query: ", query)
     sparql.setQuery(query)
     results = sparql.query().convert()
 
@@ -67,6 +67,8 @@ def get_filter_val(field_config, value):
         case "iri":
             prefix = field_config["iriPrefix"]
             return f"<{prefix}/{value}>"
+        case "predicate":
+            return value
         case _:
             return value
 
@@ -80,8 +82,7 @@ def process_filters(ring, request_args):
         field_config = ring["fields"][field_name]
         if field_config.get("canFilter") == True:
             if ring["multiValueDelimiter"] in value:
-                value_list = value.split(ring["multiValueDelimiter"])
-                filters[field_name] = value_list
+                filters[field_name] = value.split(ring["multiValueDelimiter"])
             else:
                 filters[field_name] = value
 
@@ -107,16 +108,14 @@ def build_filters(ring, filter_values):
 
 
 def add_parents(ring, select_fields):
-    parents_to_add = set()  # Temporary set to store parents that need to be added
+    parents_to_add = set()
 
-    # Find all parents that need to be added
     for field_name in select_fields:
         field = ring["fields"].get(field_name, {})
         parent = field.get("parent")
-        if parent:  # Ensure the parent is not None and not "root"
+        if parent:
             parents_to_add.add(parent)
 
-    # If no new parents to add, stop recursion
     if not parents_to_add:
         return select_fields
     else:
@@ -135,7 +134,7 @@ def construct_query(ring, select_fields, filter_values=None, page=1, limit=10):
     for field_name in select_fields:
         field = ring["fields"][field_name]
         parent = field.get("parent", "root")
-        if field["required"] == False:
+        if field.get("optional") == True:
             query_where += (
                 f"OPTIONAL {{ ?{parent} {field['predicate']} ?{field_name} . }}\n"
             )
@@ -146,7 +145,6 @@ def construct_query(ring, select_fields, filter_values=None, page=1, limit=10):
         query_where += build_filters(ring, filter_values)
 
     query_where += "}"
-    offset = (page - 1) * limit
-    query_limit_offset = f"LIMIT {limit} OFFSET {offset}"
+    query_limit_offset = f"LIMIT {limit} OFFSET {(page - 1) * limit}"
 
     return f"{query_prefixes}\n{query_select}\n{query_where}\n{query_limit_offset}"

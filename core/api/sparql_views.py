@@ -18,9 +18,17 @@ cache = app.cache
 def base():
     return json.dumps({"status": "API is up and running"})
 
-@api.route("/results/<graph>/", methods=["GET", "POST"])
+@api.route("/results/<graph>/", methods=["GET"])
 def get_results(graph):
     batchSize = int(request.args.get("batchSize", 10))
     page = int(request.args.get("page", 0))
     filters = process_filters(app.ring["graphs"][graph], request.args)
     return json.dumps(search_sparql_endpoint(graph, batchSize, page, filters))
+
+@api.route("/ring/", methods=["GET"])
+def get_ring():
+    return json.dumps(app.ring)
+
+@api.route("/graph/<graph>", methods=["GET"])
+def get_graph(graph):
+    return json.dumps(app.ring["graphs"][graph])

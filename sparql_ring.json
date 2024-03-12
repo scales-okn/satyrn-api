@@ -18,15 +18,13 @@
           "name": "Case",
           "description": "The parent case",
           "predicate": "scales:hasPacerID",
-          "required": true,
           "canFilter": true
         },
         "caseType": {
-          "type": "string",
+          "type": "predicate",
           "name": "Case Type",
           "description": "The type of case",
           "predicate": "a",
-          "required": true,
           "canFilter": true
         },
         "filingDate": {
@@ -34,7 +32,6 @@
           "name": "Filing Date",
           "description": "The date the case was filed",
           "predicate": "scales:hasIdbFiledate",
-          "required": true,
           "canFilter": true
         },
         "terminatingDate": {
@@ -42,22 +39,20 @@
           "name": "Terminating Date",
           "description": "The date the case terminated",
           "predicate": "scales:hasTerminatingDate",
-          "required": true,
+          "optional": true,
           "canFilter": true
         },
         "court": {
           "type": "string",
           "name": "Court",
           "description": "The court where the case was filed",
-          "predicate": "scales:isInCourt",
-          "required": true
+          "predicate": "scales:isInCourt"
         },
         "courtName": {
           "type": "string",
           "name": "Court Name",
           "description": "The name of the court",
           "predicate": "scales:hasName",
-          "required": true,
           "parent": "court",
           "canFilter": true
         },
@@ -66,7 +61,6 @@
           "name": "Court Circuit",
           "description": "The circuit of the court",
           "predicate": "scales:isInCircuit",
-          "required": true,
           "parent": "court",
           "canFilter": true
         },
@@ -75,7 +69,7 @@
           "name": "Nature of Suit",
           "description": "The nature of the suit",
           "predicate": "scales:hasNatureSuit",
-          "required": false,
+          "optional": true,
           "canFilter": true
         },
         "docketTable": {
@@ -83,7 +77,7 @@
           "name": "Docket Table",
           "description": "Table that holds the docket entries",
           "predicate": "scales:hasDocketTable",
-          "required": false,
+          "optional": true,
           "canFilter": false
         },
         "docketEntry": {
@@ -91,7 +85,7 @@
           "name": "Docket Entry",
           "description": "The docket entry",
           "predicate": "?p",
-          "required": false,
+          "optional": true,
           "parent": "docketTable",
           "canFilter": false
         },
@@ -101,7 +95,7 @@
           "name": "Ontology Label",
           "description": "The label of the ontology",
           "predicate": "scales:hasOntologyLabel",
-          "required": false,
+          "optional": true,
           "parent": "docketEntry",
           "canFilter": true
         }
