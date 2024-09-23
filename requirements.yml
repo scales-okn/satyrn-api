@@ -1,0 +1,16 @@
+dependencies:
+  - bcrypt
+  - Flask
+  - Flask-Caching
+  - Flask-SQLAlchemy
+  - flask_cors
+  - numpy
+  - pandas
+  - psycopg2
+  - requests
+  - werkzeug
+  - pip
+  - pip:
+      - Flask-PyMongo
+      - Flask-Security-Too
+      - Flask-Migrate
